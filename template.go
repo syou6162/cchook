@@ -133,13 +133,23 @@ func buildPathTable(t reflect.Type, prefix string) map[string]pathGetter {
 // camelToSnake はCamelCaseをsnake_caseに変換
 func camelToSnake(s string) string {
 	var result strings.Builder
-	for i, r := range s {
-		if i > 0 && 'A' <= r && r <= 'Z' {
-			result.WriteByte('_')
+	runes := []rune(s)
+	
+	for i, r := range runes {
+		isUpper := 'A' <= r && r <= 'Z'
+		
+		if i > 0 && isUpper {
+			// 前の文字が小文字の場合、またはこの文字が大文字で次の文字が小文字の場合
+			prevIsLower := i > 0 && 'a' <= runes[i-1] && runes[i-1] <= 'z'
+			nextIsLower := i < len(runes)-1 && 'a' <= runes[i+1] && runes[i+1] <= 'z'
+			
+			if prevIsLower || nextIsLower {
+				result.WriteByte('_')
+			}
 		}
 		
 		// 大文字を小文字に変換
-		if 'A' <= r && r <= 'Z' {
+		if isUpper {
 			result.WriteByte(byte(r - 'A' + 'a'))
 		} else {
 			result.WriteRune(r)
