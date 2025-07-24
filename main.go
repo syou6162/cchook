@@ -252,101 +252,120 @@ func getDefaultConfigPath() string {
 	return filepath.Join(configDir, "cchook", "config.yaml")
 }
 
-func runHooks(config *Config, eventType string) error {
-	input, err := readStdinJSON()
-	if err != nil {
-		return fmt.Errorf("failed to read stdin: %w", err)
-	}
-
-	for _, hook := range config.Hooks {
-		if shouldExecuteHook(hook, eventType, input) {
-			if err := executeHook(hook, input); err != nil {
-				fmt.Fprintf(os.Stderr, "Hook %s failed: %v\n", hook.Name, err)
-			}
+func runHooks(config *Config, eventType HookEventType) error {
+	switch eventType {
+	case PreToolUse:
+		var input PreToolUseInput
+		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
+			return fmt.Errorf("failed to decode PreToolUse input: %w", err)
 		}
+		return executePreToolUseHooks(config, &input)
+	case PostToolUse:
+		var input PostToolUseInput
+		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
+			return fmt.Errorf("failed to decode PostToolUse input: %w", err)
+		}
+		return executePostToolUseHooks(config, &input)
+	case Notification:
+		var input NotificationInput
+		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
+			return fmt.Errorf("failed to decode Notification input: %w", err)
+		}
+		return executeNotificationHooks(config, &input)
+	case Stop:
+		var input StopInput
+		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
+			return fmt.Errorf("failed to decode Stop input: %w", err)
+		}
+		return executeStopHooks(config, &input)
+	case SubagentStop:
+		var input SubagentStopInput
+		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
+			return fmt.Errorf("failed to decode SubagentStop input: %w", err)
+		}
+		return executeSubagentStopHooks(config, &input)
+	case PreCompact:
+		var input PreCompactInput
+		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
+			return fmt.Errorf("failed to decode PreCompact input: %w", err)
+		}
+		return executePreCompactHooks(config, &input)
+	default:
+		return fmt.Errorf("unsupported event type: %s", eventType)
 	}
-
-	return nil
 }
 
 func dryRunHooks(config *Config) error {
-	input, err := readStdinJSON()
-	if err != nil {
-		return fmt.Errorf("failed to read stdin: %w", err)
-	}
-
-	fmt.Println("Hooks that would be executed:")
-	for _, hook := range config.Hooks {
-		if shouldExecuteHook(hook, input.Event, input) {
-			fmt.Printf("- %s: %s\n", hook.Name, hook.Description)
-			for _, action := range hook.Actions {
-				if action.Type == "command" {
-					cmd := replaceVariables(action.Command, input)
-					fmt.Printf("  Command: %s\n", cmd)
-				}
-			}
-		}
-	}
-
-	return nil
+	// dry-runは後で実装
+	return fmt.Errorf("dry-run command not implemented yet")
 }
 
 func testHooks(config *Config) error {
-	mockInput := &ClaudeInput{
-		Event:    "PostToolUse",
-		ToolName: "Edit",
-		ToolInput: map[string]interface{}{
-			"file_path": "test.go",
-		},
-	}
+	// testは後で実装
+	return fmt.Errorf("test command not implemented yet")
+}
 
-	fmt.Println("Testing hooks with mock data:")
-	for _, hook := range config.Hooks {
-		if shouldExecuteHook(hook, mockInput.Event, mockInput) {
-			fmt.Printf("Testing hook: %s\n", hook.Name)
-			if err := executeHook(hook, mockInput); err != nil {
-				fmt.Printf("  Error: %v\n", err)
-			} else {
-				fmt.Printf("  Success\n")
+// イベント別のフック実行関数
+func executePreToolUseHooks(config *Config, input *PreToolUseInput) error {
+	for i, hook := range config.PreToolUse {
+		if shouldExecutePreToolUseHook(hook, input) {
+			if err := executePreToolUseHook(hook, input); err != nil {
+				fmt.Fprintf(os.Stderr, "PreToolUse hook %d failed: %v\n", i, err)
 			}
 		}
 	}
-
 	return nil
 }
 
-func readStdinJSON() (*ClaudeInput, error) {
-	data, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		return nil, err
-	}
-
-	var input ClaudeInput
-	if err := json.Unmarshal(data, &input); err != nil {
-		return nil, err
-	}
-
-	return &input, nil
-}
-
-func shouldExecuteHook(hook Hook, eventType string, input *ClaudeInput) bool {
-	eventMatch := false
-	for _, event := range hook.Events {
-		if event == eventType {
-			eventMatch = true
-			break
+func executePostToolUseHooks(config *Config, input *PostToolUseInput) error {
+	for i, hook := range config.PostToolUse {
+		if shouldExecutePostToolUseHook(hook, input) {
+			if err := executePostToolUseHook(hook, input); err != nil {
+				fmt.Fprintf(os.Stderr, "PostToolUse hook %d failed: %v\n", i, err)
+			}
 		}
 	}
-	if !eventMatch {
-		return false
+	return nil
+}
+
+func executeNotificationHooks(config *Config, input *NotificationInput) error {
+	// Notificationフック実行（後で実装）
+	return nil
+}
+
+func executeStopHooks(config *Config, input *StopInput) error {
+	// Stopフック実行（後で実装）
+	return nil
+}
+
+func executeSubagentStopHooks(config *Config, input *SubagentStopInput) error {
+	// SubagentStopフック実行（後で実装）
+	return nil
+}
+
+func executePreCompactHooks(config *Config, input *PreCompactInput) error {
+	// PreCompactフック実行（後で実装）
+	return nil
+}
+
+func shouldExecutePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput) bool {
+	// マッチャーチェック（正規表現風のパターンマッチング）
+	if hook.Matcher != "" {
+		matched := false
+		for _, pattern := range strings.Split(hook.Matcher, "|") {
+			if strings.Contains(input.ToolName, strings.TrimSpace(pattern)) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
 	}
 
-	if hook.Matcher != "" && !strings.Contains(hook.Matcher, input.ToolName) {
-		return false
-	}
-
+	// 条件チェック
 	for _, condition := range hook.Conditions {
-		if !checkCondition(condition, input) {
+		if !checkPreToolUseCondition(condition, input) {
 			return false
 		}
 	}
@@ -354,7 +373,32 @@ func shouldExecuteHook(hook Hook, eventType string, input *ClaudeInput) bool {
 	return true
 }
 
-func checkCondition(condition Condition, input *ClaudeInput) bool {
+func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput) bool {
+	// マッチャーチェック（正規表現風のパターンマッチング）
+	if hook.Matcher != "" {
+		matched := false
+		for _, pattern := range strings.Split(hook.Matcher, "|") {
+			if strings.Contains(input.ToolName, strings.TrimSpace(pattern)) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+
+	// 条件チェック
+	for _, condition := range hook.Conditions {
+		if !checkPostToolUseCondition(condition, input) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func checkPreToolUseCondition(condition PreToolUseCondition, input *PreToolUseInput) bool {
 	switch condition.Type {
 	case "file_extension":
 		if filePath, ok := input.ToolInput["file_path"].(string); ok {
@@ -368,11 +412,25 @@ func checkCondition(condition Condition, input *ClaudeInput) bool {
 	return false
 }
 
-func executeHook(hook Hook, input *ClaudeInput) error {
+func checkPostToolUseCondition(condition PostToolUseCondition, input *PostToolUseInput) bool {
+	switch condition.Type {
+	case "file_extension":
+		if filePath, ok := input.ToolInput["file_path"].(string); ok {
+			return strings.HasSuffix(filePath, condition.Value)
+		}
+	case "command_contains":
+		if command, ok := input.ToolInput["command"].(string); ok {
+			return strings.Contains(command, condition.Value)
+		}
+	}
+	return false
+}
+
+func executePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput) error {
 	for _, action := range hook.Actions {
 		switch action.Type {
 		case "command":
-			cmd := replaceVariables(action.Command, input)
+			cmd := replacePreToolUseVariables(action.Command, input)
 			if err := runCommand(cmd); err != nil {
 				return err
 			}
@@ -383,7 +441,29 @@ func executeHook(hook Hook, input *ClaudeInput) error {
 	return nil
 }
 
-func replaceVariables(command string, input *ClaudeInput) string {
+func executePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput) error {
+	for _, action := range hook.Actions {
+		switch action.Type {
+		case "command":
+			cmd := replacePostToolUseVariables(action.Command, input)
+			if err := runCommand(cmd); err != nil {
+				return err
+			}
+		case "output":
+			fmt.Println(action.Message)
+		}
+	}
+	return nil
+}
+
+func replacePreToolUseVariables(command string, input *PreToolUseInput) string {
+	if filePath, ok := input.ToolInput["file_path"].(string); ok {
+		command = strings.ReplaceAll(command, "{file_path}", filePath)
+	}
+	return command
+}
+
+func replacePostToolUseVariables(command string, input *PostToolUseInput) string {
 	if filePath, ok := input.ToolInput["file_path"].(string); ok {
 		command = strings.ReplaceAll(command, "{file_path}", filePath)
 	}
