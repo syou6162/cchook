@@ -16,8 +16,7 @@ var (
 	jqCacheMutex sync.RWMutex
 )
 
-// jqVariablePattern は {jq: クエリ} 形式のパターンにマッチ
-var jqVariablePattern = regexp.MustCompile(`\{jq:\s*([^}]+)\}`)
+// 削除: 古い {jq: } パターンは不要
 
 // executeJQQuery はgojqクエリを実行し結果を文字列として返す
 func executeJQQuery(queryStr string, input interface{}) (string, error) {
@@ -102,38 +101,21 @@ func jqValueToString(value interface{}) string {
 	}
 }
 
-// replaceJQVariables はテンプレート文字列内の {jq: クエリ} を実際の値に置換
-func replaceJQVariables(template string, input interface{}) string {
-	return jqVariablePattern.ReplaceAllStringFunc(template, func(match string) string {
-		// {jq: クエリ} からクエリ部分を抽出
-		submatches := jqVariablePattern.FindStringSubmatch(match)
-		if len(submatches) < 2 {
-			return match // 無効なパターンの場合はそのまま返す
-		}
+// 削除: 古い {jq: } システムは不要
 
-		queryStr := strings.TrimSpace(submatches[1])
-		result, err := executeJQQuery(queryStr, input)
+// unifiedTemplateReplace は{}内を常にJQクエリとして処理する統一テンプレートシステム
+func unifiedTemplateReplace(template string, rawJSON interface{}) string {
+	// パターン: { で始まり } で終わる任意の内容
+	pattern := regexp.MustCompile(`\{([^}]+)\}`)
+	
+	return pattern.ReplaceAllStringFunc(template, func(match string) string {
+		jqQuery := strings.TrimSpace(match[1 : len(match)-1]) // {} を除去
+		
+		// 常にJQクエリとして処理
+		result, err := executeJQQuery(jqQuery, rawJSON)
 		if err != nil {
-			// エラーが発生した場合はエラーメッセージを返す
 			return fmt.Sprintf("[JQ_ERROR: %s]", err.Error())
 		}
-
 		return result
 	})
-}
-
-// extendedSnakeCaseReplaceVariables は従来のsnake_case変数とjq変数の両方をサポート
-func extendedSnakeCaseReplaceVariables(template string, input interface{}, rawJSON interface{}) string {
-	// 1. 従来のsnake_case変数を置換
-	result := snakeCaseReplaceVariables(template, input)
-	
-	// 2. jq変数を置換（生のJSONデータを使用）
-	if rawJSON != nil {
-		result = replaceJQVariables(result, rawJSON)
-	} else {
-		// フォールバック：構造体データを使用
-		result = replaceJQVariables(result, input)
-	}
-	
-	return result
 }
