@@ -34,6 +34,12 @@ func (e HookEventType) IsValid() bool {
 	}
 }
 
+// 共通インターフェース
+type HookInput interface {
+	GetEventType() HookEventType
+	GetToolName() string
+}
+
 // 共通フィールド
 type BaseInput struct {
 	SessionID      string        `json:"session_id"`
@@ -41,11 +47,19 @@ type BaseInput struct {
 	HookEventName  HookEventType `json:"hook_event_name"`
 }
 
+func (b BaseInput) GetEventType() HookEventType {
+	return b.HookEventName
+}
+
 // PreToolUse用
 type PreToolUseInput struct {
 	BaseInput
 	ToolName  string                 `json:"tool_name"`
 	ToolInput map[string]interface{} `json:"tool_input"`
+}
+
+func (p *PreToolUseInput) GetToolName() string {
+	return p.ToolName
 }
 
 // PostToolUse用
@@ -56,10 +70,18 @@ type PostToolUseInput struct {
 	ToolResponse map[string]interface{} `json:"tool_response"`
 }
 
+func (p *PostToolUseInput) GetToolName() string {
+	return p.ToolName
+}
+
 // Notification用
 type NotificationInput struct {
 	BaseInput
 	Message string `json:"message"`
+}
+
+func (n *NotificationInput) GetToolName() string {
+	return ""
 }
 
 // Stop用
@@ -68,10 +90,18 @@ type StopInput struct {
 	StopHookActive bool `json:"stop_hook_active"`
 }
 
+func (s *StopInput) GetToolName() string {
+	return ""
+}
+
 // SubagentStop用
 type SubagentStopInput struct {
 	BaseInput
 	StopHookActive bool `json:"stop_hook_active"`
+}
+
+func (s *SubagentStopInput) GetToolName() string {
+	return ""
 }
 
 // PreCompact用
@@ -79,6 +109,24 @@ type PreCompactInput struct {
 	BaseInput
 	Trigger            string `json:"trigger"` // "manual" or "auto"
 	CustomInstructions string `json:"custom_instructions"`
+}
+
+func (p *PreCompactInput) GetToolName() string {
+	return ""
+}
+
+// Hook共通インターフェース
+type Hook interface {
+	GetMatcher() string
+	HasConditions() bool
+	GetEventType() HookEventType
+}
+
+// Action共通インターフェース  
+type Action interface {
+	GetType() string
+	GetCommand() string
+	GetMessage() string
 }
 
 // イベントタイプ毎の設定構造体
@@ -237,44 +285,53 @@ func getDefaultConfigPath() string {
 	return filepath.Join(configDir, "cchook", "config.yaml")
 }
 
+// ジェネリック入力パース関数
+func parseInput[T HookInput](eventType HookEventType) (T, error) {
+	var input T
+	if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
+		return input, fmt.Errorf("failed to decode %s input: %w", eventType, err)
+	}
+	return input, nil
+}
+
 func runHooks(config *Config, eventType HookEventType) error {
 	switch eventType {
 	case PreToolUse:
-		var input PreToolUseInput
-		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
-			return fmt.Errorf("failed to decode PreToolUse input: %w", err)
+		input, err := parseInput[*PreToolUseInput](eventType)
+		if err != nil {
+			return err
 		}
-		return executePreToolUseHooks(config, &input)
+		return executePreToolUseHooks(config, input)
 	case PostToolUse:
-		var input PostToolUseInput
-		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
-			return fmt.Errorf("failed to decode PostToolUse input: %w", err)
+		input, err := parseInput[*PostToolUseInput](eventType)
+		if err != nil {
+			return err
 		}
-		return executePostToolUseHooks(config, &input)
+		return executePostToolUseHooks(config, input)
 	case Notification:
-		var input NotificationInput
-		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
-			return fmt.Errorf("failed to decode Notification input: %w", err)
+		input, err := parseInput[*NotificationInput](eventType)
+		if err != nil {
+			return err
 		}
-		return executeNotificationHooks(config, &input)
+		return executeNotificationHooks(config, input)
 	case Stop:
-		var input StopInput
-		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
-			return fmt.Errorf("failed to decode Stop input: %w", err)
+		input, err := parseInput[*StopInput](eventType)
+		if err != nil {
+			return err
 		}
-		return executeStopHooks(config, &input)
+		return executeStopHooks(config, input)
 	case SubagentStop:
-		var input SubagentStopInput
-		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
-			return fmt.Errorf("failed to decode SubagentStop input: %w", err)
+		input, err := parseInput[*SubagentStopInput](eventType)
+		if err != nil {
+			return err
 		}
-		return executeSubagentStopHooks(config, &input)
+		return executeSubagentStopHooks(config, input)
 	case PreCompact:
-		var input PreCompactInput
-		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
-			return fmt.Errorf("failed to decode PreCompact input: %w", err)
+		input, err := parseInput[*PreCompactInput](eventType)
+		if err != nil {
+			return err
 		}
-		return executePreCompactHooks(config, &input)
+		return executePreCompactHooks(config, input)
 	default:
 		return fmt.Errorf("unsupported event type: %s", eventType)
 	}
@@ -283,41 +340,41 @@ func runHooks(config *Config, eventType HookEventType) error {
 func dryRunHooks(config *Config, eventType HookEventType) error {
 	switch eventType {
 	case PreToolUse:
-		var input PreToolUseInput
-		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
-			return fmt.Errorf("failed to decode PreToolUse input: %w", err)
+		input, err := parseInput[*PreToolUseInput](eventType)
+		if err != nil {
+			return err
 		}
-		return dryRunPreToolUseHooks(config, &input)
+		return dryRunPreToolUseHooks(config, input)
 	case PostToolUse:
-		var input PostToolUseInput
-		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
-			return fmt.Errorf("failed to decode PostToolUse input: %w", err)
+		input, err := parseInput[*PostToolUseInput](eventType)
+		if err != nil {
+			return err
 		}
-		return dryRunPostToolUseHooks(config, &input)
+		return dryRunPostToolUseHooks(config, input)
 	case Notification:
-		var input NotificationInput
-		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
-			return fmt.Errorf("failed to decode Notification input: %w", err)
+		input, err := parseInput[*NotificationInput](eventType)
+		if err != nil {
+			return err
 		}
-		return dryRunNotificationHooks(config, &input)
+		return dryRunNotificationHooks(config, input)
 	case Stop:
-		var input StopInput
-		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
-			return fmt.Errorf("failed to decode Stop input: %w", err)
+		input, err := parseInput[*StopInput](eventType)
+		if err != nil {
+			return err
 		}
-		return dryRunStopHooks(config, &input)
+		return dryRunStopHooks(config, input)
 	case SubagentStop:
-		var input SubagentStopInput
-		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
-			return fmt.Errorf("failed to decode SubagentStop input: %w", err)
+		input, err := parseInput[*SubagentStopInput](eventType)
+		if err != nil {
+			return err
 		}
-		return dryRunSubagentStopHooks(config, &input)
+		return dryRunSubagentStopHooks(config, input)
 	case PreCompact:
-		var input PreCompactInput
-		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
-			return fmt.Errorf("failed to decode PreCompact input: %w", err)
+		input, err := parseInput[*PreCompactInput](eventType)
+		if err != nil {
+			return err
 		}
-		return dryRunPreCompactHooks(config, &input)
+		return dryRunPreCompactHooks(config, input)
 	default:
 		return fmt.Errorf("unsupported event type: %s", eventType)
 	}
@@ -372,28 +429,27 @@ func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput) error {
 	return nil
 }
 
-func dryRunNotificationHooks(config *Config, input *NotificationInput) error {
-	fmt.Println("=== Notification Hooks (Dry Run) ===")
+// 未実装イベント用のジェネリック関数
+func dryRunUnimplementedHooks(eventType HookEventType) error {
+	fmt.Printf("=== %s Hooks (Dry Run) ===\n", eventType)
 	fmt.Println("No hooks implemented yet")
 	return nil
+}
+
+func dryRunNotificationHooks(config *Config, input *NotificationInput) error {
+	return dryRunUnimplementedHooks(Notification)
 }
 
 func dryRunStopHooks(config *Config, input *StopInput) error {
-	fmt.Println("=== Stop Hooks (Dry Run) ===")
-	fmt.Println("No hooks implemented yet")
-	return nil
+	return dryRunUnimplementedHooks(Stop)
 }
 
 func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput) error {
-	fmt.Println("=== SubagentStop Hooks (Dry Run) ===")
-	fmt.Println("No hooks implemented yet")
-	return nil
+	return dryRunUnimplementedHooks(SubagentStop)
 }
 
 func dryRunPreCompactHooks(config *Config, input *PreCompactInput) error {
-	fmt.Println("=== PreCompact Hooks (Dry Run) ===")
-	fmt.Println("No hooks implemented yet")
-	return nil
+	return dryRunUnimplementedHooks(PreCompact)
 }
 
 // イベント別のフック実行関数
