@@ -5,7 +5,13 @@ A CLI tool for executing hooks at various stages of Claude Code operations.
 ## Installation
 
 ```bash
-git clone https://github.com/yasuhisa-yoshida/cchook
+go install github.com/syou6162/cchook@latest
+```
+
+## Building from Source
+
+```bash
+git clone https://github.com/syou6162/cchook
 cd cchook
 go build -o cchook
 ```
