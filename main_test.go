@@ -54,7 +54,7 @@ func TestRunHooks_InvalidJSON(t *testing.T) {
 		t.Error("Expected error for invalid JSON input, got nil")
 	}
 	
-	if !strings.Contains(err.Error(), "failed to decode PreToolUse input") {
+	if !strings.Contains(err.Error(), "failed to decode JSON input") {
 		t.Errorf("Expected JSON decode error, got: %v", err)
 	}
 }
