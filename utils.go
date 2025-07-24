@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,13 +9,59 @@ import (
 	"strings"
 )
 
-// ジェネリック入力パース関数
-func parseInput[T HookInput](eventType HookEventType) (T, error) {
-	var input T
-	if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
-		return input, fmt.Errorf("failed to decode %s input: %w", eventType, err)
+// parseInput関数は parser.go に移動
+
+// リフレクションを使って構造体のフィールド値を取得するヘルパー関数
+func getFieldValue(data interface{}, fieldName string) string {
+	if data == nil {
+		return ""
 	}
-	return input, nil
+	
+	value := reflect.ValueOf(data)
+	// ポインタの場合は実体を取得
+	for value.Kind() == reflect.Ptr || value.Kind() == reflect.Interface {
+		if value.IsNil() {
+			return ""
+		}
+		value = value.Elem()
+	}
+	
+	if value.Kind() != reflect.Struct {
+		return ""
+	}
+	
+	field := value.FieldByName(fieldName)
+	if !field.IsValid() {
+		return ""
+	}
+	
+	return valueToString(field)
+}
+
+// JSON tagまたはフィールド名でフィールドを検索
+func findFieldByNameOrJSONTag(structValue reflect.Value, name string) reflect.Value {
+	structType := structValue.Type()
+	
+	// まず直接フィールド名で検索
+	if field := structValue.FieldByName(name); field.IsValid() {
+		return field
+	}
+	
+	// JSON tagで検索
+	for i := 0; i < structType.NumField(); i++ {
+		field := structType.Field(i)
+		jsonTag := field.Tag.Get("json")
+		
+		// json tagをパース ("field_name,omitempty" -> "field_name")
+		if jsonTag != "" {
+			tagParts := strings.Split(jsonTag, ",")
+			if len(tagParts) > 0 && tagParts[0] == name {
+				return structValue.Field(i)
+			}
+		}
+	}
+	
+	return reflect.Value{}
 }
 
 // 共通マッチャーチェック関数
@@ -53,11 +98,12 @@ func resolveNestedField(data interface{}, path string) (string, error) {
 
 		switch value.Kind() {
 		case reflect.Struct:
-			// 構造体のフィールドを取得
-			value = value.FieldByName(part)
-			if !value.IsValid() {
+			// 構造体のフィールドを取得（JSON tagもサポート）
+			fieldValue := findFieldByNameOrJSONTag(value, part)
+			if !fieldValue.IsValid() {
 				return "", fmt.Errorf("field '%s' not found in struct", part)
 			}
+			value = fieldValue
 		case reflect.Map:
 			// マップのキーを取得
 			mapValue := value.MapIndex(reflect.ValueOf(part))
@@ -135,12 +181,26 @@ func replacePostToolUseVariables(command string, input *PostToolUseInput) string
 func checkPreToolUseCondition(condition PreToolUseCondition, input *PreToolUseInput) bool {
 	switch condition.Type {
 	case "file_extension":
-		if filePath, ok := input.ToolInput["file_path"].(string); ok {
+		// リフレクションを使ってfile_pathフィールドを取得
+		if filePath := getFieldValue(input.ToolInput, "FilePath"); filePath != "" {
 			return strings.HasSuffix(filePath, condition.Value)
 		}
+		// 後方互換性のために map でもチェック
+		if toolInputMap, ok := input.ToolInput.(map[string]interface{}); ok {
+			if filePath, ok := toolInputMap["file_path"].(string); ok {
+				return strings.HasSuffix(filePath, condition.Value)
+			}
+		}
 	case "command_contains":
-		if command, ok := input.ToolInput["command"].(string); ok {
+		// リフレクションを使ってcommandフィールドを取得
+		if command := getFieldValue(input.ToolInput, "Command"); command != "" {
 			return strings.Contains(command, condition.Value)
+		}
+		// 後方互換性のために map でもチェック
+		if toolInputMap, ok := input.ToolInput.(map[string]interface{}); ok {
+			if command, ok := toolInputMap["command"].(string); ok {
+				return strings.Contains(command, condition.Value)
+			}
 		}
 	}
 	return false
@@ -149,12 +209,26 @@ func checkPreToolUseCondition(condition PreToolUseCondition, input *PreToolUseIn
 func checkPostToolUseCondition(condition PostToolUseCondition, input *PostToolUseInput) bool {
 	switch condition.Type {
 	case "file_extension":
-		if filePath, ok := input.ToolInput["file_path"].(string); ok {
+		// リフレクションを使ってfile_pathフィールドを取得
+		if filePath := getFieldValue(input.ToolInput, "FilePath"); filePath != "" {
 			return strings.HasSuffix(filePath, condition.Value)
 		}
+		// 後方互換性のために map でもチェック
+		if toolInputMap, ok := input.ToolInput.(map[string]interface{}); ok {
+			if filePath, ok := toolInputMap["file_path"].(string); ok {
+				return strings.HasSuffix(filePath, condition.Value)
+			}
+		}
 	case "command_contains":
-		if command, ok := input.ToolInput["command"].(string); ok {
+		// リフレクションを使ってcommandフィールドを取得
+		if command := getFieldValue(input.ToolInput, "Command"); command != "" {
 			return strings.Contains(command, condition.Value)
+		}
+		// 後方互換性のために map でもチェック
+		if toolInputMap, ok := input.ToolInput.(map[string]interface{}); ok {
+			if command, ok := toolInputMap["command"].(string); ok {
+				return strings.Contains(command, condition.Value)
+			}
 		}
 	}
 	return false
