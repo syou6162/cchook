@@ -18,19 +18,47 @@ go build -o cchook
 
 ## Usage
 
-```bash
-cchook -event PostToolUse < input.json
-cchook -command dry-run -event PreToolUse < input.json
+Configure as a Claude Code hook in your settings.json:
+
+**`.claude/settings.json`**:
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command", 
+            "command": "cchook -event PreToolUse"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit", 
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cchook -event PostToolUse"
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
-Options:
-- `-config` - Path to config file (default: ~/.config/cchook/config.yaml)
-- `-command` - run or dry-run (default: run)
-- `-event` - PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact
+**Manual execution** (for testing):
+```bash
+cchook -event PostToolUse < input.json
+cchook -command dry-run -event PreToolUse < input.json  
+```
 
 ## Configuration
 
-Create a YAML config file:
+Create a YAML configuration file at `~/.config/cchook/config.yaml`:
 
 ```yaml
 PostToolUse:
