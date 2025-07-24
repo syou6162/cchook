@@ -51,48 +51,48 @@ func runHooks(config *Config, eventType HookEventType) error {
 func dryRunHooks(config *Config, eventType HookEventType) error {
 	switch eventType {
 	case PreToolUse:
-		input, err := parseInput[*PreToolUseInput](eventType)
+		input, rawJSON, err := parseInput[*PreToolUseInput](eventType)
 		if err != nil {
 			return err
 		}
-		return dryRunPreToolUseHooks(config, input)
+		return dryRunPreToolUseHooks(config, input, rawJSON)
 	case PostToolUse:
-		input, err := parseInput[*PostToolUseInput](eventType)
+		input, rawJSON, err := parseInput[*PostToolUseInput](eventType)
 		if err != nil {
 			return err
 		}
-		return dryRunPostToolUseHooks(config, input)
+		return dryRunPostToolUseHooks(config, input, rawJSON)
 	case Notification:
-		input, err := parseInput[*NotificationInput](eventType)
+		input, rawJSON, err := parseInput[*NotificationInput](eventType)
 		if err != nil {
 			return err
 		}
-		return dryRunNotificationHooks(config, input)
+		return dryRunNotificationHooks(config, input, rawJSON)
 	case Stop:
-		input, err := parseInput[*StopInput](eventType)
+		input, rawJSON, err := parseInput[*StopInput](eventType)
 		if err != nil {
 			return err
 		}
-		return dryRunStopHooks(config, input)
+		return dryRunStopHooks(config, input, rawJSON)
 	case SubagentStop:
-		input, err := parseInput[*SubagentStopInput](eventType)
+		input, rawJSON, err := parseInput[*SubagentStopInput](eventType)
 		if err != nil {
 			return err
 		}
-		return dryRunSubagentStopHooks(config, input)
+		return dryRunSubagentStopHooks(config, input, rawJSON)
 	case PreCompact:
-		input, err := parseInput[*PreCompactInput](eventType)
+		input, rawJSON, err := parseInput[*PreCompactInput](eventType)
 		if err != nil {
 			return err
 		}
-		return dryRunPreCompactHooks(config, input)
+		return dryRunPreCompactHooks(config, input, rawJSON)
 	default:
 		return fmt.Errorf("unsupported event type: %s", eventType)
 	}
 }
 
 // イベント別のdry-run関数
-func dryRunPreToolUseHooks(config *Config, input *PreToolUseInput) error {
+func dryRunPreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON interface{}) error {
 	fmt.Println("=== PreToolUse Hooks (Dry Run) ===")
 	executed := false
 	for i, hook := range config.PreToolUse {
