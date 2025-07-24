@@ -601,18 +601,20 @@ func executePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput) error
 	return nil
 }
 
-func replacePreToolUseVariables(command string, input *PreToolUseInput) string {
-	if filePath, ok := input.ToolInput["file_path"].(string); ok {
+// 共通変数置換関数
+func replaceVariables(command string, toolInput map[string]interface{}) string {
+	if filePath, ok := toolInput["file_path"].(string); ok {
 		command = strings.ReplaceAll(command, "{file_path}", filePath)
 	}
 	return command
 }
 
+func replacePreToolUseVariables(command string, input *PreToolUseInput) string {
+	return replaceVariables(command, input.ToolInput)
+}
+
 func replacePostToolUseVariables(command string, input *PostToolUseInput) string {
-	if filePath, ok := input.ToolInput["file_path"].(string); ok {
-		command = strings.ReplaceAll(command, "{file_path}", filePath)
-	}
-	return command
+	return replaceVariables(command, input.ToolInput)
 }
 
 func runCommand(command string) error {
