@@ -1,4 +1,4 @@
-module github.com/yasuhisa-yoshida/cchook
+module github.com/syou6162/cchook
 
 go 1.24.5
 
