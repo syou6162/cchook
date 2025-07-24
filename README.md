@@ -101,12 +101,40 @@ Expects JSON input via stdin:
 
 ## Templates
 
+### Basic Templates
+
 Use `{path.to.field}` to access input data:
 
-- `{SessionID}` - session_id field
-- `{ToolName}` - tool_name field  
+- `{session_id}` - session_id field
+- `{tool_name}` - tool_name field  
 - `{tool_input.file_path}` - file_path in tool_input
 - `{tool_input.content}` - content in tool_input
+
+### JQ Templates (Advanced)
+
+Use `{jq: query}` for complex JSON processing with jq-compatible queries:
+
+```yaml
+Stop:
+  - actions:
+      - type: output
+        message: "Last assistant message: {jq: .data | reverse | map(select(.type == \"assistant\")) | .[0].content}"
+      - type: command
+        command: 'ntfy publish --title "Claude Code" "{jq: .message | @base64}"'
+```
+
+**JQ Features:**
+- Full jq query language support via [gojq](https://github.com/itchyny/gojq)
+- Array manipulation: `reverse`, `map`, `select`, `sort_by`
+- String processing: `@base64`, `ascii_upcase`, `length`
+- Complex data extraction from nested JSON structures
+- Backward compatible with existing `{field}` syntax
+
+**Examples:**
+- `{jq: .transcript_path}` - Extract transcript path
+- `{jq: .data | length}` - Count array elements
+- `{jq: [.data[] | select(.type == \"assistant\") | .content]}` - Get all assistant messages
+- `{jq: .message | @base64}` - Base64 encode message
 - `{tool_input.nested.field}` - nested fields
 
 ## Event Types
