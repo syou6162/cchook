@@ -140,27 +140,121 @@ func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput) error {
 	return nil
 }
 
-// 未実装イベント用のジェネリック関数
-func dryRunUnimplementedHooks(eventType HookEventType) error {
-	fmt.Printf("=== %s Hooks (Dry Run) ===\n", eventType)
-	fmt.Println("No hooks implemented yet")
+
+func dryRunNotificationHooks(config *Config, input *NotificationInput) error {
+	fmt.Println("=== Notification Hooks (Dry Run) ===")
+	
+	if len(config.Notification) == 0 {
+		fmt.Println("No Notification hooks configured")
+		return nil
+	}
+
+	executed := false
+	for i, hook := range config.Notification {
+		executed = true
+		fmt.Printf("[Hook %d] Would execute:\n", i+1)
+		for _, action := range hook.Actions {
+			switch action.Type {
+			case "command":
+				cmd := snakeCaseReplaceVariables(action.Command, input)
+				fmt.Printf("  Command: %s\n", cmd)
+			case "output":
+				fmt.Printf("  Message: %s\n", action.Message)
+			}
+		}
+	}
+	
+	if !executed {
+		fmt.Println("No hooks would be executed")
+	}
 	return nil
 }
 
-func dryRunNotificationHooks(config *Config, input *NotificationInput) error {
-	return dryRunUnimplementedHooks(Notification)
-}
-
 func dryRunStopHooks(config *Config, input *StopInput) error {
-	return dryRunUnimplementedHooks(Stop)
+	fmt.Println("=== Stop Hooks (Dry Run) ===")
+	
+	if len(config.Stop) == 0 {
+		fmt.Println("No Stop hooks configured")
+		return nil
+	}
+
+	executed := false
+	for i, hook := range config.Stop {
+		executed = true
+		fmt.Printf("[Hook %d] Would execute:\n", i+1)
+		for _, action := range hook.Actions {
+			switch action.Type {
+			case "command":
+				cmd := snakeCaseReplaceVariables(action.Command, input)
+				fmt.Printf("  Command: %s\n", cmd)
+			case "output":
+				fmt.Printf("  Message: %s\n", action.Message)
+			}
+		}
+	}
+	
+	if !executed {
+		fmt.Println("No hooks would be executed")
+	}
+	return nil
 }
 
 func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput) error {
-	return dryRunUnimplementedHooks(SubagentStop)
+	fmt.Println("=== SubagentStop Hooks (Dry Run) ===")
+	
+	if len(config.SubagentStop) == 0 {
+		fmt.Println("No SubagentStop hooks configured")
+		return nil
+	}
+
+	executed := false
+	for i, hook := range config.SubagentStop {
+		executed = true
+		fmt.Printf("[Hook %d] Would execute:\n", i+1)
+		for _, action := range hook.Actions {
+			switch action.Type {
+			case "command":
+				cmd := snakeCaseReplaceVariables(action.Command, input)
+				fmt.Printf("  Command: %s\n", cmd)
+			case "output":
+				fmt.Printf("  Message: %s\n", action.Message)
+			}
+		}
+	}
+	
+	if !executed {
+		fmt.Println("No hooks would be executed")
+	}
+	return nil
 }
 
 func dryRunPreCompactHooks(config *Config, input *PreCompactInput) error {
-	return dryRunUnimplementedHooks(PreCompact)
+	fmt.Println("=== PreCompact Hooks (Dry Run) ===")
+	
+	if len(config.PreCompact) == 0 {
+		fmt.Println("No PreCompact hooks configured")
+		return nil
+	}
+
+	executed := false
+	for i, hook := range config.PreCompact {
+		executed = true
+		fmt.Printf("[Hook %d] Would execute:\n", i+1)
+		for _, action := range hook.Actions {
+			switch action.Type {
+			case "command":
+				cmd := snakeCaseReplaceVariables(action.Command, input)
+				fmt.Printf("  Command: %s\n", cmd)
+			case "output":
+				fmt.Printf("  Message: %s\n", action.Message)
+			}
+		}
+	}
+	
+	if !executed {
+		fmt.Println("No hooks would be executed")
+	}
+	return nil
 }
 
 // イベント別のフック実行関数
@@ -186,26 +280,49 @@ func executePostToolUseHooks(config *Config, input *PostToolUseInput) error {
 	return nil
 }
 
-// 未実装イベント用のジェネリック関数（実行用）
-func executeUnimplementedHooks() error {
-	// 未実装イベントでは何もしない（将来の実装用）
+
+func executeNotificationHooks(config *Config, input *NotificationInput) error {
+	for i, hook := range config.Notification {
+		for _, action := range hook.Actions {
+			if err := executeNotificationAction(action, input); err != nil {
+				fmt.Fprintf(os.Stderr, "Notification hook %d failed: %v\n", i, err)
+			}
+		}
+	}
 	return nil
 }
 
-func executeNotificationHooks(config *Config, input *NotificationInput) error {
-	return executeUnimplementedHooks()
-}
-
 func executeStopHooks(config *Config, input *StopInput) error {
-	return executeUnimplementedHooks()
+	for i, hook := range config.Stop {
+		for _, action := range hook.Actions {
+			if err := executeStopAction(action, input); err != nil {
+				fmt.Fprintf(os.Stderr, "Stop hook %d failed: %v\n", i, err)
+			}
+		}
+	}
+	return nil
 }
 
 func executeSubagentStopHooks(config *Config, input *SubagentStopInput) error {
-	return executeUnimplementedHooks()
+	for i, hook := range config.SubagentStop {
+		for _, action := range hook.Actions {
+			if err := executeSubagentStopAction(action, input); err != nil {
+				fmt.Fprintf(os.Stderr, "SubagentStop hook %d failed: %v\n", i, err)
+			}
+		}
+	}
+	return nil
 }
 
 func executePreCompactHooks(config *Config, input *PreCompactInput) error {
-	return executeUnimplementedHooks()
+	for i, hook := range config.PreCompact {
+		for _, action := range hook.Actions {
+			if err := executePreCompactAction(action, input); err != nil {
+				fmt.Fprintf(os.Stderr, "PreCompact hook %d failed: %v\n", i, err)
+			}
+		}
+	}
+	return nil
 }
 
 func shouldExecutePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput) bool {
