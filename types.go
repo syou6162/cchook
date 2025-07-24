@@ -89,8 +89,7 @@ func (n *NotificationInput) GetToolName() string {
 // Stop用
 type StopInput struct {
 	BaseInput
-	StopHookActive bool        `json:"stop_hook_active"`
-	Data           interface{} `json:"data"`
+	StopHookActive bool `json:"stop_hook_active"`
 }
 
 func (s *StopInput) GetToolName() string {
