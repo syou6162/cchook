@@ -108,23 +108,11 @@ func parsePostToolUseInput(rawInput json.RawMessage) (*PostToolUseInput, error) 
 }
 
 // ツール名に基づいてtool_inputを適切な構造体にパースする関数
-// ドキュメントで確認できたもののみ具体的に定義し、それ以外は map[string]interface{} とする
+// 全ツール共通構造と仮定
 func parseToolInputByName(toolName string, rawToolInput json.RawMessage) (ToolInput, error) {
-	switch toolName {
-	case "Write":
-		// ドキュメントで確認済み: file_path, content
-		var input WriteToolInput
-		if err := json.Unmarshal(rawToolInput, &input); err != nil {
-			return nil, fmt.Errorf("failed to parse Write tool input: %w", err)
-		}
-		return input, nil
-
-	default:
-		// 他のツールはドキュメントで構造が確認できないため、汎用的な map として扱う
-		var input map[string]interface{}
-		if err := json.Unmarshal(rawToolInput, &input); err != nil {
-			return nil, fmt.Errorf("failed to parse tool input as map: %w", err)
-		}
-		return input, nil
+	var input ToolInput
+	if err := json.Unmarshal(rawToolInput, &input); err != nil {
+		return ToolInput{}, fmt.Errorf("failed to parse tool input: %w", err)
 	}
+	return input, nil
 }

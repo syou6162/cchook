@@ -40,15 +40,12 @@ func (b BaseInput) GetEventType() HookEventType {
 	return b.HookEventName
 }
 
-// Tool input structures - only those confirmed from documentation
-// ドキュメントから確認できたWriteツールの入力構造
-type WriteToolInput struct {
+// Tool input structures - 全ツール共通構造と仮定
+type ToolInput struct {
 	FilePath string `json:"file_path"`
 	Content  string `json:"content"`
+	Command  string `json:"command"`
 }
-
-// Union type for all possible tool inputs - 他は map[string]interface{} として扱う
-type ToolInput interface{}
 
 // PreToolUse用
 type PreToolUseInput struct {
