@@ -36,7 +36,7 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 			},
 			&PreToolUseInput{
 				ToolName:  "Write",
-				ToolInput: map[string]interface{}{"file_path": "main.go"},
+				ToolInput: ToolInput{FilePath: "main.go"},
 			},
 			true,
 		},
@@ -50,7 +50,7 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 			},
 			&PreToolUseInput{
 				ToolName:  "Write",
-				ToolInput: map[string]interface{}{"file_path": "main.go"},
+				ToolInput: ToolInput{FilePath: "main.go"},
 			},
 			false,
 		},
@@ -65,9 +65,9 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 			},
 			&PreToolUseInput{
 				ToolName: "Write",
-				ToolInput: map[string]interface{}{
-					"file_path": "main.go",
-					"command":   "test command",
+				ToolInput: ToolInput{
+					FilePath: "main.go",
+					Command:  "test command",
 				},
 			},
 			true,
@@ -83,9 +83,9 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 			},
 			&PreToolUseInput{
 				ToolName: "Write",
-				ToolInput: map[string]interface{}{
-					"file_path": "main.go",
-					"command":   "test command",
+				ToolInput: ToolInput{
+					FilePath: "main.go",
+					Command:  "test command",
 				},
 			},
 			false,
@@ -124,7 +124,7 @@ func TestShouldExecutePostToolUseHook(t *testing.T) {
 			},
 			&PostToolUseInput{
 				ToolName:  "Edit",
-				ToolInput: map[string]interface{}{"file_path": "test.go"},
+				ToolInput: ToolInput{FilePath: "test.go"},
 			},
 			true,
 		},
@@ -203,7 +203,7 @@ func TestExecutePreToolUseHook_CommandWithVariables(t *testing.T) {
 	
 	input := &PreToolUseInput{
 		ToolName:  "Write",
-		ToolInput: map[string]interface{}{"file_path": "test.go"},
+		ToolInput: ToolInput{FilePath: "test.go"},
 	}
 	
 	err := executePreToolUseHook(hook, input)
@@ -433,7 +433,7 @@ func TestDryRunPreToolUseHooks_WithMatch(t *testing.T) {
 	
 	input := &PreToolUseInput{
 		ToolName:  "Write",
-		ToolInput: map[string]interface{}{"file_path": "test.go"},
+		ToolInput: ToolInput{FilePath: "test.go"},
 	}
 	
 	err := dryRunPreToolUseHooks(config, input)

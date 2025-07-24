@@ -43,14 +43,9 @@ func TestReplaceVariables_NewSystem(t *testing.T) {
 			HookEventName:  "PreToolUse",
 		},
 		ToolName: "Write",
-		ToolInput: map[string]interface{}{
-			"file_path": "main.go",
-			"content":   "package main",
-			"nested": map[string]interface{}{
-				"deep_field": "deep_value",
-				"number":     42,
-				"enabled":    true,
-			},
+		ToolInput: ToolInput{
+			FilePath: "main.go",
+			Content:  "package main",
 		},
 	}
 
@@ -68,21 +63,6 @@ func TestReplaceVariables_NewSystem(t *testing.T) {
 			"Access ToolInput content",
 			"Content: {ToolInput.content}",
 			"Content: package main",
-		},
-		{
-			"Access nested field",
-			"Deep field: {ToolInput.nested.deep_field}",
-			"Deep field: deep_value",
-		},
-		{
-			"Access nested number",
-			"Number: {ToolInput.nested.number}",
-			"Number: 42",
-		},
-		{
-			"Access nested boolean",
-			"Enabled: {ToolInput.nested.enabled}",
-			"Enabled: true",
 		},
 		{
 			"Access top-level SessionID",
@@ -126,13 +106,18 @@ func TestReplaceVariables_NewSystem(t *testing.T) {
 	}
 }
 
-func TestReplaceVariables_LegacyMapInput(t *testing.T) {
-	// マップ形式の入力でのテスト
-	toolInput := map[string]interface{}{
-		"file_path": "test.go",
-		"content":   "test content",
-		"nested": map[string]interface{}{
-			"value": "nested_value",
+func TestReplaceVariables_DirectToolInput(t *testing.T) {
+	// ToolInput構造体を使った直接テスト
+	input := &PreToolUseInput{
+		BaseInput: BaseInput{
+			SessionID:      "test-session",
+			TranscriptPath: "/tmp/transcript",
+			HookEventName:  "PreToolUse",
+		},
+		ToolName: "Write",
+		ToolInput: ToolInput{
+			FilePath: "test.go",
+			Content:  "test content",
 		},
 	}
 
@@ -142,27 +127,27 @@ func TestReplaceVariables_LegacyMapInput(t *testing.T) {
 		want     string
 	}{
 		{
-			"Access file_path from map",
-			"File: {file_path}",
+			"Access file_path from ToolInput",
+			"File: {ToolInput.file_path}",
 			"File: test.go",
 		},
 		{
-			"Access content from map",
-			"Content: {content}",
+			"Access content from ToolInput",
+			"Content: {ToolInput.content}",
 			"Content: test content",
 		},
 		{
-			"Access nested value from map",
-			"Nested: {nested.value}",
-			"Nested: nested_value",
+			"Access ToolName",
+			"Tool: {ToolName}",
+			"Tool: Write",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := replaceVariables(tt.template, toolInput)
+			got := replaceVariables(tt.template, input)
 			if got != tt.want {
-				t.Errorf("replaceVariables(%q, toolInput) = %q, want %q", tt.template, got, tt.want)
+				t.Errorf("replaceVariables(%q, input) = %q, want %q", tt.template, got, tt.want)
 			}
 		})
 	}
@@ -174,8 +159,8 @@ func TestReplacePreToolUseVariables(t *testing.T) {
 			SessionID: "test-session",
 		},
 		ToolName: "Write",
-		ToolInput: map[string]interface{}{
-			"file_path": "test.go",
+		ToolInput: ToolInput{
+			FilePath: "test.go",
 		},
 	}
 	
@@ -193,8 +178,8 @@ func TestReplacePostToolUseVariables(t *testing.T) {
 			SessionID: "test-session",
 		},
 		ToolName: "Edit",
-		ToolInput: map[string]interface{}{
-			"file_path": "output.go",
+		ToolInput: ToolInput{
+			FilePath: "output.go",
 		},
 	}
 	
@@ -216,43 +201,43 @@ func TestCheckPreToolUseCondition(t *testing.T) {
 		{
 			"file_extension match",
 			PreToolUseCondition{Type: "file_extension", Value: ".go"},
-			&PreToolUseInput{ToolInput: map[string]interface{}{"file_path": "main.go"}},
+			&PreToolUseInput{ToolInput: ToolInput{FilePath: "main.go"}},
 			true,
 		},
 		{
 			"file_extension no match",
 			PreToolUseCondition{Type: "file_extension", Value: ".py"},
-			&PreToolUseInput{ToolInput: map[string]interface{}{"file_path": "main.go"}},
+			&PreToolUseInput{ToolInput: ToolInput{FilePath: "main.go"}},
 			false,
 		},
 		{
 			"file_extension no file_path",
 			PreToolUseCondition{Type: "file_extension", Value: ".go"},
-			&PreToolUseInput{ToolInput: map[string]interface{}{"other": "value"}},
+			&PreToolUseInput{ToolInput: ToolInput{}},
 			false,
 		},
 		{
 			"command_contains match",
 			PreToolUseCondition{Type: "command_contains", Value: "git add"},
-			&PreToolUseInput{ToolInput: map[string]interface{}{"command": "git add file.txt"}},
+			&PreToolUseInput{ToolInput: ToolInput{Command: "git add file.txt"}},
 			true,
 		},
 		{
 			"command_contains no match",
 			PreToolUseCondition{Type: "command_contains", Value: "git commit"},
-			&PreToolUseInput{ToolInput: map[string]interface{}{"command": "git add file.txt"}},
+			&PreToolUseInput{ToolInput: ToolInput{Command: "git add file.txt"}},
 			false,
 		},
 		{
 			"command_contains no command",
 			PreToolUseCondition{Type: "command_contains", Value: "git add"},
-			&PreToolUseInput{ToolInput: map[string]interface{}{"other": "value"}},
+			&PreToolUseInput{ToolInput: ToolInput{}},
 			false,
 		},
 		{
 			"unknown condition type",
 			PreToolUseCondition{Type: "unknown", Value: "value"},
-			&PreToolUseInput{ToolInput: map[string]interface{}{"file_path": "main.go"}},
+			&PreToolUseInput{ToolInput: ToolInput{FilePath: "main.go"}},
 			false,
 		},
 	}
@@ -276,19 +261,19 @@ func TestCheckPostToolUseCondition(t *testing.T) {
 		{
 			"file_extension match",
 			PostToolUseCondition{Type: "file_extension", Value: ".go"},
-			&PostToolUseInput{ToolInput: map[string]interface{}{"file_path": "main.go"}},
+			&PostToolUseInput{ToolInput: ToolInput{FilePath: "main.go"}},
 			true,
 		},
 		{
 			"command_contains match",
 			PostToolUseCondition{Type: "command_contains", Value: "build"},
-			&PostToolUseInput{ToolInput: map[string]interface{}{"command": "go build main.go"}},
+			&PostToolUseInput{ToolInput: ToolInput{Command: "go build main.go"}},
 			true,
 		},
 		{
 			"no match",
 			PostToolUseCondition{Type: "file_extension", Value: ".py"},
-			&PostToolUseInput{ToolInput: map[string]interface{}{"file_path": "main.go"}},
+			&PostToolUseInput{ToolInput: ToolInput{FilePath: "main.go"}},
 			false,
 		},
 	}
