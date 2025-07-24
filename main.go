@@ -475,39 +475,46 @@ func executePostToolUseHooks(config *Config, input *PostToolUseInput) error {
 	return nil
 }
 
-func executeNotificationHooks(config *Config, input *NotificationInput) error {
-	// Notificationフック実行（後で実装）
+// 未実装イベント用のジェネリック関数（実行用）
+func executeUnimplementedHooks() error {
+	// 未実装イベントでは何もしない（将来の実装用）
 	return nil
+}
+
+func executeNotificationHooks(config *Config, input *NotificationInput) error {
+	return executeUnimplementedHooks()
 }
 
 func executeStopHooks(config *Config, input *StopInput) error {
-	// Stopフック実行（後で実装）
-	return nil
+	return executeUnimplementedHooks()
 }
 
 func executeSubagentStopHooks(config *Config, input *SubagentStopInput) error {
-	// SubagentStopフック実行（後で実装）
-	return nil
+	return executeUnimplementedHooks()
 }
 
 func executePreCompactHooks(config *Config, input *PreCompactInput) error {
-	// PreCompactフック実行（後で実装）
-	return nil
+	return executeUnimplementedHooks()
+}
+
+// 共通マッチャーチェック関数
+func checkMatcher(matcher string, toolName string) bool {
+	if matcher == "" {
+		return true
+	}
+	
+	for _, pattern := range strings.Split(matcher, "|") {
+		if strings.Contains(toolName, strings.TrimSpace(pattern)) {
+			return true
+		}
+	}
+	return false
 }
 
 func shouldExecutePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput) bool {
-	// マッチャーチェック（正規表現風のパターンマッチング）
-	if hook.Matcher != "" {
-		matched := false
-		for _, pattern := range strings.Split(hook.Matcher, "|") {
-			if strings.Contains(input.ToolName, strings.TrimSpace(pattern)) {
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			return false
-		}
+	// マッチャーチェック
+	if !checkMatcher(hook.Matcher, input.ToolName) {
+		return false
 	}
 
 	// 条件チェック
@@ -521,18 +528,9 @@ func shouldExecutePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput) bo
 }
 
 func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput) bool {
-	// マッチャーチェック（正規表現風のパターンマッチング）
-	if hook.Matcher != "" {
-		matched := false
-		for _, pattern := range strings.Split(hook.Matcher, "|") {
-			if strings.Contains(input.ToolName, strings.TrimSpace(pattern)) {
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			return false
-		}
+	// マッチャーチェック
+	if !checkMatcher(hook.Matcher, input.ToolName) {
+		return false
 	}
 
 	// 条件チェック
