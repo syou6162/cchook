@@ -280,14 +280,120 @@ func runHooks(config *Config, eventType HookEventType) error {
 	}
 }
 
-func dryRunHooks(config *Config) error {
-	// dry-runは後で実装
-	return fmt.Errorf("dry-run command not implemented yet")
+func dryRunHooks(config *Config, eventType HookEventType) error {
+	switch eventType {
+	case PreToolUse:
+		var input PreToolUseInput
+		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
+			return fmt.Errorf("failed to decode PreToolUse input: %w", err)
+		}
+		return dryRunPreToolUseHooks(config, &input)
+	case PostToolUse:
+		var input PostToolUseInput
+		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
+			return fmt.Errorf("failed to decode PostToolUse input: %w", err)
+		}
+		return dryRunPostToolUseHooks(config, &input)
+	case Notification:
+		var input NotificationInput
+		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
+			return fmt.Errorf("failed to decode Notification input: %w", err)
+		}
+		return dryRunNotificationHooks(config, &input)
+	case Stop:
+		var input StopInput
+		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
+			return fmt.Errorf("failed to decode Stop input: %w", err)
+		}
+		return dryRunStopHooks(config, &input)
+	case SubagentStop:
+		var input SubagentStopInput
+		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
+			return fmt.Errorf("failed to decode SubagentStop input: %w", err)
+		}
+		return dryRunSubagentStopHooks(config, &input)
+	case PreCompact:
+		var input PreCompactInput
+		if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
+			return fmt.Errorf("failed to decode PreCompact input: %w", err)
+		}
+		return dryRunPreCompactHooks(config, &input)
+	default:
+		return fmt.Errorf("unsupported event type: %s", eventType)
+	}
 }
 
-func testHooks(config *Config) error {
-	// testは後で実装
-	return fmt.Errorf("test command not implemented yet")
+// イベント別のdry-run関数
+func dryRunPreToolUseHooks(config *Config, input *PreToolUseInput) error {
+	fmt.Println("=== PreToolUse Hooks (Dry Run) ===")
+	executed := false
+	for i, hook := range config.PreToolUse {
+		if shouldExecutePreToolUseHook(hook, input) {
+			executed = true
+			fmt.Printf("[Hook %d] Would execute:\n", i+1)
+			for _, action := range hook.Actions {
+				switch action.Type {
+				case "command":
+					cmd := replacePreToolUseVariables(action.Command, input)
+					fmt.Printf("  Command: %s\n", cmd)
+				case "output":
+					fmt.Printf("  Message: %s\n", action.Message)
+				}
+			}
+		}
+	}
+	if !executed {
+		fmt.Println("No hooks would be executed")
+	}
+	return nil
+}
+
+func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput) error {
+	fmt.Println("=== PostToolUse Hooks (Dry Run) ===")
+	executed := false
+	for i, hook := range config.PostToolUse {
+		if shouldExecutePostToolUseHook(hook, input) {
+			executed = true
+			fmt.Printf("[Hook %d] Would execute:\n", i+1)
+			for _, action := range hook.Actions {
+				switch action.Type {
+				case "command":
+					cmd := replacePostToolUseVariables(action.Command, input)
+					fmt.Printf("  Command: %s\n", cmd)
+				case "output":
+					fmt.Printf("  Message: %s\n", action.Message)
+				}
+			}
+		}
+	}
+	if !executed {
+		fmt.Println("No hooks would be executed")
+	}
+	return nil
+}
+
+func dryRunNotificationHooks(config *Config, input *NotificationInput) error {
+	fmt.Println("=== Notification Hooks (Dry Run) ===")
+	fmt.Println("No hooks implemented yet")
+	return nil
+}
+
+func dryRunStopHooks(config *Config, input *StopInput) error {
+	fmt.Println("=== Stop Hooks (Dry Run) ===")
+	fmt.Println("No hooks implemented yet")
+	return nil
+}
+
+func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput) error {
+	fmt.Println("=== SubagentStop Hooks (Dry Run) ===")
+	fmt.Println("No hooks implemented yet")
+	return nil
+}
+
+func dryRunPreCompactHooks(config *Config, input *PreCompactInput) error {
+	fmt.Println("=== PreCompact Hooks (Dry Run) ===")
+	fmt.Println("No hooks implemented yet")
+	return nil
 }
 
 // イベント別のフック実行関数
