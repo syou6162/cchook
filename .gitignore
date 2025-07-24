@@ -30,3 +30,12 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Test files
+messy.go
+example.go
+test.go
+sample_inputs/
+
+# Build output
+cchook
