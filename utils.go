@@ -170,12 +170,12 @@ func replaceVariables(template string, data interface{}) string {
 	})
 }
 
-func replacePreToolUseVariables(command string, input *PreToolUseInput) string {
-	return snakeCaseReplaceVariables(command, input)
+func replacePreToolUseVariables(command string, input *PreToolUseInput, rawJSON interface{}) string {
+	return unifiedTemplateReplace(command, rawJSON)
 }
 
-func replacePostToolUseVariables(command string, input *PostToolUseInput) string {
-	return snakeCaseReplaceVariables(command, input)
+func replacePostToolUseVariables(command string, input *PostToolUseInput, rawJSON interface{}) string {
+	return unifiedTemplateReplace(command, rawJSON)
 }
 
 func checkPreToolUseCondition(condition PreToolUseCondition, input *PreToolUseInput) bool {
@@ -211,12 +211,12 @@ func checkPostToolUseCondition(condition PostToolUseCondition, input *PostToolUs
 }
 
 func runCommand(command string) error {
-	parts := strings.Fields(command)
-	if len(parts) == 0 {
+	if strings.TrimSpace(command) == "" {
 		return fmt.Errorf("empty command")
 	}
 
-	cmd := exec.Command(parts[0], parts[1:]...)
+	// シェル経由でコマンドを実行
+	cmd := exec.Command("sh", "-c", command)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
