@@ -101,31 +101,39 @@ Expects JSON input via stdin:
 
 ## Templates
 
-### Basic Templates
-
-Use `{path.to.field}` to access input data:
-
-- `{session_id}` - session_id field
-- `{tool_name}` - tool_name field  
-- `{tool_input.file_path}` - file_path in tool_input
-- `{tool_input.content}` - content in tool_input
-
-### JQ Templates (Advanced)
-
-Use `{jq: query}` for complex JSON processing with jq-compatible queries:
+Use `{jq_query}` for JSON processing with jq-compatible queries:
 
 ```yaml
 Stop:
   - actions:
       - type: output
-        message: "Last assistant message: {jq: .data | reverse | map(select(.type == \"assistant\")) | .[0].content}"
+        message: >
+          Last assistant message: {
+            .data 
+            | reverse 
+            | map(select(.type == "assistant")) 
+            | .[0].content
+          }
       - type: command
-        command: 'ntfy publish --title "Claude Code Session" "{jq: .transcript_path}"'
+        command: >
+          ntfy publish 
+            --markdown 
+            --title "Claude Code Session" 
+            "{
+              cat(.transcript_path) 
+              | fromjson 
+              | reverse 
+              | map(select(.type == "assistant" and .message.content[0].type == "text")) 
+              | .[0].message.content[0].text
+            }"
 
 Notification:  
   - actions:
       - type: command
-        command: 'ntfy publish --title "Claude Code" "{jq: .message | @base64}"'
+        command: |
+          ntfy publish 
+            --title "Claude Code" 
+            "{.message | @base64}"
 ```
 
 **JQ Features:**
@@ -133,14 +141,36 @@ Notification:
 - Array manipulation: `reverse`, `map`, `select`, `sort_by`
 - String processing: `@base64`, `ascii_upcase`, `length`
 - Complex data extraction from nested JSON structures
-- Backward compatible with existing `{field}` syntax
 
-**Examples:**
-- `{jq: .transcript_path}` - Extract transcript path
-- `{jq: .data | length}` - Count array elements
-- `{jq: [.data[] | select(.type == \"assistant\") | .content]}` - Get all assistant messages
-- `{jq: .message | @base64}` - Base64 encode message
-- `{tool_input.nested.field}` - nested fields
+**YAML Multi-line Support:**
+- `>` - Folded style (spaces preserved, newlines become spaces)
+- `|` - Literal style (preserves all formatting)
+
+**Access Patterns:**
+- `{.transcript_path}` - Access root fields directly
+- `{.data | length}` - Count array elements
+- `{[.data[] | select(.type == "assistant") | .content]}` - Filter and extract from arrays
+- `{.message | @base64}` - String transformations
+- `{.}` - Access entire input JSON object
+- `{.tool_input.file_path}` - Access nested fields
+
+**Complex Example:**
+```yaml
+Stop:
+  - actions:
+      - type: command
+        command: >
+          echo "Session completed!" &&
+          ntfy publish 
+            --markdown 
+            --title "Claude Code Complete"
+            --tags "checkmark"
+            "{
+              \"Session: \" + .session_id + \"\\n\" +
+              \"Files modified: \" + (.data | map(select(.tool_name == \"Write\")) | length | tostring) + \"\\n\" +
+              \"Last message: \" + (.data | reverse | map(select(.type == \"assistant\")) | .[0].content | .[0:100])
+            }"
+```
 
 ## Event Types
 
