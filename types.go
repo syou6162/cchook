@@ -32,6 +32,7 @@ type HookInput interface {
 type BaseInput struct {
 	SessionID      string        `json:"session_id"`
 	TranscriptPath string        `json:"transcript_path"`
+	Cwd            string        `json:"cwd,omitempty"`
 	HookEventName  HookEventType `json:"hook_event_name"`
 }
 
@@ -39,23 +40,39 @@ func (b BaseInput) GetEventType() HookEventType {
 	return b.HookEventName
 }
 
+// Tool input structures - only those confirmed from documentation
+// ドキュメントから確認できたWriteツールの入力構造
+type WriteToolInput struct {
+	FilePath string `json:"file_path"`
+	Content  string `json:"content"`
+}
+
+// Union type for all possible tool inputs - 他は map[string]interface{} として扱う
+type ToolInput interface{}
+
 // PreToolUse用
 type PreToolUseInput struct {
 	BaseInput
-	ToolName  string                 `json:"tool_name"`
-	ToolInput map[string]interface{} `json:"tool_input"`
+	ToolName  string    `json:"tool_name"`
+	ToolInput ToolInput `json:"tool_input"`
 }
 
 func (p *PreToolUseInput) GetToolName() string {
 	return p.ToolName
 }
 
+// Tool response structures - ドキュメントから確認できた構造
+type ToolResponse struct {
+	FilePath string `json:"filePath,omitempty"`
+	Success  bool   `json:"success,omitempty"`
+}
+
 // PostToolUse用
 type PostToolUseInput struct {
 	BaseInput
-	ToolName     string                 `json:"tool_name"`
-	ToolInput    map[string]interface{} `json:"tool_input"`
-	ToolResponse map[string]interface{} `json:"tool_response"`
+	ToolName     string       `json:"tool_name"`
+	ToolInput    ToolInput    `json:"tool_input"`
+	ToolResponse ToolResponse `json:"tool_response"`
 }
 
 func (p *PostToolUseInput) GetToolName() string {
