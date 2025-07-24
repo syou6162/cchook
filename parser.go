@@ -6,14 +6,20 @@ import (
 	"os"
 )
 
-// ジェネリック入力パース関数（基本構造のみ）
-func parseInput[T HookInput](eventType HookEventType) (T, error) {
+// ジェネリック入力パース関数（構造化データと生JSONを返す）
+func parseInput[T HookInput](eventType HookEventType) (T, interface{}, error) {
 	var rawInput json.RawMessage
 	var input T
 
 	// まずJSONを取得
 	if err := json.NewDecoder(os.Stdin).Decode(&rawInput); err != nil {
-		return input, fmt.Errorf("failed to decode JSON input: %w", err)
+		return input, nil, fmt.Errorf("failed to decode JSON input: %w", err)
+	}
+
+	// 生のJSONをinterface{}に変換（JQ用）
+	var rawJSON interface{}
+	if err := json.Unmarshal(rawInput, &rawJSON); err != nil {
+		return input, nil, fmt.Errorf("failed to parse raw JSON: %w", err)
 	}
 
 	// イベントタイプに応じて特別な処理を行う
@@ -21,29 +27,29 @@ func parseInput[T HookInput](eventType HookEventType) (T, error) {
 	case PreToolUse:
 		preInput, err := parsePreToolUseInput(rawInput)
 		if err != nil {
-			return input, err
+			return input, nil, err
 		}
 		if result, ok := interface{}(preInput).(T); ok {
-			return result, nil
+			return result, rawJSON, nil
 		}
-		return input, fmt.Errorf("type assertion failed for PreToolUse")
+		return input, nil, fmt.Errorf("type assertion failed for PreToolUse")
 
 	case PostToolUse:
 		postInput, err := parsePostToolUseInput(rawInput)
 		if err != nil {
-			return input, err
+			return input, nil, err
 		}
 		if result, ok := interface{}(postInput).(T); ok {
-			return result, nil
+			return result, rawJSON, nil
 		}
-		return input, fmt.Errorf("type assertion failed for PostToolUse")
+		return input, nil, fmt.Errorf("type assertion failed for PostToolUse")
 
 	default:
 		// その他のイベントタイプは従来通り
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return input, fmt.Errorf("failed to decode %s input: %w", eventType, err)
+			return input, nil, fmt.Errorf("failed to decode %s input: %w", eventType, err)
 		}
-		return input, nil
+		return input, rawJSON, nil
 	}
 }
 

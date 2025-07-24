@@ -123,12 +123,17 @@ func replaceJQVariables(template string, input interface{}) string {
 }
 
 // extendedSnakeCaseReplaceVariables は従来のsnake_case変数とjq変数の両方をサポート
-func extendedSnakeCaseReplaceVariables(template string, input interface{}) string {
+func extendedSnakeCaseReplaceVariables(template string, input interface{}, rawJSON interface{}) string {
 	// 1. 従来のsnake_case変数を置換
 	result := snakeCaseReplaceVariables(template, input)
 	
-	// 2. jq変数を置換
-	result = replaceJQVariables(result, input)
+	// 2. jq変数を置換（生のJSONデータを使用）
+	if rawJSON != nil {
+		result = replaceJQVariables(result, rawJSON)
+	} else {
+		// フォールバック：構造体データを使用
+		result = replaceJQVariables(result, input)
+	}
 	
 	return result
 }
