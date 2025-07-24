@@ -1,15 +1,17 @@
-global:
-  timeout: 30s
-  log_level: info
-
-hooks:
-  - name: go-format
-    description: "Run gofmt on Go files"
-    events: ["PostToolUse"]
-    matcher: "Write|Edit|MultiEdit"
+PostToolUse:
+  - matcher: "Write|Edit|MultiEdit"
     conditions:
       - type: file_extension
         value: ".go"
     actions:
       - type: command
         command: "gofmt -w {file_path}"
+
+PreToolUse:
+  - matcher: "Bash"
+    conditions:
+      - type: command_contains
+        value: "git add"
+    actions:
+      - type: output
+        message: "⚠️  Bashコマンドでgit addを実行しようとしています。semantic commitワークフローを使用することを検討してください。"

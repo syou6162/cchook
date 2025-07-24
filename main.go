@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,40 +12,160 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	Global GlobalConfig `yaml:"global"`
-	Hooks  []Hook       `yaml:"hooks"`
+// イベントタイプのenum定義
+type HookEventType string
+
+const (
+	PreToolUse    HookEventType = "PreToolUse"
+	PostToolUse   HookEventType = "PostToolUse"
+	Notification  HookEventType = "Notification"
+	Stop          HookEventType = "Stop"
+	SubagentStop  HookEventType = "SubagentStop"
+	PreCompact    HookEventType = "PreCompact"
+)
+
+// イベントタイプの妥当性検証
+func (e HookEventType) IsValid() bool {
+	switch e {
+	case PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact:
+		return true
+	default:
+		return false
+	}
 }
 
-type GlobalConfig struct {
-	Timeout  string `yaml:"timeout"`
-	LogLevel string `yaml:"log_level"`
+// 共通フィールド
+type BaseInput struct {
+	SessionID      string        `json:"session_id"`
+	TranscriptPath string        `json:"transcript_path"`
+	HookEventName  HookEventType `json:"hook_event_name"`
 }
 
-type Hook struct {
-	Name        string      `yaml:"name"`
-	Description string      `yaml:"description"`
-	Events      []string    `yaml:"events"`
-	Matcher     string      `yaml:"matcher"`
-	Conditions  []Condition `yaml:"conditions"`
-	Actions     []Action    `yaml:"actions"`
+// PreToolUse用
+type PreToolUseInput struct {
+	BaseInput
+	ToolName  string                 `json:"tool_name"`
+	ToolInput map[string]interface{} `json:"tool_input"`
 }
 
-type Condition struct {
+// PostToolUse用
+type PostToolUseInput struct {
+	BaseInput
+	ToolName     string                 `json:"tool_name"`
+	ToolInput    map[string]interface{} `json:"tool_input"`
+	ToolResponse map[string]interface{} `json:"tool_response"`
+}
+
+// Notification用
+type NotificationInput struct {
+	BaseInput
+	Message string `json:"message"`
+}
+
+// Stop用
+type StopInput struct {
+	BaseInput
+	StopHookActive bool `json:"stop_hook_active"`
+}
+
+// SubagentStop用
+type SubagentStopInput struct {
+	BaseInput
+	StopHookActive bool `json:"stop_hook_active"`
+}
+
+// PreCompact用
+type PreCompactInput struct {
+	BaseInput
+	Trigger            string `json:"trigger"` // "manual" or "auto"
+	CustomInstructions string `json:"custom_instructions"`
+}
+
+// イベントタイプ毎の設定構造体
+type PreToolUseHook struct {
+	Matcher    string                `yaml:"matcher"`
+	Conditions []PreToolUseCondition `yaml:"conditions,omitempty"`
+	Actions    []PreToolUseAction    `yaml:"actions"`
+}
+
+type PostToolUseHook struct {
+	Matcher    string                 `yaml:"matcher"`
+	Conditions []PostToolUseCondition `yaml:"conditions,omitempty"`
+	Actions    []PostToolUseAction    `yaml:"actions"`
+}
+
+type NotificationHook struct {
+	Actions []NotificationAction `yaml:"actions"`
+}
+
+type StopHook struct {
+	Actions []StopAction `yaml:"actions"`
+}
+
+type SubagentStopHook struct {
+	Actions []SubagentStopAction `yaml:"actions"`
+}
+
+type PreCompactHook struct {
+	Actions []PreCompactAction `yaml:"actions"`
+}
+
+// イベントタイプ毎の条件構造体
+type PreToolUseCondition struct {
 	Type  string `yaml:"type"`
 	Value string `yaml:"value"`
 }
 
-type Action struct {
-	Type    string `yaml:"type"`
-	Command string `yaml:"command"`
-	Message string `yaml:"message"`
+type PostToolUseCondition struct {
+	Type  string `yaml:"type"`
+	Value string `yaml:"value"`
 }
 
-type ClaudeInput struct {
-	Event     string                 `json:"event"`
-	ToolName  string                 `json:"tool_name"`
-	ToolInput map[string]interface{} `json:"tool_input"`
+// イベントタイプ毎のアクション構造体
+type PreToolUseAction struct {
+	Type    string `yaml:"type"`
+	Command string `yaml:"command,omitempty"`
+	Message string `yaml:"message,omitempty"`
+}
+
+type PostToolUseAction struct {
+	Type    string `yaml:"type"`
+	Command string `yaml:"command,omitempty"`
+	Message string `yaml:"message,omitempty"`
+}
+
+type NotificationAction struct {
+	Type    string `yaml:"type"`
+	Command string `yaml:"command,omitempty"`
+	Message string `yaml:"message,omitempty"`
+}
+
+type StopAction struct {
+	Type    string `yaml:"type"`
+	Command string `yaml:"command,omitempty"`
+	Message string `yaml:"message,omitempty"`
+}
+
+type SubagentStopAction struct {
+	Type    string `yaml:"type"`
+	Command string `yaml:"command,omitempty"`
+	Message string `yaml:"message,omitempty"`
+}
+
+type PreCompactAction struct {
+	Type    string `yaml:"type"`
+	Command string `yaml:"command,omitempty"`
+	Message string `yaml:"message,omitempty"`
+}
+
+// 設定ファイル構造
+type Config struct {
+	PreToolUse    []PreToolUseHook    `yaml:"PreToolUse,omitempty"`
+	PostToolUse   []PostToolUseHook   `yaml:"PostToolUse,omitempty"`
+	Notification  []NotificationHook  `yaml:"Notification,omitempty"`
+	Stop          []StopHook          `yaml:"Stop,omitempty"`
+	SubagentStop  []SubagentStopHook  `yaml:"SubagentStop,omitempty"`
+	PreCompact    []PreCompactHook    `yaml:"PreCompact,omitempty"`
 }
 
 func main() {
