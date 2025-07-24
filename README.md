@@ -120,6 +120,11 @@ Stop:
       - type: output
         message: "Last assistant message: {jq: .data | reverse | map(select(.type == \"assistant\")) | .[0].content}"
       - type: command
+        command: 'ntfy publish --title "Claude Code Session" "{jq: .transcript_path}"'
+
+Notification:  
+  - actions:
+      - type: command
         command: 'ntfy publish --title "Claude Code" "{jq: .message | @base64}"'
 ```
 
