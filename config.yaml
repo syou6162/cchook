@@ -1,0 +1,15 @@
+global:
+  timeout: 30s
+  log_level: info
+
+hooks:
+  - name: go-format
+    description: "Run gofmt on Go files"
+    events: ["PostToolUse"]
+    matcher: "Write|Edit|MultiEdit"
+    conditions:
+      - type: file_extension
+        value: ".go"
+    actions:
+      - type: command
+        command: "gofmt -w {file_path}"
