@@ -222,7 +222,20 @@ func loadConfig(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
+	// まずは素のYAMLとしてパース
+	var rawConfig map[string]interface{}
+	if err := yaml.Unmarshal(data, &rawConfig); err != nil {
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	// hooksセクションがあるかチェック（レガシーフォーマット対応）
 	var config Config
+	if _, ok := rawConfig["hooks"]; ok {
+		// 既存の設定フォーマットをサポートするための一時的な処理
+		return nil, fmt.Errorf("legacy config format not supported yet. Please use new format.")
+	}
+
+	// 新しいClaude Code仕様のフォーマットでパース
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
