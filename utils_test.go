@@ -56,12 +56,12 @@ func TestReplaceVariables_NewSystem(t *testing.T) {
 	}{
 		{
 			"Access ToolInput file_path",
-			"Format file: {ToolInput.file_path}",
+			"Format file: {tool_input.file_path}",
 			"Format file: main.go",
 		},
 		{
 			"Access ToolInput content",
-			"Content: {ToolInput.content}",
+			"Content: {tool_input.content}",
 			"Content: package main",
 		},
 		{
@@ -76,13 +76,13 @@ func TestReplaceVariables_NewSystem(t *testing.T) {
 		},
 		{
 			"Multiple placeholders",
-			"Processing {ToolInput.file_path} with {ToolName} in session {SessionID}",
+			"Processing {tool_input.file_path} with {ToolName} in session {SessionID}",
 			"Processing main.go with Write in session test-session-123",
 		},
 		{
 			"Non-existent field returns placeholder",
-			"Value: {ToolInput.nonexistent}",
-			"Value: {ToolInput.nonexistent}",
+			"Value: {tool_input.nonexistent}",
+			"Value: {tool_input.nonexistent}",
 		},
 		{
 			"No placeholders",
@@ -128,12 +128,12 @@ func TestReplaceVariables_DirectToolInput(t *testing.T) {
 	}{
 		{
 			"Access file_path from ToolInput",
-			"File: {ToolInput.file_path}",
+			"File: {tool_input.file_path}",
 			"File: test.go",
 		},
 		{
 			"Access content from ToolInput",
-			"Content: {ToolInput.content}",
+			"Content: {tool_input.content}",
 			"Content: test content",
 		},
 		{
@@ -164,7 +164,7 @@ func TestReplacePreToolUseVariables(t *testing.T) {
 		},
 	}
 	
-	got := replacePreToolUseVariables("format {ToolInput.file_path}", input)
+	got := replacePreToolUseVariables("format {tool_input.file_path}", input)
 	want := "format test.go"
 	
 	if got != want {
@@ -183,7 +183,7 @@ func TestReplacePostToolUseVariables(t *testing.T) {
 		},
 	}
 	
-	got := replacePostToolUseVariables("lint {ToolInput.file_path}", input)
+	got := replacePostToolUseVariables("lint {tool_input.file_path}", input)
 	want := "lint output.go"
 	
 	if got != want {

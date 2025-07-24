@@ -68,9 +68,9 @@ PostToolUse:
         value: ".go"
     actions:
       - type: command
-        command: "gofmt -w {ToolInput.file_path}"
+        command: "gofmt -w {tool_input.file_path}"
       - type: output
-        message: "Formatted {ToolInput.file_path}"
+        message: "Formatted {tool_input.file_path}"
 
 PreToolUse:
   - matcher: "Bash"
@@ -105,9 +105,9 @@ Use `{path.to.field}` to access input data:
 
 - `{SessionID}` - session_id field
 - `{ToolName}` - tool_name field  
-- `{ToolInput.file_path}` - file_path in tool_input
-- `{ToolInput.content}` - content in tool_input
-- `{ToolInput.nested.field}` - nested fields
+- `{tool_input.file_path}` - file_path in tool_input
+- `{tool_input.content}` - content in tool_input
+- `{tool_input.nested.field}` - nested fields
 
 ## Event Types
 
@@ -120,8 +120,8 @@ Use `{path.to.field}` to access input data:
 
 ## Conditions
 
-- `file_extension` - Match file extension in ToolInput.file_path
-- `command_contains` - Match substring in ToolInput.command
+- `file_extension` - Match file extension in tool_input.file_path
+- `command_contains` - Match substring in tool_input.command
 
 ## Actions
 
@@ -139,7 +139,7 @@ PostToolUse:
         value: ".go"
     actions:
       - type: command
-        command: "gofmt -w {ToolInput.file_path}"
+        command: "gofmt -w {tool_input.file_path}"
 ```
 
 Warn about git add:
