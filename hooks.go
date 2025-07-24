@@ -8,41 +8,41 @@ import (
 func runHooks(config *Config, eventType HookEventType) error {
 	switch eventType {
 	case PreToolUse:
-		input, err := parseInput[*PreToolUseInput](eventType)
+		input, rawJSON, err := parseInput[*PreToolUseInput](eventType)
 		if err != nil {
 			return err
 		}
-		return executePreToolUseHooks(config, input)
+		return executePreToolUseHooks(config, input, rawJSON)
 	case PostToolUse:
-		input, err := parseInput[*PostToolUseInput](eventType)
+		input, rawJSON, err := parseInput[*PostToolUseInput](eventType)
 		if err != nil {
 			return err
 		}
-		return executePostToolUseHooks(config, input)
+		return executePostToolUseHooks(config, input, rawJSON)
 	case Notification:
-		input, err := parseInput[*NotificationInput](eventType)
+		input, rawJSON, err := parseInput[*NotificationInput](eventType)
 		if err != nil {
 			return err
 		}
-		return executeNotificationHooks(config, input)
+		return executeNotificationHooks(config, input, rawJSON)
 	case Stop:
-		input, err := parseInput[*StopInput](eventType)
+		input, rawJSON, err := parseInput[*StopInput](eventType)
 		if err != nil {
 			return err
 		}
-		return executeStopHooks(config, input)
+		return executeStopHooks(config, input, rawJSON)
 	case SubagentStop:
-		input, err := parseInput[*SubagentStopInput](eventType)
+		input, rawJSON, err := parseInput[*SubagentStopInput](eventType)
 		if err != nil {
 			return err
 		}
-		return executeSubagentStopHooks(config, input)
+		return executeSubagentStopHooks(config, input, rawJSON)
 	case PreCompact:
-		input, err := parseInput[*PreCompactInput](eventType)
+		input, rawJSON, err := parseInput[*PreCompactInput](eventType)
 		if err != nil {
 			return err
 		}
-		return executePreCompactHooks(config, input)
+		return executePreCompactHooks(config, input, rawJSON)
 	default:
 		return fmt.Errorf("unsupported event type: %s", eventType)
 	}
