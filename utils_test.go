@@ -34,55 +34,135 @@ func TestCheckMatcher(t *testing.T) {
 	}
 }
 
-func TestReplaceVariables(t *testing.T) {
+func TestReplaceVariables_NewSystem(t *testing.T) {
+	// テスト用のネストした構造を作成
+	input := &PreToolUseInput{
+		BaseInput: BaseInput{
+			SessionID:      "test-session-123",
+			TranscriptPath: "/tmp/transcript",
+			HookEventName:  "PreToolUse",
+		},
+		ToolName: "Write",
+		ToolInput: map[string]interface{}{
+			"file_path": "main.go",
+			"content":   "package main",
+			"nested": map[string]interface{}{
+				"deep_field": "deep_value",
+				"number":     42,
+				"enabled":    true,
+			},
+		},
+	}
+
 	tests := []struct {
-		name      string
-		command   string
-		toolInput map[string]interface{}
-		want      string
+		name     string
+		template string
+		want     string
 	}{
 		{
-			"Replace file_path",
-			"gofmt -w {file_path}",
-			map[string]interface{}{"file_path": "main.go"},
-			"gofmt -w main.go",
+			"Access ToolInput file_path",
+			"Format file: {ToolInput.file_path}",
+			"Format file: main.go",
 		},
 		{
-			"Multiple file_path replacements",
-			"cp {file_path} {file_path}.bak",
-			map[string]interface{}{"file_path": "test.go"},
-			"cp test.go test.go.bak",
+			"Access ToolInput content",
+			"Content: {ToolInput.content}",
+			"Content: package main",
 		},
 		{
-			"No file_path in input",
-			"echo {file_path}",
-			map[string]interface{}{"other": "value"},
-			"echo {file_path}",
+			"Access nested field",
+			"Deep field: {ToolInput.nested.deep_field}",
+			"Deep field: deep_value",
+		},
+		{
+			"Access nested number",
+			"Number: {ToolInput.nested.number}",
+			"Number: 42",
+		},
+		{
+			"Access nested boolean",
+			"Enabled: {ToolInput.nested.enabled}",
+			"Enabled: true",
+		},
+		{
+			"Access top-level SessionID",
+			"Session: {SessionID}",
+			"Session: test-session-123",
+		},
+		{
+			"Access ToolName",
+			"Tool: {ToolName}",
+			"Tool: Write",
+		},
+		{
+			"Multiple placeholders",
+			"Processing {ToolInput.file_path} with {ToolName} in session {SessionID}",
+			"Processing main.go with Write in session test-session-123",
+		},
+		{
+			"Non-existent field returns placeholder",
+			"Value: {ToolInput.nonexistent}",
+			"Value: {ToolInput.nonexistent}",
 		},
 		{
 			"No placeholders",
 			"go build",
-			map[string]interface{}{"file_path": "main.go"},
 			"go build",
 		},
 		{
-			"Empty command",
+			"Empty template",
 			"",
-			map[string]interface{}{"file_path": "main.go"},
 			"",
-		},
-		{
-			"file_path is not string",
-			"process {file_path}",
-			map[string]interface{}{"file_path": 123},
-			"process {file_path}",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := replaceVariables(tt.command, tt.toolInput); got != tt.want {
-				t.Errorf("replaceVariables(%q, %v) = %q, want %q", tt.command, tt.toolInput, got, tt.want)
+			got := replaceVariables(tt.template, input)
+			if got != tt.want {
+				t.Errorf("replaceVariables(%q, input) = %q, want %q", tt.template, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReplaceVariables_LegacyMapInput(t *testing.T) {
+	// マップ形式の入力でのテスト
+	toolInput := map[string]interface{}{
+		"file_path": "test.go",
+		"content":   "test content",
+		"nested": map[string]interface{}{
+			"value": "nested_value",
+		},
+	}
+
+	tests := []struct {
+		name     string
+		template string
+		want     string
+	}{
+		{
+			"Access file_path from map",
+			"File: {file_path}",
+			"File: test.go",
+		},
+		{
+			"Access content from map",
+			"Content: {content}",
+			"Content: test content",
+		},
+		{
+			"Access nested value from map",
+			"Nested: {nested.value}",
+			"Nested: nested_value",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := replaceVariables(tt.template, toolInput)
+			if got != tt.want {
+				t.Errorf("replaceVariables(%q, toolInput) = %q, want %q", tt.template, got, tt.want)
 			}
 		})
 	}
@@ -90,12 +170,16 @@ func TestReplaceVariables(t *testing.T) {
 
 func TestReplacePreToolUseVariables(t *testing.T) {
 	input := &PreToolUseInput{
+		BaseInput: BaseInput{
+			SessionID: "test-session",
+		},
+		ToolName: "Write",
 		ToolInput: map[string]interface{}{
 			"file_path": "test.go",
 		},
 	}
 	
-	got := replacePreToolUseVariables("format {file_path}", input)
+	got := replacePreToolUseVariables("format {ToolInput.file_path}", input)
 	want := "format test.go"
 	
 	if got != want {
@@ -105,12 +189,16 @@ func TestReplacePreToolUseVariables(t *testing.T) {
 
 func TestReplacePostToolUseVariables(t *testing.T) {
 	input := &PostToolUseInput{
+		BaseInput: BaseInput{
+			SessionID: "test-session",
+		},
+		ToolName: "Edit",
 		ToolInput: map[string]interface{}{
 			"file_path": "output.go",
 		},
 	}
 	
-	got := replacePostToolUseVariables("lint {file_path}", input)
+	got := replacePostToolUseVariables("lint {ToolInput.file_path}", input)
 	want := "lint output.go"
 	
 	if got != want {

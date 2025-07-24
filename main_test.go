@@ -170,7 +170,7 @@ func TestDryRunHooks_Success(t *testing.T) {
 			{
 				Matcher: "Write",
 				Actions: []PreToolUseAction{
-					{Type: "command", Command: "echo {file_path}"},
+					{Type: "command", Command: "echo {ToolInput.file_path}"},
 				},
 			},
 		},
