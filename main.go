@@ -179,6 +179,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	// イベントタイプの妥当性検証
+	if *command == "run" {
+		eventType := HookEventType(*eventType)
+		if !eventType.IsValid() {
+			fmt.Fprintf(os.Stderr, "Error: invalid event type '%s'. Valid types: PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact\n", string(eventType))
+			os.Exit(1)
+		}
+	}
+
 	config, err := loadConfig(*configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
@@ -187,7 +196,7 @@ func main() {
 
 	switch *command {
 	case "run":
-		err = runHooks(config, *eventType)
+		err = runHooks(config, HookEventType(*eventType))
 	case "dry-run":
 		err = dryRunHooks(config)
 	case "test":
