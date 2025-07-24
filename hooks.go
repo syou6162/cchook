@@ -102,7 +102,7 @@ func dryRunPreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inter
 			for _, action := range hook.Actions {
 				switch action.Type {
 				case "command":
-					cmd := replacePreToolUseVariables(action.Command, input)
+					cmd := replacePreToolUseVariables(action.Command, input, rawJSON)
 					fmt.Printf("  Command: %s\n", cmd)
 				case "output":
 					fmt.Printf("  Message: %s\n", action.Message)
@@ -116,7 +116,7 @@ func dryRunPreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inter
 	return nil
 }
 
-func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput) error {
+func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON interface{}) error {
 	fmt.Println("=== PostToolUse Hooks (Dry Run) ===")
 	executed := false
 	for i, hook := range config.PostToolUse {
@@ -126,7 +126,7 @@ func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput) error {
 			for _, action := range hook.Actions {
 				switch action.Type {
 				case "command":
-					cmd := replacePostToolUseVariables(action.Command, input)
+					cmd := replacePostToolUseVariables(action.Command, input, rawJSON)
 					fmt.Printf("  Command: %s\n", cmd)
 				case "output":
 					fmt.Printf("  Message: %s\n", action.Message)
@@ -141,7 +141,7 @@ func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput) error {
 }
 
 
-func dryRunNotificationHooks(config *Config, input *NotificationInput) error {
+func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON interface{}) error {
 	fmt.Println("=== Notification Hooks (Dry Run) ===")
 	
 	if len(config.Notification) == 0 {
@@ -156,7 +156,7 @@ func dryRunNotificationHooks(config *Config, input *NotificationInput) error {
 		for _, action := range hook.Actions {
 			switch action.Type {
 			case "command":
-				cmd := snakeCaseReplaceVariables(action.Command, input)
+				cmd := unifiedTemplateReplace(action.Command, rawJSON)
 				fmt.Printf("  Command: %s\n", cmd)
 			case "output":
 				fmt.Printf("  Message: %s\n", action.Message)
@@ -170,7 +170,7 @@ func dryRunNotificationHooks(config *Config, input *NotificationInput) error {
 	return nil
 }
 
-func dryRunStopHooks(config *Config, input *StopInput) error {
+func dryRunStopHooks(config *Config, input *StopInput, rawJSON interface{}) error {
 	fmt.Println("=== Stop Hooks (Dry Run) ===")
 	
 	if len(config.Stop) == 0 {
@@ -185,7 +185,7 @@ func dryRunStopHooks(config *Config, input *StopInput) error {
 		for _, action := range hook.Actions {
 			switch action.Type {
 			case "command":
-				cmd := snakeCaseReplaceVariables(action.Command, input)
+				cmd := unifiedTemplateReplace(action.Command, rawJSON)
 				fmt.Printf("  Command: %s\n", cmd)
 			case "output":
 				fmt.Printf("  Message: %s\n", action.Message)
@@ -199,7 +199,7 @@ func dryRunStopHooks(config *Config, input *StopInput) error {
 	return nil
 }
 
-func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput) error {
+func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON interface{}) error {
 	fmt.Println("=== SubagentStop Hooks (Dry Run) ===")
 	
 	if len(config.SubagentStop) == 0 {
@@ -214,7 +214,7 @@ func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput) error {
 		for _, action := range hook.Actions {
 			switch action.Type {
 			case "command":
-				cmd := snakeCaseReplaceVariables(action.Command, input)
+				cmd := unifiedTemplateReplace(action.Command, rawJSON)
 				fmt.Printf("  Command: %s\n", cmd)
 			case "output":
 				fmt.Printf("  Message: %s\n", action.Message)
@@ -228,7 +228,7 @@ func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput) error {
 	return nil
 }
 
-func dryRunPreCompactHooks(config *Config, input *PreCompactInput) error {
+func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON interface{}) error {
 	fmt.Println("=== PreCompact Hooks (Dry Run) ===")
 	
 	if len(config.PreCompact) == 0 {
@@ -243,7 +243,7 @@ func dryRunPreCompactHooks(config *Config, input *PreCompactInput) error {
 		for _, action := range hook.Actions {
 			switch action.Type {
 			case "command":
-				cmd := snakeCaseReplaceVariables(action.Command, input)
+				cmd := unifiedTemplateReplace(action.Command, rawJSON)
 				fmt.Printf("  Command: %s\n", cmd)
 			case "output":
 				fmt.Printf("  Message: %s\n", action.Message)
@@ -258,10 +258,10 @@ func dryRunPreCompactHooks(config *Config, input *PreCompactInput) error {
 }
 
 // イベント別のフック実行関数
-func executePreToolUseHooks(config *Config, input *PreToolUseInput) error {
+func executePreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON interface{}) error {
 	for i, hook := range config.PreToolUse {
 		if shouldExecutePreToolUseHook(hook, input) {
-			if err := executePreToolUseHook(hook, input); err != nil {
+			if err := executePreToolUseHook(hook, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "PreToolUse hook %d failed: %v\n", i, err)
 			}
 		}
@@ -269,10 +269,10 @@ func executePreToolUseHooks(config *Config, input *PreToolUseInput) error {
 	return nil
 }
 
-func executePostToolUseHooks(config *Config, input *PostToolUseInput) error {
+func executePostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON interface{}) error {
 	for i, hook := range config.PostToolUse {
 		if shouldExecutePostToolUseHook(hook, input) {
-			if err := executePostToolUseHook(hook, input); err != nil {
+			if err := executePostToolUseHook(hook, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "PostToolUse hook %d failed: %v\n", i, err)
 			}
 		}
@@ -281,10 +281,10 @@ func executePostToolUseHooks(config *Config, input *PostToolUseInput) error {
 }
 
 
-func executeNotificationHooks(config *Config, input *NotificationInput) error {
+func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON interface{}) error {
 	for i, hook := range config.Notification {
 		for _, action := range hook.Actions {
-			if err := executeNotificationAction(action, input); err != nil {
+			if err := executeNotificationAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "Notification hook %d failed: %v\n", i, err)
 			}
 		}
@@ -292,10 +292,10 @@ func executeNotificationHooks(config *Config, input *NotificationInput) error {
 	return nil
 }
 
-func executeStopHooks(config *Config, input *StopInput) error {
+func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) error {
 	for i, hook := range config.Stop {
 		for _, action := range hook.Actions {
-			if err := executeStopAction(action, input); err != nil {
+			if err := executeStopAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "Stop hook %d failed: %v\n", i, err)
 			}
 		}
@@ -303,10 +303,10 @@ func executeStopHooks(config *Config, input *StopInput) error {
 	return nil
 }
 
-func executeSubagentStopHooks(config *Config, input *SubagentStopInput) error {
+func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON interface{}) error {
 	for i, hook := range config.SubagentStop {
 		for _, action := range hook.Actions {
-			if err := executeSubagentStopAction(action, input); err != nil {
+			if err := executeSubagentStopAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "SubagentStop hook %d failed: %v\n", i, err)
 			}
 		}
@@ -314,10 +314,10 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput) error {
 	return nil
 }
 
-func executePreCompactHooks(config *Config, input *PreCompactInput) error {
+func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON interface{}) error {
 	for i, hook := range config.PreCompact {
 		for _, action := range hook.Actions {
-			if err := executePreCompactAction(action, input); err != nil {
+			if err := executePreCompactAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "PreCompact hook %d failed: %v\n", i, err)
 			}
 		}
@@ -357,11 +357,11 @@ func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput)
 	return true
 }
 
-func executePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput) error {
+func executePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput, rawJSON interface{}) error {
 	for _, action := range hook.Actions {
 		switch action.Type {
 		case "command":
-			cmd := replacePreToolUseVariables(action.Command, input)
+			cmd := replacePreToolUseVariables(action.Command, input, rawJSON)
 			if err := runCommand(cmd); err != nil {
 				return err
 			}
@@ -372,11 +372,11 @@ func executePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput) error {
 	return nil
 }
 
-func executePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput) error {
+func executePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput, rawJSON interface{}) error {
 	for _, action := range hook.Actions {
 		switch action.Type {
 		case "command":
-			cmd := replacePostToolUseVariables(action.Command, input)
+			cmd := replacePostToolUseVariables(action.Command, input, rawJSON)
 			if err := runCommand(cmd); err != nil {
 				return err
 			}
