@@ -171,36 +171,24 @@ func replaceVariables(template string, data interface{}) string {
 }
 
 func replacePreToolUseVariables(command string, input *PreToolUseInput) string {
-	return replaceVariables(command, input)
+	return snakeCaseReplaceVariables(command, input)
 }
 
 func replacePostToolUseVariables(command string, input *PostToolUseInput) string {
-	return replaceVariables(command, input)
+	return snakeCaseReplaceVariables(command, input)
 }
 
 func checkPreToolUseCondition(condition PreToolUseCondition, input *PreToolUseInput) bool {
 	switch condition.Type {
 	case "file_extension":
-		// リフレクションを使ってfile_pathフィールドを取得
-		if filePath := getFieldValue(input.ToolInput, "FilePath"); filePath != "" {
-			return strings.HasSuffix(filePath, condition.Value)
-		}
-		// 後方互換性のために map でもチェック
-		if toolInputMap, ok := input.ToolInput.(map[string]interface{}); ok {
-			if filePath, ok := toolInputMap["file_path"].(string); ok {
-				return strings.HasSuffix(filePath, condition.Value)
-			}
+		// ToolInput構造体から直接FilePath取得
+		if input.ToolInput.FilePath != "" {
+			return strings.HasSuffix(input.ToolInput.FilePath, condition.Value)
 		}
 	case "command_contains":
-		// リフレクションを使ってcommandフィールドを取得
-		if command := getFieldValue(input.ToolInput, "Command"); command != "" {
-			return strings.Contains(command, condition.Value)
-		}
-		// 後方互換性のために map でもチェック
-		if toolInputMap, ok := input.ToolInput.(map[string]interface{}); ok {
-			if command, ok := toolInputMap["command"].(string); ok {
-				return strings.Contains(command, condition.Value)
-			}
+		// ToolInput構造体からCommand取得
+		if input.ToolInput.Command != "" {
+			return strings.Contains(input.ToolInput.Command, condition.Value)
 		}
 	}
 	return false
@@ -209,26 +197,14 @@ func checkPreToolUseCondition(condition PreToolUseCondition, input *PreToolUseIn
 func checkPostToolUseCondition(condition PostToolUseCondition, input *PostToolUseInput) bool {
 	switch condition.Type {
 	case "file_extension":
-		// リフレクションを使ってfile_pathフィールドを取得
-		if filePath := getFieldValue(input.ToolInput, "FilePath"); filePath != "" {
-			return strings.HasSuffix(filePath, condition.Value)
-		}
-		// 後方互換性のために map でもチェック
-		if toolInputMap, ok := input.ToolInput.(map[string]interface{}); ok {
-			if filePath, ok := toolInputMap["file_path"].(string); ok {
-				return strings.HasSuffix(filePath, condition.Value)
-			}
+		// ToolInput構造体から直接FilePath取得
+		if input.ToolInput.FilePath != "" {
+			return strings.HasSuffix(input.ToolInput.FilePath, condition.Value)
 		}
 	case "command_contains":
-		// リフレクションを使ってcommandフィールドを取得
-		if command := getFieldValue(input.ToolInput, "Command"); command != "" {
-			return strings.Contains(command, condition.Value)
-		}
-		// 後方互換性のために map でもチェック
-		if toolInputMap, ok := input.ToolInput.(map[string]interface{}); ok {
-			if command, ok := toolInputMap["command"].(string); ok {
-				return strings.Contains(command, condition.Value)
-			}
+		// ToolInput構造体からCommand取得
+		if input.ToolInput.Command != "" {
+			return strings.Contains(input.ToolInput.Command, condition.Value)
 		}
 	}
 	return false
