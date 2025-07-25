@@ -175,39 +175,59 @@ type PostToolUseCondition struct {
 
 // イベントタイプ毎のアクション構造体
 type PreToolUseAction struct {
-	Type    string `yaml:"type"`
-	Command string `yaml:"command,omitempty"`
-	Message string `yaml:"message,omitempty"`
+	Type                     string  `yaml:"type"`
+	Command                  string  `yaml:"command,omitempty"`
+	PermissionDecision       *string `yaml:"permission_decision,omitempty"`
+	PermissionDecisionReason *string `yaml:"permission_reason,omitempty"`
+	Continue                 *bool   `yaml:"continue,omitempty"`
+	StopReason               *string `yaml:"stop_reason,omitempty"`
+	SuppressOutput           *bool   `yaml:"suppress_output,omitempty"`
 }
 
 type PostToolUseAction struct {
-	Type    string `yaml:"type"`
-	Command string `yaml:"command,omitempty"`
-	Message string `yaml:"message,omitempty"`
+	Type           string  `yaml:"type"`
+	Command        string  `yaml:"command,omitempty"`
+	Decision       *string `yaml:"decision,omitempty"`
+	Reason         *string `yaml:"reason,omitempty"`
+	Continue       *bool   `yaml:"continue,omitempty"`
+	StopReason     *string `yaml:"stop_reason,omitempty"`
+	SuppressOutput *bool   `yaml:"suppress_output,omitempty"`
 }
 
 type NotificationAction struct {
-	Type    string `yaml:"type"`
-	Command string `yaml:"command,omitempty"`
-	Message string `yaml:"message,omitempty"`
+	Type           string  `yaml:"type"`
+	Command        string  `yaml:"command,omitempty"`
+	Continue       *bool   `yaml:"continue,omitempty"`
+	StopReason     *string `yaml:"stop_reason,omitempty"`
+	SuppressOutput *bool   `yaml:"suppress_output,omitempty"`
 }
 
 type StopAction struct {
-	Type    string `yaml:"type"`
-	Command string `yaml:"command,omitempty"`
-	Message string `yaml:"message,omitempty"`
+	Type           string  `yaml:"type"`
+	Command        string  `yaml:"command,omitempty"`
+	Decision       *string `yaml:"decision,omitempty"`
+	Reason         *string `yaml:"reason,omitempty"`
+	Continue       *bool   `yaml:"continue,omitempty"`
+	StopReason     *string `yaml:"stop_reason,omitempty"`
+	SuppressOutput *bool   `yaml:"suppress_output,omitempty"`
 }
 
 type SubagentStopAction struct {
-	Type    string `yaml:"type"`
-	Command string `yaml:"command,omitempty"`
-	Message string `yaml:"message,omitempty"`
+	Type           string  `yaml:"type"`
+	Command        string  `yaml:"command,omitempty"`
+	Decision       *string `yaml:"decision,omitempty"`
+	Reason         *string `yaml:"reason,omitempty"`
+	Continue       *bool   `yaml:"continue,omitempty"`
+	StopReason     *string `yaml:"stop_reason,omitempty"`
+	SuppressOutput *bool   `yaml:"suppress_output,omitempty"`
 }
 
 type PreCompactAction struct {
-	Type    string `yaml:"type"`
-	Command string `yaml:"command,omitempty"`
-	Message string `yaml:"message,omitempty"`
+	Type           string  `yaml:"type"`
+	Command        string  `yaml:"command,omitempty"`
+	Continue       *bool   `yaml:"continue,omitempty"`
+	StopReason     *string `yaml:"stop_reason,omitempty"`
+	SuppressOutput *bool   `yaml:"suppress_output,omitempty"`
 }
 
 // Claude Code互換の構造化JSON出力構造体
