@@ -118,6 +118,7 @@ func TestLoadConfig_EmptyFile(t *testing.T) {
 	// 空のファイルでも正常に読み込まれるべき
 	if config == nil {
 		t.Error("Expected non-nil config for empty file")
+		return
 	}
 
 	if len(config.PostToolUse) != 0 {

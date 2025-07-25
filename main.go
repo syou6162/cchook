@@ -14,8 +14,7 @@ func main() {
 
 	fmt.Printf("Debug: Starting cchook with config=%s, command=%s, event=%s\n", *configPath, *command, *eventType)
 	// テストコメント追加
-	var x int
-	x = 1 + 2
+	x := 1 + 2
 	_ = x
 	var y, z string
 	y = "hello"
