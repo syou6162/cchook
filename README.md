@@ -107,15 +107,10 @@ Use `{jq_query}` for JSON processing with jq-compatible queries:
 Stop:
   - actions:
       - type: command
-        command: |
-          MESSAGE=$(cat '{.transcript_path}' | 
-            jq -sr 'reverse 
-                   | map(select(.type == "assistant" and .message.content[0].type == "text")) 
-                   | .[0].message.content[0].text')
-          ntfy publish \
-            --markdown \
-            --title 'Claude Code Complete' \
-            --message "${MESSAGE}"
+        command: >
+          cat '{.transcript_path}' | 
+          jq -s 'reverse | map(select(.type == "assistant" and .message.content[0].type == "text")) | .[0].message.content[0].text' |
+          xargs -I {} ntfy publish --markdown --title 'Claude Code Complete' "{}"
 
 Notification:  
   - actions:
@@ -146,17 +141,10 @@ Notification:
 Stop:
   - actions:
       - type: command
-        command: |
-          MESSAGE=$(cat '{.transcript_path}' | 
-            jq -sr 'reverse 
-                   | map(select(.type == "assistant" and .message.content[0].type == "text")) 
-                   | .[0].message.content[0].text')
-          echo "Session completed!" &&
-          ntfy publish \
-            --markdown \
-            --title "Claude Code Complete" \
-            --tags "checkmark" \
-            --message "${MESSAGE}"
+        command: >
+          cat '{.transcript_path}' | 
+          jq -s 'reverse | map(select(.type == "assistant" and .message.content[0].type == "text")) | .[0].message.content[0].text' |
+          xargs -I {} ntfy publish --markdown --title 'Claude Code Complete' --tags 'checkmark' "{}"
 ```
 
 ## Event Types
