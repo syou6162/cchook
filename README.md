@@ -68,9 +68,9 @@ PostToolUse:
         value: ".go"
     actions:
       - type: command
-        command: "gofmt -w {tool_input.file_path}"
+        command: "gofmt -w {.tool_input.file_path}"
       - type: output
-        message: "Formatted {tool_input.file_path}"
+        message: "Formatted {.tool_input.file_path}"
 
 PreToolUse:
   - matcher: "Bash"
@@ -247,7 +247,7 @@ PostToolUse:
         value: ".go"
     actions:
       - type: command
-        command: "gofmt -w {tool_input.file_path}"
+        command: "gofmt -w {.tool_input.file_path}"
 ```
 
 Block git add (recommended approach):
