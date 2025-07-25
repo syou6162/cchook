@@ -12,15 +12,6 @@ func main() {
 	eventType := flag.String("event", "", "Event type for run/dry-run command")
 	flag.Parse()
 
-	fmt.Printf("Debug: Starting cchook with config=%s, command=%s, event=%s\n", *configPath, *command, *eventType)
-	// テストコメント追加
-	x := 1 + 2
-	_ = x
-	var y, z string
-	y = "hello"
-	z = "world"
-	_ = y + z
-
 	if (*command == "run" || *command == "dry-run") && *eventType == "" {
 		fmt.Fprintf(os.Stderr, "Error: event type is required for %s command\n", *command)
 		os.Exit(1)
@@ -51,8 +42,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	// ExitError の場合は特別な処理
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		if exitErr, ok := err.(*ExitError); ok {
+			// ExitError の場合は適切な出力先に出力して指定のコードで終了
+			if exitErr.Stderr {
+				fmt.Fprintf(os.Stderr, "%s\n", exitErr.Message)
+			} else {
+				fmt.Println(exitErr.Message)
+			}
+			os.Exit(exitErr.Code)
+		} else {
+			// 通常のエラーの場合
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	}
 }
