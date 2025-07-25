@@ -153,7 +153,7 @@ func TestExecutePreToolUseHook_OutputAction(t *testing.T) {
 
 	hook := PreToolUseHook{
 		Actions: []PreToolUseAction{
-			{Type: "structured_output"},
+			{BaseAction: BaseAction{Type: "structured_output"}},
 		},
 	}
 
@@ -182,7 +182,7 @@ func TestExecutePreToolUseHook_OutputAction(t *testing.T) {
 func TestExecutePreToolUseHook_CommandAction(t *testing.T) {
 	hook := PreToolUseHook{
 		Actions: []PreToolUseAction{
-			{Type: "command", Command: "echo test"},
+			{BaseAction: BaseAction{Type: "command", Command: "echo test"}},
 		},
 	}
 
@@ -197,7 +197,7 @@ func TestExecutePreToolUseHook_CommandAction(t *testing.T) {
 func TestExecutePreToolUseHook_CommandWithVariables(t *testing.T) {
 	hook := PreToolUseHook{
 		Actions: []PreToolUseAction{
-			{Type: "command", Command: "echo {.tool_input.file_path}"},
+			{BaseAction: BaseAction{Type: "command", Command: "echo {.tool_input.file_path}"}},
 		},
 	}
 
@@ -223,7 +223,7 @@ func TestExecutePreToolUseHook_CommandWithVariables(t *testing.T) {
 func TestExecutePreToolUseHook_FailingCommand(t *testing.T) {
 	hook := PreToolUseHook{
 		Actions: []PreToolUseAction{
-			{Type: "command", Command: "false"}, // 常に失敗するコマンド
+			{BaseAction: BaseAction{Type: "command", Command: "false"}}, // 常に失敗するコマンド
 		},
 	}
 
@@ -238,7 +238,7 @@ func TestExecutePreToolUseHook_FailingCommand(t *testing.T) {
 func TestExecutePostToolUseHook_Success(t *testing.T) {
 	hook := PostToolUseHook{
 		Actions: []PostToolUseAction{
-			{Type: "structured_output"},
+			{BaseAction: BaseAction{Type: "structured_output"}},
 		},
 	}
 
@@ -261,7 +261,7 @@ func TestExecutePreToolUseHooks_Integration(t *testing.T) {
 			{
 				Matcher: "Write",
 				Actions: []PreToolUseAction{
-					{Type: "command", Command: "false"}, // 失敗するコマンド
+					{BaseAction: BaseAction{Type: "command", Command: "false"}}, // 失敗するコマンド
 				},
 			},
 		},
@@ -296,7 +296,7 @@ func TestExecutePostToolUseHooks_Integration(t *testing.T) {
 			{
 				Matcher: "Edit",
 				Actions: []PostToolUseAction{
-					{Type: "structured_output"},
+					{BaseAction: BaseAction{Type: "structured_output"}},
 				},
 			},
 		},
@@ -358,7 +358,7 @@ func TestDryRunPreToolUseHooks_NoMatch(t *testing.T) {
 
 	config := &Config{
 		PreToolUse: []PreToolUseHook{
-			{Matcher: "Edit", Actions: []PreToolUseAction{{Type: "structured_output"}}},
+			{Matcher: "Edit", Actions: []PreToolUseAction{{BaseAction: BaseAction{Type: "structured_output"}}}},
 		},
 	}
 
@@ -395,8 +395,8 @@ func TestDryRunPreToolUseHooks_WithMatch(t *testing.T) {
 			{
 				Matcher: "Write",
 				Actions: []PreToolUseAction{
-					{Type: "command", Command: "echo {.tool_input.file_path}"},
-					{Type: "structured_output"},
+					{BaseAction: BaseAction{Type: "command", Command: "echo {.tool_input.file_path}"}},
+					{BaseAction: BaseAction{Type: "structured_output"}},
 				},
 			},
 		},
