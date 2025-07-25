@@ -235,7 +235,6 @@ PreToolUse:
 **Important Notes:**
 - **ExitStatus `2` in PreToolUse**: Blocks tool execution and sends message to Claude via stderr
 - **ExitStatus `0`**: Allows tool execution and outputs informational message to stdout
-- **Default behavior change**: `output` actions now default to `exit_status: 2` instead of `0`
 
 ## Examples
 
