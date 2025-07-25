@@ -175,6 +175,7 @@ func TestLoadConfig_DefaultPath(t *testing.T) {
 	_, err := loadConfig("")
 	if err == nil {
 		t.Error("Expected error when loading non-existent default config")
+		return
 	}
 
 	if !strings.Contains(err.Error(), "failed to read config file") {

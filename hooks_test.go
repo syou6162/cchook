@@ -153,7 +153,7 @@ func TestExecutePreToolUseHook_OutputAction(t *testing.T) {
 
 	hook := PreToolUseHook{
 		Actions: []PreToolUseAction{
-			{Type: "output", Message: "Test message"},
+			{Type: "structured_output"},
 		},
 	}
 
@@ -238,7 +238,7 @@ func TestExecutePreToolUseHook_FailingCommand(t *testing.T) {
 func TestExecutePostToolUseHook_Success(t *testing.T) {
 	hook := PostToolUseHook{
 		Actions: []PostToolUseAction{
-			{Type: "output", Message: "Post-processing complete"},
+			{Type: "structured_output"},
 		},
 	}
 
@@ -296,7 +296,7 @@ func TestExecutePostToolUseHooks_Integration(t *testing.T) {
 			{
 				Matcher: "Edit",
 				Actions: []PostToolUseAction{
-					{Type: "output", Message: "File processed"},
+					{Type: "structured_output"},
 				},
 			},
 		},
@@ -312,7 +312,7 @@ func TestExecutePostToolUseHooks_Integration(t *testing.T) {
 
 func TestExecuteNotificationHooks(t *testing.T) {
 	config := &Config{}
-	input := &NotificationInput{Message: "test"}
+	input := &NotificationInput{Message: "test message"}
 
 	err := executeNotificationHooks(config, input, nil)
 	if err != nil {
@@ -358,7 +358,7 @@ func TestDryRunPreToolUseHooks_NoMatch(t *testing.T) {
 
 	config := &Config{
 		PreToolUse: []PreToolUseHook{
-			{Matcher: "Edit", Actions: []PreToolUseAction{{Type: "output", Message: "test"}}},
+			{Matcher: "Edit", Actions: []PreToolUseAction{{Type: "structured_output"}}},
 		},
 	}
 
@@ -396,7 +396,7 @@ func TestDryRunPreToolUseHooks_WithMatch(t *testing.T) {
 				Matcher: "Write",
 				Actions: []PreToolUseAction{
 					{Type: "command", Command: "echo {.tool_input.file_path}"},
-					{Type: "output", Message: "Processing..."},
+					{Type: "structured_output"},
 				},
 			},
 		},
