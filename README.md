@@ -106,34 +106,21 @@ Use `{jq_query}` for JSON processing with jq-compatible queries:
 ```yaml
 Stop:
   - actions:
-      - type: output
-        message: >
-          Last assistant message: {
-            .data 
-            | reverse 
-            | map(select(.type == "assistant")) 
-            | .[0].content
-          }
       - type: command
-        command: >
-          ntfy publish 
-            --markdown 
-            --title "Claude Code Session" 
-            "{
-              cat(.transcript_path) 
-              | fromjson 
-              | reverse 
-              | map(select(.type == "assistant" and .message.content[0].type == "text")) 
-              | .[0].message.content[0].text
-            }"
+        command: |
+          MESSAGE=$(cat '{.transcript_path}' | 
+            jq -sr 'reverse 
+                   | map(select(.type == "assistant" and .message.content[0].type == "text")) 
+                   | .[0].message.content[0].text')
+          ntfy publish \
+            --markdown \
+            --title 'Claude Code Complete' \
+            --message "${MESSAGE}"
 
 Notification:  
   - actions:
       - type: command
-        command: |
-          ntfy publish 
-            --title "Claude Code" 
-            "{.message | @base64}"
+        command: ntfy publish --markdown --title "{.hook_event_name}" "{.message}"
 ```
 
 **JQ Features:**
@@ -159,17 +146,17 @@ Notification:
 Stop:
   - actions:
       - type: command
-        command: >
+        command: |
+          MESSAGE=$(cat '{.transcript_path}' | 
+            jq -sr 'reverse 
+                   | map(select(.type == "assistant" and .message.content[0].type == "text")) 
+                   | .[0].message.content[0].text')
           echo "Session completed!" &&
-          ntfy publish 
-            --markdown 
-            --title "Claude Code Complete"
-            --tags "checkmark"
-            "{
-              \"Session: \" + .session_id + \"\\n\" +
-              \"Files modified: \" + (.data | map(select(.tool_name == \"Write\")) | length | tostring) + \"\\n\" +
-              \"Last message: \" + (.data | reverse | map(select(.type == \"assistant\")) | .[0].content | .[0:100])
-            }"
+          ntfy publish \
+            --markdown \
+            --title "Claude Code Complete" \
+            --tags "checkmark" \
+            --message "${MESSAGE}"
 ```
 
 ## Event Types
