@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 )
 
 func runHooks(config *Config, eventType HookEventType) error {
@@ -258,62 +257,39 @@ func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON inter
 
 // イベント別のフック実行関数
 func executePreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON interface{}) error {
-	matchedAny := false
-	for i, hook := range config.PreToolUse {
+	for _, hook := range config.PreToolUse {
 		if shouldExecutePreToolUseHook(hook, input) {
-			matchedAny = true
 			if err := executePreToolUseHook(hook, input, rawJSON); err != nil {
-				fmt.Fprintf(os.Stderr, "PreToolUse hook %d failed: %v\n", i, err)
+				return err
 			}
-		} else {
-			fmt.Fprintf(os.Stderr, "[Skip] PreToolUse hook %d: matcher '%s' didn't match '%s'\n", i, hook.Matcher, input.ToolName)
 		}
-	}
-	if !matchedAny && len(config.PreToolUse) > 0 {
-		fmt.Fprintf(os.Stderr, "[Info] No PreToolUse hooks matched for tool: %s\n", input.ToolName)
 	}
 	return nil
 }
 
 func executePostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON interface{}) error {
-	matchedAny := false
-	for i, hook := range config.PostToolUse {
+	for _, hook := range config.PostToolUse {
 		if shouldExecutePostToolUseHook(hook, input) {
-			matchedAny = true
 			if err := executePostToolUseHook(hook, input, rawJSON); err != nil {
-				fmt.Fprintf(os.Stderr, "PostToolUse hook %d failed: %v\n", i, err)
+				return err
 			}
-		} else {
-			fmt.Fprintf(os.Stderr, "[Skip] PostToolUse hook %d: matcher '%s' didn't match '%s'\n", i, hook.Matcher, input.ToolName)
 		}
-	}
-	if !matchedAny && len(config.PostToolUse) > 0 {
-		fmt.Fprintf(os.Stderr, "[Info] No PostToolUse hooks matched for tool: %s\n", input.ToolName)
 	}
 	return nil
 }
 
 func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON interface{}) error {
-	if len(config.Notification) > 0 {
-		fmt.Fprintf(os.Stderr, "[Hook] Notification triggered\n")
-	}
-	for i, hook := range config.Notification {
+	for _, hook := range config.Notification {
 		for _, action := range hook.Actions {
 			switch action.Type {
 			case "command":
 				cmd := unifiedTemplateReplace(action.Command, rawJSON)
-				fmt.Fprintf(os.Stderr, "[Exec] Running command: %s\n", cmd)
 				if err := runCommand(cmd); err != nil {
-					fmt.Fprintf(os.Stderr, "[Error] Command failed: %v\n", err)
-					fmt.Fprintf(os.Stderr, "Notification hook %d failed: %v\n", i, err)
-				} else {
-					fmt.Fprintf(os.Stderr, "[Success] Command completed\n")
+					return err
 				}
 			case "structured_output":
-				fmt.Fprintf(os.Stderr, "[Output] Generating structured JSON output\n")
 				if err := executeStructuredOutput(action, Notification); err != nil {
-					fmt.Fprintf(os.Stderr, "[Error] Structured output failed: %v\n", err)
-					fmt.Fprintf(os.Stderr, "Notification hook %d failed: %v\n", i, err)
+					return err
 				}
 			}
 		}
@@ -322,26 +298,17 @@ func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON 
 }
 
 func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) error {
-	if len(config.Stop) > 0 {
-		fmt.Fprintf(os.Stderr, "[Hook] Stop triggered\n")
-	}
-	for i, hook := range config.Stop {
+	for _, hook := range config.Stop {
 		for _, action := range hook.Actions {
 			switch action.Type {
 			case "command":
 				cmd := unifiedTemplateReplace(action.Command, rawJSON)
-				fmt.Fprintf(os.Stderr, "[Exec] Running command: %s\n", cmd)
 				if err := runCommand(cmd); err != nil {
-					fmt.Fprintf(os.Stderr, "[Error] Command failed: %v\n", err)
-					fmt.Fprintf(os.Stderr, "Stop hook %d failed: %v\n", i, err)
-				} else {
-					fmt.Fprintf(os.Stderr, "[Success] Command completed\n")
+					return err
 				}
 			case "structured_output":
-				fmt.Fprintf(os.Stderr, "[Output] Generating structured JSON output\n")
 				if err := executeStructuredOutput(action, Stop); err != nil {
-					fmt.Fprintf(os.Stderr, "[Error] Structured output failed: %v\n", err)
-					fmt.Fprintf(os.Stderr, "Stop hook %d failed: %v\n", i, err)
+					return err
 				}
 			}
 		}
@@ -350,26 +317,17 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) err
 }
 
 func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON interface{}) error {
-	if len(config.SubagentStop) > 0 {
-		fmt.Fprintf(os.Stderr, "[Hook] SubagentStop triggered\n")
-	}
-	for i, hook := range config.SubagentStop {
+	for _, hook := range config.SubagentStop {
 		for _, action := range hook.Actions {
 			switch action.Type {
 			case "command":
 				cmd := unifiedTemplateReplace(action.Command, rawJSON)
-				fmt.Fprintf(os.Stderr, "[Exec] Running command: %s\n", cmd)
 				if err := runCommand(cmd); err != nil {
-					fmt.Fprintf(os.Stderr, "[Error] Command failed: %v\n", err)
-					fmt.Fprintf(os.Stderr, "SubagentStop hook %d failed: %v\n", i, err)
-				} else {
-					fmt.Fprintf(os.Stderr, "[Success] Command completed\n")
+					return err
 				}
 			case "structured_output":
-				fmt.Fprintf(os.Stderr, "[Output] Generating structured JSON output\n")
 				if err := executeStructuredOutput(action, SubagentStop); err != nil {
-					fmt.Fprintf(os.Stderr, "[Error] Structured output failed: %v\n", err)
-					fmt.Fprintf(os.Stderr, "SubagentStop hook %d failed: %v\n", i, err)
+					return err
 				}
 			}
 		}
@@ -378,26 +336,17 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 }
 
 func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON interface{}) error {
-	if len(config.PreCompact) > 0 {
-		fmt.Fprintf(os.Stderr, "[Hook] PreCompact triggered\n")
-	}
-	for i, hook := range config.PreCompact {
+	for _, hook := range config.PreCompact {
 		for _, action := range hook.Actions {
 			switch action.Type {
 			case "command":
 				cmd := unifiedTemplateReplace(action.Command, rawJSON)
-				fmt.Fprintf(os.Stderr, "[Exec] Running command: %s\n", cmd)
 				if err := runCommand(cmd); err != nil {
-					fmt.Fprintf(os.Stderr, "[Error] Command failed: %v\n", err)
-					fmt.Fprintf(os.Stderr, "PreCompact hook %d failed: %v\n", i, err)
-				} else {
-					fmt.Fprintf(os.Stderr, "[Success] Command completed\n")
+					return err
 				}
 			case "structured_output":
-				fmt.Fprintf(os.Stderr, "[Output] Generating structured JSON output\n")
 				if err := executeStructuredOutput(action, PreCompact); err != nil {
-					fmt.Fprintf(os.Stderr, "[Error] Structured output failed: %v\n", err)
-					fmt.Fprintf(os.Stderr, "PreCompact hook %d failed: %v\n", i, err)
+					return err
 				}
 			}
 		}
@@ -438,21 +387,15 @@ func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput)
 }
 
 func executePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput, rawJSON interface{}) error {
-	fmt.Fprintf(os.Stderr, "[Hook] PreToolUse matched: %s -> %s\n", hook.Matcher, input.ToolName)
 	for _, action := range hook.Actions {
 		switch action.Type {
 		case "command":
 			cmd := unifiedTemplateReplace(action.Command, rawJSON)
-			fmt.Fprintf(os.Stderr, "[Exec] Running command: %s\n", cmd)
 			if err := runCommand(cmd); err != nil {
-				fmt.Fprintf(os.Stderr, "[Error] Command failed: %v\n", err)
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "[Success] Command completed\n")
 		case "structured_output":
-			fmt.Fprintf(os.Stderr, "[Output] Generating structured JSON output\n")
 			if err := executeStructuredOutput(action, PreToolUse); err != nil {
-				fmt.Fprintf(os.Stderr, "[Error] Structured output failed: %v\n", err)
 				return err
 			}
 		}
@@ -461,21 +404,15 @@ func executePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput, rawJSON 
 }
 
 func executePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput, rawJSON interface{}) error {
-	fmt.Fprintf(os.Stderr, "[Hook] PostToolUse matched: %s -> %s\n", hook.Matcher, input.ToolName)
 	for _, action := range hook.Actions {
 		switch action.Type {
 		case "command":
 			cmd := unifiedTemplateReplace(action.Command, rawJSON)
-			fmt.Fprintf(os.Stderr, "[Exec] Running command: %s\n", cmd)
 			if err := runCommand(cmd); err != nil {
-				fmt.Fprintf(os.Stderr, "[Error] Command failed: %v\n", err)
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "[Success] Command completed\n")
 		case "structured_output":
-			fmt.Fprintf(os.Stderr, "[Output] Generating structured JSON output\n")
 			if err := executeStructuredOutput(action, PostToolUse); err != nil {
-				fmt.Fprintf(os.Stderr, "[Error] Structured output failed: %v\n", err)
 				return err
 			}
 		}
