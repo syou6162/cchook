@@ -243,8 +243,8 @@ PreToolUse:
       - type: command_contains
         value: "git add"
     actions:
-      - type: output
-        message: "Warning: direct git add detected"
+      - type: structured_output
+        continue: true
 ```
 
 Check for Docker commands:
