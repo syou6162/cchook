@@ -210,6 +210,92 @@ type PreCompactAction struct {
 	Message string `yaml:"message,omitempty"`
 }
 
+// Claude Code互換の構造化JSON出力構造体
+
+// 共通の基本出力フィールド
+type BaseHookOutput struct {
+	Continue       *bool   `json:"continue,omitempty"`
+	StopReason     *string `json:"stopReason,omitempty"`
+	SuppressOutput *bool   `json:"suppressOutput,omitempty"`
+}
+
+// PreToolUse固有の出力
+type PreToolUseSpecificOutput struct {
+	HookEventName            string  `json:"hookEventName"`
+	PermissionDecision       *string `json:"permissionDecision,omitempty"` // "allow", "deny", "ask"
+	PermissionDecisionReason *string `json:"permissionDecisionReason,omitempty"`
+}
+
+type PreToolUseOutput struct {
+	BaseHookOutput
+	Decision           *string                   `json:"decision,omitempty"` // 非推奨だが互換性のため
+	Reason             *string                   `json:"reason,omitempty"`   // 非推奨だが互換性のため
+	HookSpecificOutput *PreToolUseSpecificOutput `json:"hookSpecificOutput,omitempty"`
+}
+
+// PostToolUse固有の出力
+type PostToolUseSpecificOutput struct {
+	HookEventName string `json:"hookEventName"`
+}
+
+type PostToolUseOutput struct {
+	BaseHookOutput
+	Decision           *string                    `json:"decision,omitempty"` // "block"
+	Reason             *string                    `json:"reason,omitempty"`
+	HookSpecificOutput *PostToolUseSpecificOutput `json:"hookSpecificOutput,omitempty"`
+}
+
+// UserPromptSubmit固有の出力
+type UserPromptSubmitSpecificOutput struct {
+	HookEventName     string  `json:"hookEventName"`
+	AdditionalContext *string `json:"additionalContext,omitempty"`
+}
+
+type UserPromptSubmitOutput struct {
+	Decision           *string                         `json:"decision,omitempty"` // "block"
+	Reason             *string                         `json:"reason,omitempty"`
+	HookSpecificOutput *UserPromptSubmitSpecificOutput `json:"hookSpecificOutput,omitempty"`
+}
+
+// Stop/SubagentStop固有の出力
+type StopSpecificOutput struct {
+	HookEventName string `json:"hookEventName"`
+}
+
+type StopOutput struct {
+	BaseHookOutput
+	Decision           *string             `json:"decision,omitempty"` // "block"
+	Reason             *string             `json:"reason,omitempty"`   // 必須（blockの場合）
+	HookSpecificOutput *StopSpecificOutput `json:"hookSpecificOutput,omitempty"`
+}
+
+type SubagentStopOutput struct {
+	BaseHookOutput
+	Decision           *string             `json:"decision,omitempty"` // "block"
+	Reason             *string             `json:"reason,omitempty"`   // 必須（blockの場合）
+	HookSpecificOutput *StopSpecificOutput `json:"hookSpecificOutput,omitempty"`
+}
+
+// Notification固有の出力
+type NotificationSpecificOutput struct {
+	HookEventName string `json:"hookEventName"`
+}
+
+type NotificationOutput struct {
+	BaseHookOutput
+	HookSpecificOutput *NotificationSpecificOutput `json:"hookSpecificOutput,omitempty"`
+}
+
+// PreCompact固有の出力
+type PreCompactSpecificOutput struct {
+	HookEventName string `json:"hookEventName"`
+}
+
+type PreCompactOutput struct {
+	BaseHookOutput
+	HookSpecificOutput *PreCompactSpecificOutput `json:"hookSpecificOutput,omitempty"`
+}
+
 // 設定ファイル構造
 type Config struct {
 	PreToolUse   []PreToolUseHook   `yaml:"PreToolUse,omitempty"`
