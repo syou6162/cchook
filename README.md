@@ -257,8 +257,8 @@ PreToolUse:
       - type: file_exists
         value: "Dockerfile"
     actions:
-      - type: output
-        message: "Docker operation detected in project with Dockerfile"
+      - type: structured_output
+        continue: true
 ```
 
 Monitor WebFetch access to specific sites:
