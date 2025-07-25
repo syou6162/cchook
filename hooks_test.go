@@ -185,10 +185,10 @@ func TestExecutePreToolUseHook_CommandAction(t *testing.T) {
 			{Type: "command", Command: "echo test"},
 		},
 	}
-	
+
 	input := &PreToolUseInput{ToolName: "Write"}
-	
-	err := executePreToolUseHook(hook, input)
+
+	err := executePreToolUseHook(hook, input, nil)
 	if err != nil {
 		t.Errorf("executePreToolUseHook() error = %v", err)
 	}
@@ -218,10 +218,10 @@ func TestExecutePreToolUseHook_FailingCommand(t *testing.T) {
 			{Type: "command", Command: "false"}, // 常に失敗するコマンド
 		},
 	}
-	
+
 	input := &PreToolUseInput{ToolName: "Write"}
-	
-	err := executePreToolUseHook(hook, input)
+
+	err := executePreToolUseHook(hook, input, nil)
 	if err == nil {
 		t.Error("Expected error for failing command, got nil")
 	}
@@ -247,7 +247,7 @@ func TestExecutePreToolUseHooks_Integration(t *testing.T) {
 	oldStderr := os.Stderr
 	r, w, _ := os.Pipe()
 	os.Stderr = w
-	
+
 	config := &Config{
 		PreToolUse: []PreToolUseHook{
 			{
@@ -293,27 +293,20 @@ func TestExecutePostToolUseHooks_Integration(t *testing.T) {
 			},
 		},
 	}
-	
+
 	input := &PostToolUseInput{ToolName: "Edit"}
-	
-	err := executePostToolUseHooks(config, input)
+
+	err := executePostToolUseHooks(config, input, nil)
 	if err != nil {
 		t.Errorf("executePostToolUseHooks() error = %v", err)
-	}
-}
-
-func TestExecuteUnimplementedHooks(t *testing.T) {
-	err := executeUnimplementedHooks()
-	if err != nil {
-		t.Errorf("executeUnimplementedHooks() error = %v, expected nil", err)
 	}
 }
 
 func TestExecuteNotificationHooks(t *testing.T) {
 	config := &Config{}
 	input := &NotificationInput{Message: "test"}
-	
-	err := executeNotificationHooks(config, input)
+
+	err := executeNotificationHooks(config, input, nil)
 	if err != nil {
 		t.Errorf("executeNotificationHooks() error = %v, expected nil", err)
 	}
@@ -332,8 +325,8 @@ func TestExecuteStopHooks(t *testing.T) {
 func TestExecuteSubagentStopHooks(t *testing.T) {
 	config := &Config{}
 	input := &SubagentStopInput{}
-	
-	err := executeSubagentStopHooks(config, input)
+
+	err := executeSubagentStopHooks(config, input, nil)
 	if err != nil {
 		t.Errorf("executeSubagentStopHooks() error = %v, expected nil", err)
 	}
@@ -384,30 +377,30 @@ func TestDryRunPreToolUseHooks_NoMatch(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	
+
 	config := &Config{
 		PreToolUse: []PreToolUseHook{
 			{Matcher: "Edit", Actions: []PreToolUseAction{{Type: "output", Message: "test"}}},
 		},
 	}
-	
+
 	input := &PreToolUseInput{ToolName: "Write"} // マッチしない
-	
-	err := dryRunPreToolUseHooks(config, input)
-	
+
+	err := dryRunPreToolUseHooks(config, input, nil)
+
 	// 標準出力を復元
 	w.Close()
 	os.Stdout = oldStdout
-	
+
 	// 出力を読み取り
 	var buf bytes.Buffer
 	buf.ReadFrom(r)
 	output := buf.String()
-	
+
 	if err != nil {
 		t.Errorf("dryRunPreToolUseHooks() error = %v", err)
 	}
-	
+
 	if !strings.Contains(output, "No hooks would be executed") {
 		t.Errorf("Expected 'No hooks would be executed', got: %q", output)
 	}

@@ -329,27 +329,27 @@ func TestParseInput_Success(t *testing.T) {
 func TestParseInput_InvalidJSON(t *testing.T) {
 	// 不正なJSONを標準入力にセット
 	invalidJSON := `{"invalid": json}`
-	
+
 	// 標準入力をバックアップして復元
 	oldStdin := os.Stdin
 	defer func() { os.Stdin = oldStdin }()
-	
+
 	// パイプを作成
 	r, w, _ := os.Pipe()
 	os.Stdin = r
-	
+
 	// 不正なJSONを書き込み
 	go func() {
 		defer w.Close()
 		w.Write([]byte(invalidJSON))
 	}()
-	
+
 	// parseInputをテスト（エラーが期待される）
-	_, err := parseInput[*PreToolUseInput](PreToolUse)
+	_, _, err := parseInput[*PreToolUseInput](PreToolUse)
 	if err == nil {
 		t.Error("Expected error for invalid JSON, got nil")
 	}
-	
+
 	if !strings.Contains(err.Error(), "failed to decode JSON input") {
 		t.Errorf("Expected decode error message, got: %v", err)
 	}
