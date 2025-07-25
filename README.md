@@ -183,7 +183,58 @@ Stop:
 ## Actions
 
 - `command` - Execute shell command
-- `output` - Print message to stdout
+- `output` - Print message to stdout/stderr
+
+### ExitStatus Control
+
+Actions support an optional `exit_status` field to control execution behavior:
+
+- **Default for `output` actions**: `2` (blocks tool execution, outputs to stderr)
+- **ExitStatus `0`**: Normal execution (outputs to stdout)
+- **ExitStatus `2`**: Blocks tool execution (outputs to stderr) - **Useful for PreToolUse**
+- **Other values**: Exits with specified code (outputs to stdout)
+
+**Examples:**
+
+Block dangerous commands (recommended for PreToolUse):
+```yaml
+PreToolUse:
+  - matcher: "Bash"
+    conditions:
+      - type: command_starts_with
+        value: "rm -rf"
+    actions:
+      - type: output
+        message: "🚫 Dangerous command blocked!"
+        # exit_status: 2 (default for output actions)
+```
+
+Allow with warning (outputs to stdout):
+```yaml
+PreToolUse:
+  - matcher: "Bash"
+    conditions:
+      - type: command_contains
+        value: "git push"
+    actions:
+      - type: output
+        message: "⚠️ Pushing to remote repository"
+        exit_status: 0  # Allows tool execution
+```
+
+Custom exit behavior:
+```yaml
+PreToolUse:
+  - matcher: "Bash"
+    actions:
+      - type: output
+        message: "Custom exit status for specific workflows"
+        exit_status: 1  # Custom exit code
+```
+
+**Important Notes:**
+- **ExitStatus `2` in PreToolUse**: Blocks tool execution and sends message to Claude via stderr
+- **ExitStatus `0`**: Allows tool execution and outputs informational message to stdout
 
 ## Examples
 
@@ -199,7 +250,7 @@ PostToolUse:
         command: "gofmt -w {tool_input.file_path}"
 ```
 
-Warn about git add:
+Block git add (recommended approach):
 ```yaml
 PreToolUse:
   - matcher: "Bash"
@@ -208,7 +259,21 @@ PreToolUse:
         value: "git add"
     actions:
       - type: output
-        message: "Warning: direct git add detected"
+        message: "🚫 Direct git add blocked. Use semantic commit workflow instead."
+        # exit_status: 2 (default - blocks execution)
+```
+
+Or warn about git add (allows execution):
+```yaml
+PreToolUse:
+  - matcher: "Bash"
+    conditions:
+      - type: command_contains
+        value: "git add"
+    actions:
+      - type: output
+        message: "⚠️ Warning: direct git add detected"
+        exit_status: 0  # Allows execution with warning
 ```
 
 Check for Docker commands:

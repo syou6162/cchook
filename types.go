@@ -175,39 +175,45 @@ type PostToolUseCondition struct {
 
 // イベントタイプ毎のアクション構造体
 type PreToolUseAction struct {
-	Type    string `yaml:"type"`
-	Command string `yaml:"command,omitempty"`
-	Message string `yaml:"message,omitempty"`
+	Type       string `yaml:"type"`
+	Command    string `yaml:"command,omitempty"`
+	Message    string `yaml:"message,omitempty"`
+	ExitStatus *int   `yaml:"exit_status,omitempty"`
 }
 
 type PostToolUseAction struct {
-	Type    string `yaml:"type"`
-	Command string `yaml:"command,omitempty"`
-	Message string `yaml:"message,omitempty"`
+	Type       string `yaml:"type"`
+	Command    string `yaml:"command,omitempty"`
+	Message    string `yaml:"message,omitempty"`
+	ExitStatus *int   `yaml:"exit_status,omitempty"`
 }
 
 type NotificationAction struct {
-	Type    string `yaml:"type"`
-	Command string `yaml:"command,omitempty"`
-	Message string `yaml:"message,omitempty"`
+	Type       string `yaml:"type"`
+	Command    string `yaml:"command,omitempty"`
+	Message    string `yaml:"message,omitempty"`
+	ExitStatus *int   `yaml:"exit_status,omitempty"`
 }
 
 type StopAction struct {
-	Type    string `yaml:"type"`
-	Command string `yaml:"command,omitempty"`
-	Message string `yaml:"message,omitempty"`
+	Type       string `yaml:"type"`
+	Command    string `yaml:"command,omitempty"`
+	Message    string `yaml:"message,omitempty"`
+	ExitStatus *int   `yaml:"exit_status,omitempty"`
 }
 
 type SubagentStopAction struct {
-	Type    string `yaml:"type"`
-	Command string `yaml:"command,omitempty"`
-	Message string `yaml:"message,omitempty"`
+	Type       string `yaml:"type"`
+	Command    string `yaml:"command,omitempty"`
+	Message    string `yaml:"message,omitempty"`
+	ExitStatus *int   `yaml:"exit_status,omitempty"`
 }
 
 type PreCompactAction struct {
-	Type    string `yaml:"type"`
-	Command string `yaml:"command,omitempty"`
-	Message string `yaml:"message,omitempty"`
+	Type       string `yaml:"type"`
+	Command    string `yaml:"command,omitempty"`
+	Message    string `yaml:"message,omitempty"`
+	ExitStatus *int   `yaml:"exit_status,omitempty"`
 }
 
 // 設定ファイル構造
