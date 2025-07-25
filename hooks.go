@@ -262,6 +262,7 @@ func executePreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inte
 		if shouldExecutePreToolUseHook(hook, input) {
 			if err := executePreToolUseHook(hook, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "PreToolUse hook %d failed: %v\n", i, err)
+				return err // ExitErrorの場合はすぐに返す
 			}
 		}
 	}
