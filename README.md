@@ -272,7 +272,8 @@ PreToolUse:
         value: "git add"
     actions:
       - type: output
-        message: "Warning: direct git add detected"
+        message: "⚠️ Warning: direct git add detected"
+        exit_status: 0  # Allows execution with warning
 ```
 
 Check for Docker commands:
