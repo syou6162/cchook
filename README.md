@@ -183,56 +183,43 @@ Stop:
 ## Actions
 
 - `command` - Execute shell command
-- `output` - Print message to stdout or output structured JSON for Claude Code integration
+- `structured_output` - Generate Claude Code-compatible structured JSON output
 
 ### Structured JSON Output
 
-The `output` action automatically detects JSON format and generates Claude Code-compatible structured output:
+The `structured_output` action generates Claude Code-compatible JSON using YAML fields directly:
 
-**Text Output (Legacy)**:
+**Structured Output Configuration**:
 ```yaml
 actions:
-  - type: "output"
-    message: "Hook executed successfully"
+  - type: "structured_output"
+    permission_decision: "allow"
+    permission_reason: "Auto-approved"
+    continue: true
+    suppress_output: false
 ```
 
-**JSON Structured Output (New)**:
-```yaml
-actions:
-  - type: "output"
-    message: >-
-      {
-        "hookSpecificOutput": {
-          "hookEventName": "PreToolUse",
-          "permissionDecision": "allow",
-          "permissionDecisionReason": "Auto-approved"
-        },
-        "continue": true,
-        "suppressOutput": false
-      }
-```
-
-#### Supported Hook Types and JSON Fields
+#### Supported Hook Types and YAML Fields
 
 **PreToolUse**:
-- `hookSpecificOutput.permissionDecision`: `"allow"`, `"deny"`, or `"ask"`
-- `hookSpecificOutput.permissionDecisionReason`: Optional explanation
-- Common fields: `continue`, `stopReason`, `suppressOutput`
+- `permission_decision`: `"allow"`, `"deny"`, or `"ask"`
+- `permission_reason`: Optional explanation
+- Common fields: `continue`, `stop_reason`, `suppress_output`
 
 **PostToolUse**:
 - `decision`: `"block"` to automatically prompt Claude
 - `reason`: Optional explanation for blocking
-- Common fields: `continue`, `stopReason`, `suppressOutput`
+- Common fields: `continue`, `stop_reason`, `suppress_output`
 
 **Stop/SubagentStop**:
 - `decision`: `"block"` to prevent stopping
 - `reason`: Required explanation when blocking
-- Common fields: `continue`, `stopReason`, `suppressOutput`
+- Common fields: `continue`, `stop_reason`, `suppress_output`
 
 **Notification/PreCompact**:
-- Common fields only: `continue`, `stopReason`, `suppressOutput`
+- Common fields only: `continue`, `stop_reason`, `suppress_output`
 
-All JSON structures are validated automatically.
+Fields are mapped directly from YAML to JSON output automatically.
 
 ## Examples
 
