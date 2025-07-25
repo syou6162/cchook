@@ -335,40 +335,10 @@ func TestExecuteSubagentStopHooks(t *testing.T) {
 func TestExecutePreCompactHooks(t *testing.T) {
 	config := &Config{}
 	input := &PreCompactInput{}
-	
-	err := executePreCompactHooks(config, input)
+
+	err := executePreCompactHooks(config, input, nil)
 	if err != nil {
 		t.Errorf("executePreCompactHooks() error = %v, expected nil", err)
-	}
-}
-
-func TestDryRunUnimplementedHooks(t *testing.T) {
-	// 標準出力をキャプチャ
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	
-	err := dryRunUnimplementedHooks(Notification)
-	
-	// 標準出力を復元
-	w.Close()
-	os.Stdout = oldStdout
-	
-	// 出力を読み取り
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-	
-	if err != nil {
-		t.Errorf("dryRunUnimplementedHooks() error = %v", err)
-	}
-	
-	if !strings.Contains(output, "=== Notification Hooks (Dry Run) ===") {
-		t.Errorf("Expected dry run header, got: %q", output)
-	}
-	
-	if !strings.Contains(output, "No hooks implemented yet") {
-		t.Errorf("Expected 'No hooks implemented yet' message, got: %q", output)
 	}
 }
 
