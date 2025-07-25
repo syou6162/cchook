@@ -163,10 +163,10 @@ func TestReplacePreToolUseVariables(t *testing.T) {
 			FilePath: "test.go",
 		},
 	}
-	
-	got := replacePreToolUseVariables("format {tool_input.file_path}", input)
+
+	got := replacePreToolUseVariables("format {tool_input.file_path}", input, nil)
 	want := "format test.go"
-	
+
 	if got != want {
 		t.Errorf("replacePreToolUseVariables() = %q, want %q", got, want)
 	}
@@ -182,10 +182,10 @@ func TestReplacePostToolUseVariables(t *testing.T) {
 			FilePath: "output.go",
 		},
 	}
-	
-	got := replacePostToolUseVariables("lint {tool_input.file_path}", input)
+
+	got := replacePostToolUseVariables("lint {tool_input.file_path}", input, nil)
 	want := "lint output.go"
-	
+
 	if got != want {
 		t.Errorf("replacePostToolUseVariables() = %q, want %q", got, want)
 	}
@@ -296,31 +296,31 @@ func TestParseInput_Success(t *testing.T) {
 		"tool_name": "Write",
 		"tool_input": {"file_path": "test.go"}
 	}`
-	
+
 	// 標準入力をバックアップして復元
 	oldStdin := os.Stdin
 	defer func() { os.Stdin = oldStdin }()
-	
+
 	// パイプを作成して標準入力として設定
 	r, w, _ := os.Pipe()
 	os.Stdin = r
-	
+
 	// JSONデータを書き込み
 	go func() {
 		defer w.Close()
 		w.Write([]byte(jsonInput))
 	}()
-	
+
 	// parseInputをテスト
-	result, err := parseInput[*PreToolUseInput](PreToolUse)
+	result, _, err := parseInput[*PreToolUseInput](PreToolUse)
 	if err != nil {
 		t.Fatalf("parseInput() error = %v", err)
 	}
-	
+
 	if result.SessionID != "test-session" {
 		t.Errorf("Expected SessionID 'test-session', got '%s'", result.SessionID)
 	}
-	
+
 	if result.ToolName != "Write" {
 		t.Errorf("Expected ToolName 'Write', got '%s'", result.ToolName)
 	}
@@ -368,7 +368,7 @@ func TestRunCommand_EmptyCommand(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error for empty command, got nil")
 	}
-	
+
 	if !strings.Contains(err.Error(), "empty command") {
 		t.Errorf("Expected 'empty command' error, got: %v", err)
 	}

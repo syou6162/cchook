@@ -150,30 +150,30 @@ func TestExecutePreToolUseHook_OutputAction(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	
+
 	hook := PreToolUseHook{
 		Actions: []PreToolUseAction{
 			{Type: "output", Message: "Test message"},
 		},
 	}
-	
+
 	input := &PreToolUseInput{ToolName: "Write"}
-	
-	err := executePreToolUseHook(hook, input)
-	
+
+	err := executePreToolUseHook(hook, input, nil)
+
 	// 標準出力を復元
 	w.Close()
 	os.Stdout = oldStdout
-	
+
 	// 出力を読み取り
 	var buf bytes.Buffer
 	buf.ReadFrom(r)
 	output := buf.String()
-	
+
 	if err != nil {
 		t.Errorf("executePreToolUseHook() error = %v", err)
 	}
-	
+
 	if !strings.Contains(output, "Test message") {
 		t.Errorf("Expected output to contain 'Test message', got: %q", output)
 	}
@@ -200,13 +200,13 @@ func TestExecutePreToolUseHook_CommandWithVariables(t *testing.T) {
 			{Type: "command", Command: "echo {tool_input.file_path}"},
 		},
 	}
-	
+
 	input := &PreToolUseInput{
 		ToolName:  "Write",
 		ToolInput: ToolInput{FilePath: "test.go"},
 	}
-	
-	err := executePreToolUseHook(hook, input)
+
+	err := executePreToolUseHook(hook, input, nil)
 	if err != nil {
 		t.Errorf("executePreToolUseHook() error = %v", err)
 	}
@@ -233,10 +233,10 @@ func TestExecutePostToolUseHook_Success(t *testing.T) {
 			{Type: "output", Message: "Post-processing complete"},
 		},
 	}
-	
+
 	input := &PostToolUseInput{ToolName: "Edit"}
-	
-	err := executePostToolUseHook(hook, input)
+
+	err := executePostToolUseHook(hook, input, nil)
 	if err != nil {
 		t.Errorf("executePostToolUseHook() error = %v", err)
 	}
@@ -258,25 +258,25 @@ func TestExecutePreToolUseHooks_Integration(t *testing.T) {
 			},
 		},
 	}
-	
+
 	input := &PreToolUseInput{ToolName: "Write"}
-	
-	err := executePreToolUseHooks(config, input)
-	
+
+	err := executePreToolUseHooks(config, input, nil)
+
 	// 標準エラーを復元
 	w.Close()
 	os.Stderr = oldStderr
-	
+
 	// エラー出力を読み取り
 	var buf bytes.Buffer
 	buf.ReadFrom(r)
 	stderrOutput := buf.String()
-	
+
 	// executePreToolUseHooksはエラーを返さず、stdErr に出力するだけ
 	if err != nil {
 		t.Errorf("executePreToolUseHooks() error = %v", err)
 	}
-	
+
 	if !strings.Contains(stderrOutput, "PreToolUse hook 0 failed") {
 		t.Errorf("Expected stderr to contain hook failure message, got: %q", stderrOutput)
 	}
@@ -315,8 +315,8 @@ func TestExecuteNotificationHooks(t *testing.T) {
 func TestExecuteStopHooks(t *testing.T) {
 	config := &Config{}
 	input := &StopInput{}
-	
-	err := executeStopHooks(config, input)
+
+	err := executeStopHooks(config, input, nil)
 	if err != nil {
 		t.Errorf("executeStopHooks() error = %v, expected nil", err)
 	}
@@ -381,7 +381,7 @@ func TestDryRunPreToolUseHooks_WithMatch(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	
+
 	config := &Config{
 		PreToolUse: []PreToolUseHook{
 			{
@@ -393,34 +393,34 @@ func TestDryRunPreToolUseHooks_WithMatch(t *testing.T) {
 			},
 		},
 	}
-	
+
 	input := &PreToolUseInput{
 		ToolName:  "Write",
 		ToolInput: ToolInput{FilePath: "test.go"},
 	}
-	
-	err := dryRunPreToolUseHooks(config, input)
-	
+
+	err := dryRunPreToolUseHooks(config, input, nil)
+
 	// 標準出力を復元
 	w.Close()
 	os.Stdout = oldStdout
-	
+
 	// 出力を読み取り
 	var buf bytes.Buffer
 	buf.ReadFrom(r)
 	output := buf.String()
-	
+
 	if err != nil {
 		t.Errorf("dryRunPreToolUseHooks() error = %v", err)
 	}
-	
+
 	expectedStrings := []string{
 		"=== PreToolUse Hooks (Dry Run) ===",
 		"[Hook 1] Would execute:",
 		"Command: echo test.go",
 		"Message: Processing...",
 	}
-	
+
 	for _, expected := range expectedStrings {
 		if !strings.Contains(output, expected) {
 			t.Errorf("Expected output to contain %q, got: %q", expected, output)
