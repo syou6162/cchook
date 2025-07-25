@@ -2,8 +2,20 @@ package main
 
 import (
 	"fmt"
-	"os"
 )
+
+// handleOutput は output アクションを処理し、必要に応じて ExitError を返す
+func handleOutput(message string, exitStatus *int, rawJSON interface{}) error {
+	processedMessage := unifiedTemplateReplace(message, rawJSON)
+	status := getExitStatus(exitStatus, "output")
+	if status != 0 {
+		// 0以外のExitStatusはすべてExitErrorとして返す
+		stderr := status == 2 // 2の場合のみstderrに出力
+		return NewExitError(status, processedMessage, stderr)
+	}
+	fmt.Println(processedMessage)
+	return nil
+}
 
 func executeNotificationAction(action NotificationAction, input *NotificationInput, rawJSON interface{}) error {
 	switch action.Type {
@@ -13,14 +25,7 @@ func executeNotificationAction(action NotificationAction, input *NotificationInp
 			return err
 		}
 	case "output":
-		message := unifiedTemplateReplace(action.Message, rawJSON)
-		exitStatus := getExitStatus(action.ExitStatus, "output")
-		if exitStatus == 2 {
-			fmt.Fprintf(os.Stderr, "%s\n", message)
-			os.Exit(2)
-		} else {
-			fmt.Println(message)
-		}
+		return handleOutput(action.Message, action.ExitStatus, rawJSON)
 	}
 	return nil
 }
@@ -33,14 +38,7 @@ func executeStopAction(action StopAction, input *StopInput, rawJSON interface{})
 			return err
 		}
 	case "output":
-		message := unifiedTemplateReplace(action.Message, rawJSON)
-		exitStatus := getExitStatus(action.ExitStatus, "output")
-		if exitStatus == 2 {
-			fmt.Fprintf(os.Stderr, "%s\n", message)
-			os.Exit(2)
-		} else {
-			fmt.Println(message)
-		}
+		return handleOutput(action.Message, action.ExitStatus, rawJSON)
 	}
 	return nil
 }
@@ -53,14 +51,7 @@ func executeSubagentStopAction(action SubagentStopAction, input *SubagentStopInp
 			return err
 		}
 	case "output":
-		message := unifiedTemplateReplace(action.Message, rawJSON)
-		exitStatus := getExitStatus(action.ExitStatus, "output")
-		if exitStatus == 2 {
-			fmt.Fprintf(os.Stderr, "%s\n", message)
-			os.Exit(2)
-		} else {
-			fmt.Println(message)
-		}
+		return handleOutput(action.Message, action.ExitStatus, rawJSON)
 	}
 	return nil
 }
@@ -73,14 +64,7 @@ func executePreCompactAction(action PreCompactAction, input *PreCompactInput, ra
 			return err
 		}
 	case "output":
-		message := unifiedTemplateReplace(action.Message, rawJSON)
-		exitStatus := getExitStatus(action.ExitStatus, "output")
-		if exitStatus == 2 {
-			fmt.Fprintf(os.Stderr, "%s\n", message)
-			os.Exit(2)
-		} else {
-			fmt.Println(message)
-		}
+		return handleOutput(action.Message, action.ExitStatus, rawJSON)
 	}
 	return nil
 }
@@ -93,14 +77,7 @@ func executePreToolUseAction(action PreToolUseAction, input *PreToolUseInput, ra
 			return err
 		}
 	case "output":
-		message := unifiedTemplateReplace(action.Message, rawJSON)
-		exitStatus := getExitStatus(action.ExitStatus, "output")
-		if exitStatus == 2 {
-			fmt.Fprintf(os.Stderr, "%s\n", message)
-			os.Exit(2)
-		} else {
-			fmt.Println(message)
-		}
+		return handleOutput(action.Message, action.ExitStatus, rawJSON)
 	}
 	return nil
 }
@@ -113,14 +90,7 @@ func executePostToolUseAction(action PostToolUseAction, input *PostToolUseInput,
 			return err
 		}
 	case "output":
-		message := unifiedTemplateReplace(action.Message, rawJSON)
-		exitStatus := getExitStatus(action.ExitStatus, "output")
-		if exitStatus == 2 {
-			fmt.Fprintf(os.Stderr, "%s\n", message)
-			os.Exit(2)
-		} else {
-			fmt.Println(message)
-		}
+		return handleOutput(action.Message, action.ExitStatus, rawJSON)
 	}
 	return nil
 }
