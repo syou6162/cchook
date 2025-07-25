@@ -160,6 +160,8 @@ Stop:
 
 - `file_extension` - Match file extension in tool_input.file_path
 - `command_contains` - Match substring in tool_input.command
+- `command_starts_with` - Match if command starts with specified string
+- `file_exists` - Match if specified file exists
 
 ## Actions
 
@@ -190,6 +192,20 @@ PreToolUse:
     actions:
       - type: output
         message: "Warning: direct git add detected"
+```
+
+Check for Docker commands:
+```yaml
+PreToolUse:
+  - matcher: "Bash"
+    conditions:
+      - type: command_starts_with
+        value: "docker"
+      - type: file_exists
+        value: "Dockerfile"
+    actions:
+      - type: output
+        message: "Docker operation detected in project with Dockerfile"
 ```
 
 ## Development
