@@ -45,6 +45,8 @@ type ToolInput struct {
 	FilePath string `json:"file_path"`
 	Content  string `json:"content"`
 	Command  string `json:"command"`
+	URL      string `json:"url"`    // WebFetch用
+	Prompt   string `json:"prompt"` // WebFetch用
 }
 
 // PreToolUse用

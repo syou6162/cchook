@@ -99,6 +99,20 @@ Expects JSON input via stdin:
 }
 ```
 
+**WebFetch tool input example:**
+```json
+{
+  "session_id": "abc123",
+  "transcript_path": "/tmp/transcript",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "WebFetch",
+  "tool_input": {
+    "url": "https://api.example.com/data",
+    "prompt": "Summarize the API response"
+  }
+}
+```
+
 ## Templates
 
 Use `{jq_query}` for JSON processing with jq-compatible queries:
@@ -134,7 +148,9 @@ Notification:
 - `{[.data[] | select(.type == "assistant") | .content]}` - Filter and extract from arrays
 - `{.message | @base64}` - String transformations
 - `{.}` - Access entire input JSON object
-- `{.tool_input.file_path}` - Access nested fields
+- `{.tool_input.file_path}` - Access nested fields (Write/Edit tools)
+- `{.tool_input.url}` - Access URL field (WebFetch tool)
+- `{.tool_input.prompt}` - Access prompt field (WebFetch tool)
 
 **Complex Example:**
 ```yaml
@@ -162,6 +178,7 @@ Stop:
 - `command_contains` - Match substring in tool_input.command
 - `command_starts_with` - Match if command starts with specified string
 - `file_exists` - Match if specified file exists
+- `url_starts_with` - Match if URL starts with specified string (WebFetch tool)
 
 ## Actions
 
@@ -206,6 +223,29 @@ PreToolUse:
     actions:
       - type: output
         message: "Docker operation detected in project with Dockerfile"
+```
+
+Monitor WebFetch access to specific sites:
+```yaml
+PreToolUse:
+  - matcher: "WebFetch"
+    conditions:
+      - type: url_starts_with
+        value: "https://api."
+    actions:
+      - type: output
+        message: "🌐 API access detected: {.tool_input.url}"
+      - type: command
+        command: 'echo "API access: {.tool_input.url}" >> /tmp/api_access.log'
+        
+PostToolUse:
+  - matcher: "WebFetch"
+    conditions:
+      - type: url_starts_with
+        value: "https://news."
+    actions:
+      - type: command
+        command: 'echo "News content fetched from {.tool_input.url}" | ntfy publish "WebFetch News"'
 ```
 
 ## Development

@@ -114,6 +114,24 @@ func TestCheckPreToolUseCondition(t *testing.T) {
 			false,
 		},
 		{
+			"url_starts_with match",
+			PreToolUseCondition{Type: "url_starts_with", Value: "https://example.com"},
+			&PreToolUseInput{ToolInput: ToolInput{URL: "https://example.com/page"}},
+			true,
+		},
+		{
+			"url_starts_with no match",
+			PreToolUseCondition{Type: "url_starts_with", Value: "https://other.com"},
+			&PreToolUseInput{ToolInput: ToolInput{URL: "https://example.com/page"}},
+			false,
+		},
+		{
+			"url_starts_with no url",
+			PreToolUseCondition{Type: "url_starts_with", Value: "https://example.com"},
+			&PreToolUseInput{ToolInput: ToolInput{}},
+			false,
+		},
+		{
 			"unknown condition type",
 			PreToolUseCondition{Type: "unknown", Value: "value"},
 			&PreToolUseInput{ToolInput: ToolInput{FilePath: "main.go"}},
@@ -171,6 +189,18 @@ func TestCheckPostToolUseCondition(t *testing.T) {
 			"file_exists no match",
 			PostToolUseCondition{Type: "file_exists", Value: "/nonexistent/path"},
 			&PostToolUseInput{ToolInput: ToolInput{}},
+			false,
+		},
+		{
+			"url_starts_with match",
+			PostToolUseCondition{Type: "url_starts_with", Value: "https://api.example.com"},
+			&PostToolUseInput{ToolInput: ToolInput{URL: "https://api.example.com/v1/data"}},
+			true,
+		},
+		{
+			"url_starts_with no match",
+			PostToolUseCondition{Type: "url_starts_with", Value: "https://api.other.com"},
+			&PostToolUseInput{ToolInput: ToolInput{URL: "https://api.example.com/v1/data"}},
 			false,
 		},
 		{

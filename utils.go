@@ -46,6 +46,11 @@ func checkPreToolUseCondition(condition PreToolUseCondition, input *PreToolUseIn
 			_, err := os.Stat(condition.Value)
 			return err == nil
 		}
+	case "url_starts_with":
+		// URLが指定文字列で始まる
+		if input.ToolInput.URL != "" {
+			return strings.HasPrefix(input.ToolInput.URL, condition.Value)
+		}
 	}
 	return false
 }
@@ -72,6 +77,11 @@ func checkPostToolUseCondition(condition PostToolUseCondition, input *PostToolUs
 		if condition.Value != "" {
 			_, err := os.Stat(condition.Value)
 			return err == nil
+		}
+	case "url_starts_with":
+		// URLが指定文字列で始まる
+		if input.ToolInput.URL != "" {
+			return strings.HasPrefix(input.ToolInput.URL, condition.Value)
 		}
 	}
 	return false
