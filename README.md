@@ -269,8 +269,8 @@ PreToolUse:
       - type: url_starts_with
         value: "https://api."
     actions:
-      - type: output
-        message: "🌐 API access detected: {.tool_input.url}"
+      - type: structured_output
+        continue: true
       - type: command
         command: 'echo "API access: {.tool_input.url}" >> /tmp/api_access.log'
         
