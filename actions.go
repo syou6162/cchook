@@ -8,8 +8,9 @@ func executeNotificationAction(action NotificationAction, input *NotificationInp
 			return err
 		}
 	case "output":
-		message := unifiedTemplateReplace(action.Message, rawJSON)
-		fmt.Println(message)
+		if err := processEnhancedOutput(action.Message, Notification, rawJSON); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -22,8 +23,9 @@ func executeStopAction(action StopAction, input *StopInput, rawJSON interface{})
 			return err
 		}
 	case "output":
-		message := unifiedTemplateReplace(action.Message, rawJSON)
-		fmt.Println(message)
+		if err := processEnhancedOutput(action.Message, Stop, rawJSON); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -36,8 +38,9 @@ func executeSubagentStopAction(action SubagentStopAction, input *SubagentStopInp
 			return err
 		}
 	case "output":
-		message := unifiedTemplateReplace(action.Message, rawJSON)
-		fmt.Println(message)
+		if err := processEnhancedOutput(action.Message, SubagentStop, rawJSON); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -50,8 +53,9 @@ func executePreCompactAction(action PreCompactAction, input *PreCompactInput, ra
 			return err
 		}
 	case "output":
-		message := unifiedTemplateReplace(action.Message, rawJSON)
-		fmt.Println(message)
+		if err := processEnhancedOutput(action.Message, PreCompact, rawJSON); err != nil {
+			return err
+		}
 	}
 	return nil
 }
