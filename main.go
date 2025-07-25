@@ -12,14 +12,7 @@ func main() {
 	eventType := flag.String("event", "", "Event type for run/dry-run command")
 	flag.Parse()
 
-	fmt.Printf("Debug: Starting cchook with config=%s, command=%s, event=%s\n", *configPath, *command, *eventType)
-	// テストコメント追加
-	x := 1 + 2
-	_ = x
-	var y, z string
-	y = "hello"
-	z = "world"
-	_ = y + z
+	// cchookフック実行システム
 
 	if (*command == "run" || *command == "dry-run") && *eventType == "" {
 		fmt.Fprintf(os.Stderr, "Error: event type is required for %s command\n", *command)
