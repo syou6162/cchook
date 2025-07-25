@@ -105,7 +105,8 @@ func dryRunPreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inter
 					cmd := unifiedTemplateReplace(action.Command, rawJSON)
 					fmt.Printf("  Command: %s\n", cmd)
 				case "output":
-					fmt.Printf("  Message: %s\n", action.Message)
+					message := unifiedTemplateReplace(action.Message, rawJSON)
+					fmt.Printf("  Output: %s\n", message)
 				}
 			}
 		}
@@ -129,7 +130,8 @@ func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON int
 					cmd := unifiedTemplateReplace(action.Command, rawJSON)
 					fmt.Printf("  Command: %s\n", cmd)
 				case "output":
-					fmt.Printf("  Message: %s\n", action.Message)
+					message := unifiedTemplateReplace(action.Message, rawJSON)
+					fmt.Printf("  Output: %s\n", message)
 				}
 			}
 		}
