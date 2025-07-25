@@ -78,8 +78,8 @@ PreToolUse:
       - type: command_contains
         value: "git add"
     actions:
-      - type: output
-        message: "Consider using semantic commit workflow"
+      - type: structured_output
+        continue: true
 ```
 
 ## Input Format
