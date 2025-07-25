@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
-	"regexp"
 	"strings"
 )
 
@@ -16,7 +15,7 @@ func getFieldValue(data interface{}, fieldName string) string {
 	if data == nil {
 		return ""
 	}
-	
+
 	value := reflect.ValueOf(data)
 	// ポインタの場合は実体を取得
 	for value.Kind() == reflect.Ptr || value.Kind() == reflect.Interface {
@@ -25,43 +24,17 @@ func getFieldValue(data interface{}, fieldName string) string {
 		}
 		value = value.Elem()
 	}
-	
+
 	if value.Kind() != reflect.Struct {
 		return ""
 	}
-	
+
 	field := value.FieldByName(fieldName)
 	if !field.IsValid() {
 		return ""
 	}
-	
-	return valueToString(field)
-}
 
-// JSON tagまたはフィールド名でフィールドを検索
-func findFieldByNameOrJSONTag(structValue reflect.Value, name string) reflect.Value {
-	structType := structValue.Type()
-	
-	// まず直接フィールド名で検索
-	if field := structValue.FieldByName(name); field.IsValid() {
-		return field
-	}
-	
-	// JSON tagで検索
-	for i := 0; i < structType.NumField(); i++ {
-		field := structType.Field(i)
-		jsonTag := field.Tag.Get("json")
-		
-		// json tagをパース ("field_name,omitempty" -> "field_name")
-		if jsonTag != "" {
-			tagParts := strings.Split(jsonTag, ",")
-			if len(tagParts) > 0 && tagParts[0] == name {
-				return structValue.Field(i)
-			}
-		}
-	}
-	
-	return reflect.Value{}
+	return valueToString(field)
 }
 
 // 共通マッチャーチェック関数
@@ -69,55 +42,13 @@ func checkMatcher(matcher string, toolName string) bool {
 	if matcher == "" {
 		return true
 	}
-	
+
 	for _, pattern := range strings.Split(matcher, "|") {
 		if strings.Contains(toolName, strings.TrimSpace(pattern)) {
 			return true
 		}
 	}
 	return false
-}
-
-// ネストしたフィールドにアクセスする関数
-func resolveNestedField(data interface{}, path string) (string, error) {
-	if path == "" {
-		return "", fmt.Errorf("empty path")
-	}
-
-	parts := strings.Split(path, ".")
-	value := reflect.ValueOf(data)
-
-	for _, part := range parts {
-		// ポインタの場合は実体を取得
-		for value.Kind() == reflect.Ptr || value.Kind() == reflect.Interface {
-			if value.IsNil() {
-				return "", fmt.Errorf("nil value encountered in path: %s", path)
-			}
-			value = value.Elem()
-		}
-
-		switch value.Kind() {
-		case reflect.Struct:
-			// 構造体のフィールドを取得（JSON tagもサポート）
-			fieldValue := findFieldByNameOrJSONTag(value, part)
-			if !fieldValue.IsValid() {
-				return "", fmt.Errorf("field '%s' not found in struct", part)
-			}
-			value = fieldValue
-		case reflect.Map:
-			// マップのキーを取得
-			mapValue := value.MapIndex(reflect.ValueOf(part))
-			if !mapValue.IsValid() {
-				return "", fmt.Errorf("key '%s' not found in map", part)
-			}
-			value = mapValue
-		default:
-			return "", fmt.Errorf("cannot access field '%s' in type %s", part, value.Kind())
-		}
-	}
-
-	// 最終的な値を文字列に変換
-	return valueToString(value), nil
 }
 
 // 値を文字列に変換する関数
@@ -148,26 +79,6 @@ func valueToString(value reflect.Value) string {
 	default:
 		return fmt.Sprintf("%v", value.Interface())
 	}
-}
-
-// 新しい変数置換関数
-func replaceVariables(template string, data interface{}) string {
-	// {path.to.field} 形式のプレースホルダを検出する正規表現
-	re := regexp.MustCompile(`\{([^}]+)\}`)
-	
-	return re.ReplaceAllStringFunc(template, func(match string) string {
-		// {} を取り除いてパスを取得
-		path := match[1 : len(match)-1]
-		
-		// ネストしたフィールドの値を取得
-		value, err := resolveNestedField(data, path)
-		if err != nil {
-			// エラーの場合は元のプレースホルダを返す
-			return match
-		}
-		
-		return value
-	})
 }
 
 func replacePreToolUseVariables(command string, input *PreToolUseInput, rawJSON interface{}) string {
