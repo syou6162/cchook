@@ -358,14 +358,8 @@ func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput)
 
 func executePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput, rawJSON interface{}) error {
 	for _, action := range hook.Actions {
-		switch action.Type {
-		case "command":
-			cmd := unifiedTemplateReplace(action.Command, rawJSON)
-			if err := runCommand(cmd); err != nil {
-				return err
-			}
-		case "output":
-			fmt.Println(action.Message)
+		if err := executePreToolUseAction(action, input, rawJSON); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -373,14 +367,8 @@ func executePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput, rawJSON 
 
 func executePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput, rawJSON interface{}) error {
 	for _, action := range hook.Actions {
-		switch action.Type {
-		case "command":
-			cmd := unifiedTemplateReplace(action.Command, rawJSON)
-			if err := runCommand(cmd); err != nil {
-				return err
-			}
-		case "output":
-			fmt.Println(action.Message)
+		if err := executePostToolUseAction(action, input, rawJSON); err != nil {
+			return err
 		}
 	}
 	return nil
