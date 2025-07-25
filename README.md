@@ -69,8 +69,8 @@ PostToolUse:
     actions:
       - type: command
         command: "gofmt -w {tool_input.file_path}"
-      - type: output
-        message: "Formatted {tool_input.file_path}"
+      - type: structured_output
+        continue: true
 
 PreToolUse:
   - matcher: "Bash"
