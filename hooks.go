@@ -366,7 +366,10 @@ func executePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput, rawJSON 
 				return err
 			}
 		case "output":
-			fmt.Println(action.Message)
+			// JSON形式とテキスト形式を自動判別して処理
+			if err := processEnhancedOutput(action.Message, PreToolUse, rawJSON); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -381,7 +384,9 @@ func executePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput, rawJS
 				return err
 			}
 		case "output":
-			fmt.Println(action.Message)
+			if err := processEnhancedOutput(action.Message, PostToolUse, rawJSON); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
