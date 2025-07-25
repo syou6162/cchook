@@ -4,12 +4,12 @@ package main
 type HookEventType string
 
 const (
-	PreToolUse    HookEventType = "PreToolUse"
-	PostToolUse   HookEventType = "PostToolUse"
-	Notification  HookEventType = "Notification"
-	Stop          HookEventType = "Stop"
-	SubagentStop  HookEventType = "SubagentStop"
-	PreCompact    HookEventType = "PreCompact"
+	PreToolUse   HookEventType = "PreToolUse"
+	PostToolUse  HookEventType = "PostToolUse"
+	Notification HookEventType = "Notification"
+	Stop         HookEventType = "Stop"
+	SubagentStop HookEventType = "SubagentStop"
+	PreCompact   HookEventType = "PreCompact"
 )
 
 // イベントタイプの妥当性検証
@@ -124,7 +124,7 @@ type Hook interface {
 	GetEventType() HookEventType
 }
 
-// Action共通インターフェース  
+// Action共通インターフェース
 type Action interface {
 	GetType() string
 	GetCommand() string
@@ -210,10 +210,10 @@ type PreCompactAction struct {
 
 // 設定ファイル構造
 type Config struct {
-	PreToolUse    []PreToolUseHook    `yaml:"PreToolUse,omitempty"`
-	PostToolUse   []PostToolUseHook   `yaml:"PostToolUse,omitempty"`
-	Notification  []NotificationHook  `yaml:"Notification,omitempty"`
-	Stop          []StopHook          `yaml:"Stop,omitempty"`
-	SubagentStop  []SubagentStopHook  `yaml:"SubagentStop,omitempty"`
-	PreCompact    []PreCompactHook    `yaml:"PreCompact,omitempty"`
+	PreToolUse   []PreToolUseHook   `yaml:"PreToolUse,omitempty"`
+	PostToolUse  []PostToolUseHook  `yaml:"PostToolUse,omitempty"`
+	Notification []NotificationHook `yaml:"Notification,omitempty"`
+	Stop         []StopHook         `yaml:"Stop,omitempty"`
+	SubagentStop []SubagentStopHook `yaml:"SubagentStop,omitempty"`
+	PreCompact   []PreCompactHook   `yaml:"PreCompact,omitempty"`
 }

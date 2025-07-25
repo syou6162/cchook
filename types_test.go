@@ -6,9 +6,9 @@ import (
 
 func TestHookEventType_IsValid(t *testing.T) {
 	tests := []struct {
-		name     string
+		name      string
 		eventType HookEventType
-		want     bool
+		want      bool
 	}{
 		{"PreToolUse", PreToolUse, true},
 		{"PostToolUse", PostToolUse, true},
@@ -61,7 +61,7 @@ func TestPreToolUseInput_GetToolName(t *testing.T) {
 	input := &PreToolUseInput{
 		ToolName: "Write",
 	}
-	
+
 	if got := input.GetToolName(); got != "Write" {
 		t.Errorf("PreToolUseInput.GetToolName() = %v, want %v", got, "Write")
 	}
@@ -71,7 +71,7 @@ func TestPostToolUseInput_GetToolName(t *testing.T) {
 	input := &PostToolUseInput{
 		ToolName: "Edit",
 	}
-	
+
 	if got := input.GetToolName(); got != "Edit" {
 		t.Errorf("PostToolUseInput.GetToolName() = %v, want %v", got, "Edit")
 	}
@@ -79,7 +79,7 @@ func TestPostToolUseInput_GetToolName(t *testing.T) {
 
 func TestNotificationInput_GetToolName(t *testing.T) {
 	input := &NotificationInput{}
-	
+
 	if got := input.GetToolName(); got != "" {
 		t.Errorf("NotificationInput.GetToolName() = %v, want empty string", got)
 	}
@@ -87,7 +87,7 @@ func TestNotificationInput_GetToolName(t *testing.T) {
 
 func TestStopInput_GetToolName(t *testing.T) {
 	input := &StopInput{}
-	
+
 	if got := input.GetToolName(); got != "" {
 		t.Errorf("StopInput.GetToolName() = %v, want empty string", got)
 	}
@@ -95,7 +95,7 @@ func TestStopInput_GetToolName(t *testing.T) {
 
 func TestSubagentStopInput_GetToolName(t *testing.T) {
 	input := &SubagentStopInput{}
-	
+
 	if got := input.GetToolName(); got != "" {
 		t.Errorf("SubagentStopInput.GetToolName() = %v, want empty string", got)
 	}
@@ -103,7 +103,7 @@ func TestSubagentStopInput_GetToolName(t *testing.T) {
 
 func TestPreCompactInput_GetToolName(t *testing.T) {
 	input := &PreCompactInput{}
-	
+
 	if got := input.GetToolName(); got != "" {
 		t.Errorf("PreCompactInput.GetToolName() = %v, want empty string", got)
 	}

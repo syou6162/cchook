@@ -140,10 +140,9 @@ func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON int
 	return nil
 }
 
-
 func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON interface{}) error {
 	fmt.Println("=== Notification Hooks (Dry Run) ===")
-	
+
 	if len(config.Notification) == 0 {
 		fmt.Println("No Notification hooks configured")
 		return nil
@@ -163,7 +162,7 @@ func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON i
 			}
 		}
 	}
-	
+
 	if !executed {
 		fmt.Println("No hooks would be executed")
 	}
@@ -172,7 +171,7 @@ func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON i
 
 func dryRunStopHooks(config *Config, input *StopInput, rawJSON interface{}) error {
 	fmt.Println("=== Stop Hooks (Dry Run) ===")
-	
+
 	if len(config.Stop) == 0 {
 		fmt.Println("No Stop hooks configured")
 		return nil
@@ -192,7 +191,7 @@ func dryRunStopHooks(config *Config, input *StopInput, rawJSON interface{}) erro
 			}
 		}
 	}
-	
+
 	if !executed {
 		fmt.Println("No hooks would be executed")
 	}
@@ -201,7 +200,7 @@ func dryRunStopHooks(config *Config, input *StopInput, rawJSON interface{}) erro
 
 func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON interface{}) error {
 	fmt.Println("=== SubagentStop Hooks (Dry Run) ===")
-	
+
 	if len(config.SubagentStop) == 0 {
 		fmt.Println("No SubagentStop hooks configured")
 		return nil
@@ -221,7 +220,7 @@ func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON i
 			}
 		}
 	}
-	
+
 	if !executed {
 		fmt.Println("No hooks would be executed")
 	}
@@ -230,7 +229,7 @@ func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON i
 
 func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON interface{}) error {
 	fmt.Println("=== PreCompact Hooks (Dry Run) ===")
-	
+
 	if len(config.PreCompact) == 0 {
 		fmt.Println("No PreCompact hooks configured")
 		return nil
@@ -250,7 +249,7 @@ func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON inter
 			}
 		}
 	}
-	
+
 	if !executed {
 		fmt.Println("No hooks would be executed")
 	}
@@ -279,7 +278,6 @@ func executePostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON in
 	}
 	return nil
 }
-
 
 func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON interface{}) error {
 	for i, hook := range config.Notification {

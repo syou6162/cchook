@@ -58,7 +58,7 @@ func parsePreToolUseInput(rawInput json.RawMessage) (*PreToolUseInput, error) {
 	// まず基本構造をパース
 	var temp struct {
 		BaseInput
-		ToolName string          `json:"tool_name"`
+		ToolName  string          `json:"tool_name"`
 		ToolInput json.RawMessage `json:"tool_input"`
 	}
 
@@ -84,9 +84,9 @@ func parsePostToolUseInput(rawInput json.RawMessage) (*PostToolUseInput, error) 
 	// まず基本構造をパース
 	var temp struct {
 		BaseInput
-		ToolName     string           `json:"tool_name"`
-		ToolInput    json.RawMessage  `json:"tool_input"`
-		ToolResponse json.RawMessage  `json:"tool_response"`
+		ToolName     string          `json:"tool_name"`
+		ToolInput    json.RawMessage `json:"tool_input"`
+		ToolResponse json.RawMessage `json:"tool_response"`
 	}
 
 	if err := json.Unmarshal(rawInput, &temp); err != nil {

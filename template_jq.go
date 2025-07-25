@@ -107,10 +107,10 @@ func jqValueToString(value interface{}) string {
 func unifiedTemplateReplace(template string, rawJSON interface{}) string {
 	// パターン: { で始まり } で終わる任意の内容
 	pattern := regexp.MustCompile(`\{([^}]+)\}`)
-	
+
 	return pattern.ReplaceAllStringFunc(template, func(match string) string {
 		jqQuery := strings.TrimSpace(match[1 : len(match)-1]) // {} を除去
-		
+
 		// 常にJQクエリとして処理
 		result, err := executeJQQuery(jqQuery, rawJSON)
 		if err != nil {
