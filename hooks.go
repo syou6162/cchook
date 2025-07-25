@@ -104,9 +104,8 @@ func dryRunPreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inter
 				case "command":
 					cmd := unifiedTemplateReplace(action.Command, rawJSON)
 					fmt.Printf("  Command: %s\n", cmd)
-				case "output":
-					message := unifiedTemplateReplace(action.Message, rawJSON)
-					fmt.Printf("  Output: %s\n", message)
+				case "structured_output":
+					fmt.Printf("  Structured Output: (fields from action)\n")
 				}
 			}
 		}
@@ -129,9 +128,8 @@ func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON int
 				case "command":
 					cmd := unifiedTemplateReplace(action.Command, rawJSON)
 					fmt.Printf("  Command: %s\n", cmd)
-				case "output":
-					message := unifiedTemplateReplace(action.Message, rawJSON)
-					fmt.Printf("  Output: %s\n", message)
+				case "structured_output":
+					fmt.Printf("  Structured Output: (fields from action)\n")
 				}
 			}
 		}
@@ -159,8 +157,8 @@ func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON i
 			case "command":
 				cmd := unifiedTemplateReplace(action.Command, rawJSON)
 				fmt.Printf("  Command: %s\n", cmd)
-			case "output":
-				fmt.Printf("  Message: %s\n", action.Message)
+			case "structured_output":
+				fmt.Printf("  Structured Output: (fields from action)\n")
 			}
 		}
 	}
@@ -188,8 +186,8 @@ func dryRunStopHooks(config *Config, input *StopInput, rawJSON interface{}) erro
 			case "command":
 				cmd := unifiedTemplateReplace(action.Command, rawJSON)
 				fmt.Printf("  Command: %s\n", cmd)
-			case "output":
-				fmt.Printf("  Message: %s\n", action.Message)
+			case "structured_output":
+				fmt.Printf("  Structured Output: (fields from action)\n")
 			}
 		}
 	}
@@ -217,8 +215,8 @@ func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON i
 			case "command":
 				cmd := unifiedTemplateReplace(action.Command, rawJSON)
 				fmt.Printf("  Command: %s\n", cmd)
-			case "output":
-				fmt.Printf("  Message: %s\n", action.Message)
+			case "structured_output":
+				fmt.Printf("  Structured Output: (fields from action)\n")
 			}
 		}
 	}
@@ -246,8 +244,8 @@ func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON inter
 			case "command":
 				cmd := unifiedTemplateReplace(action.Command, rawJSON)
 				fmt.Printf("  Command: %s\n", cmd)
-			case "output":
-				fmt.Printf("  Message: %s\n", action.Message)
+			case "structured_output":
+				fmt.Printf("  Structured Output: (fields from action)\n")
 			}
 		}
 	}
