@@ -7,8 +7,8 @@ func executeNotificationAction(action NotificationAction, input *NotificationInp
 		if err := runCommand(cmd); err != nil {
 			return err
 		}
-	case "output":
-		if err := processEnhancedOutput(action.Message, Notification, rawJSON); err != nil {
+	case "structured_output":
+		if err := executeStructuredOutput(action, Notification); err != nil {
 			return err
 		}
 	}
@@ -22,8 +22,8 @@ func executeStopAction(action StopAction, input *StopInput, rawJSON interface{})
 		if err := runCommand(cmd); err != nil {
 			return err
 		}
-	case "output":
-		if err := processEnhancedOutput(action.Message, Stop, rawJSON); err != nil {
+	case "structured_output":
+		if err := executeStructuredOutput(action, Stop); err != nil {
 			return err
 		}
 	}
@@ -37,8 +37,8 @@ func executeSubagentStopAction(action SubagentStopAction, input *SubagentStopInp
 		if err := runCommand(cmd); err != nil {
 			return err
 		}
-	case "output":
-		if err := processEnhancedOutput(action.Message, SubagentStop, rawJSON); err != nil {
+	case "structured_output":
+		if err := executeStructuredOutput(action, SubagentStop); err != nil {
 			return err
 		}
 	}
@@ -52,8 +52,8 @@ func executePreCompactAction(action PreCompactAction, input *PreCompactInput, ra
 		if err := runCommand(cmd); err != nil {
 			return err
 		}
-	case "output":
-		if err := processEnhancedOutput(action.Message, PreCompact, rawJSON); err != nil {
+	case "structured_output":
+		if err := executeStructuredOutput(action, PreCompact); err != nil {
 			return err
 		}
 	}
