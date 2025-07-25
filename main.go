@@ -51,8 +51,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	// ExitError の場合は特別な処理
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		if exitErr, ok := err.(*ExitError); ok {
+			// ExitError の場合は適切な出力先に出力して指定のコードで終了
+			if exitErr.Stderr {
+				fmt.Fprintf(os.Stderr, "%s\n", exitErr.Message)
+			} else {
+				fmt.Println(exitErr.Message)
+			}
+			os.Exit(exitErr.Code)
+		} else {
+			// 通常のエラーの場合
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	}
 }
