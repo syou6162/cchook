@@ -197,7 +197,7 @@ func TestExecutePreToolUseHook_CommandAction(t *testing.T) {
 func TestExecutePreToolUseHook_CommandWithVariables(t *testing.T) {
 	hook := PreToolUseHook{
 		Actions: []PreToolUseAction{
-			{Type: "command", Command: "echo {tool_input.file_path}"},
+			{Type: "command", Command: "echo {.tool_input.file_path}"},
 		},
 	}
 
@@ -395,7 +395,7 @@ func TestDryRunPreToolUseHooks_WithMatch(t *testing.T) {
 			{
 				Matcher: "Write",
 				Actions: []PreToolUseAction{
-					{Type: "command", Command: "echo {tool_input.file_path}"},
+					{Type: "command", Command: "echo {.tool_input.file_path}"},
 					{Type: "output", Message: "Processing..."},
 				},
 			},
