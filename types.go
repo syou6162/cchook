@@ -182,38 +182,62 @@ type BaseAction struct {
 	SuppressOutput *bool   `yaml:"suppress_output,omitempty"`
 }
 
-// イベントタイプ毎のアクション構造体（固有フィールドのみ追加）
+// イベントタイプ毎のアクション構造体（フラット構造に変更）
 type PreToolUseAction struct {
-	BaseAction
+	Type                     string  `yaml:"type"`
+	Command                  string  `yaml:"command,omitempty"`
+	Continue                 *bool   `yaml:"continue,omitempty"`
+	StopReason               *string `yaml:"stop_reason,omitempty"`
+	SuppressOutput           *bool   `yaml:"suppress_output,omitempty"`
 	PermissionDecision       *string `yaml:"permission_decision,omitempty"`
 	PermissionDecisionReason *string `yaml:"permission_reason,omitempty"`
 }
 
 type PostToolUseAction struct {
-	BaseAction
-	Decision *string `yaml:"decision,omitempty"`
-	Reason   *string `yaml:"reason,omitempty"`
+	Type           string  `yaml:"type"`
+	Command        string  `yaml:"command,omitempty"`
+	Continue       *bool   `yaml:"continue,omitempty"`
+	StopReason     *string `yaml:"stop_reason,omitempty"`
+	SuppressOutput *bool   `yaml:"suppress_output,omitempty"`
+	Decision       *string `yaml:"decision,omitempty"`
+	Reason         *string `yaml:"reason,omitempty"`
 }
 
 type NotificationAction struct {
-	BaseAction
+	Type           string  `yaml:"type"`
+	Command        string  `yaml:"command,omitempty"`
+	Continue       *bool   `yaml:"continue,omitempty"`
+	StopReason     *string `yaml:"stop_reason,omitempty"`
+	SuppressOutput *bool   `yaml:"suppress_output,omitempty"`
 	// 固有フィールドなし（共通フィールドのみ）
 }
 
 type StopAction struct {
-	BaseAction
-	Decision *string `yaml:"decision,omitempty"`
-	Reason   *string `yaml:"reason,omitempty"`
+	Type           string  `yaml:"type"`
+	Command        string  `yaml:"command,omitempty"`
+	Continue       *bool   `yaml:"continue,omitempty"`
+	StopReason     *string `yaml:"stop_reason,omitempty"`
+	SuppressOutput *bool   `yaml:"suppress_output,omitempty"`
+	Decision       *string `yaml:"decision,omitempty"`
+	Reason         *string `yaml:"reason,omitempty"`
 }
 
 type SubagentStopAction struct {
-	BaseAction
-	Decision *string `yaml:"decision,omitempty"`
-	Reason   *string `yaml:"reason,omitempty"`
+	Type           string  `yaml:"type"`
+	Command        string  `yaml:"command,omitempty"`
+	Continue       *bool   `yaml:"continue,omitempty"`
+	StopReason     *string `yaml:"stop_reason,omitempty"`
+	SuppressOutput *bool   `yaml:"suppress_output,omitempty"`
+	Decision       *string `yaml:"decision,omitempty"`
+	Reason         *string `yaml:"reason,omitempty"`
 }
 
 type PreCompactAction struct {
-	BaseAction
+	Type           string  `yaml:"type"`
+	Command        string  `yaml:"command,omitempty"`
+	Continue       *bool   `yaml:"continue,omitempty"`
+	StopReason     *string `yaml:"stop_reason,omitempty"`
+	SuppressOutput *bool   `yaml:"suppress_output,omitempty"`
 	// 固有フィールドなし（共通フィールドのみ）
 }
 
