@@ -23,14 +23,6 @@ func checkMatcher(matcher string, toolName string) bool {
 	return false
 }
 
-func replacePreToolUseVariables(command string, input *PreToolUseInput, rawJSON interface{}) string {
-	return unifiedTemplateReplace(command, rawJSON)
-}
-
-func replacePostToolUseVariables(command string, input *PostToolUseInput, rawJSON interface{}) string {
-	return unifiedTemplateReplace(command, rawJSON)
-}
-
 func checkPreToolUseCondition(condition PreToolUseCondition, input *PreToolUseInput) bool {
 	switch condition.Type {
 	case "file_extension":

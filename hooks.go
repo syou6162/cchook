@@ -102,7 +102,7 @@ func dryRunPreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inter
 			for _, action := range hook.Actions {
 				switch action.Type {
 				case "command":
-					cmd := replacePreToolUseVariables(action.Command, input, rawJSON)
+					cmd := unifiedTemplateReplace(action.Command, rawJSON)
 					fmt.Printf("  Command: %s\n", cmd)
 				case "output":
 					fmt.Printf("  Message: %s\n", action.Message)
@@ -126,7 +126,7 @@ func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON int
 			for _, action := range hook.Actions {
 				switch action.Type {
 				case "command":
-					cmd := replacePostToolUseVariables(action.Command, input, rawJSON)
+					cmd := unifiedTemplateReplace(action.Command, rawJSON)
 					fmt.Printf("  Command: %s\n", cmd)
 				case "output":
 					fmt.Printf("  Message: %s\n", action.Message)
@@ -359,7 +359,7 @@ func executePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput, rawJSON 
 	for _, action := range hook.Actions {
 		switch action.Type {
 		case "command":
-			cmd := replacePreToolUseVariables(action.Command, input, rawJSON)
+			cmd := unifiedTemplateReplace(action.Command, rawJSON)
 			if err := runCommand(cmd); err != nil {
 				return err
 			}
@@ -374,7 +374,7 @@ func executePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput, rawJS
 	for _, action := range hook.Actions {
 		switch action.Type {
 		case "command":
-			cmd := replacePostToolUseVariables(action.Command, input, rawJSON)
+			cmd := unifiedTemplateReplace(action.Command, rawJSON)
 			if err := runCommand(cmd); err != nil {
 				return err
 			}
