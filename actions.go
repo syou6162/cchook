@@ -1,7 +1,5 @@
 package main
 
-import "fmt"
-
 func executeNotificationAction(action NotificationAction, input *NotificationInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
