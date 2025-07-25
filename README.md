@@ -183,7 +183,56 @@ Stop:
 ## Actions
 
 - `command` - Execute shell command
-- `output` - Print message to stdout
+- `output` - Print message to stdout or output structured JSON for Claude Code integration
+
+### Structured JSON Output
+
+The `output` action automatically detects JSON format and generates Claude Code-compatible structured output:
+
+**Text Output (Legacy)**:
+```yaml
+actions:
+  - type: "output"
+    message: "Hook executed successfully"
+```
+
+**JSON Structured Output (New)**:
+```yaml
+actions:
+  - type: "output"
+    message: >-
+      {
+        "hookSpecificOutput": {
+          "hookEventName": "PreToolUse",
+          "permissionDecision": "allow",
+          "permissionDecisionReason": "Auto-approved"
+        },
+        "continue": true,
+        "suppressOutput": false
+      }
+```
+
+#### Supported Hook Types and JSON Fields
+
+**PreToolUse**:
+- `hookSpecificOutput.permissionDecision`: `"allow"`, `"deny"`, or `"ask"`
+- `hookSpecificOutput.permissionDecisionReason`: Optional explanation
+- Common fields: `continue`, `stopReason`, `suppressOutput`
+
+**PostToolUse**:
+- `decision`: `"block"` to automatically prompt Claude
+- `reason`: Optional explanation for blocking
+- Common fields: `continue`, `stopReason`, `suppressOutput`
+
+**Stop/SubagentStop**:
+- `decision`: `"block"` to prevent stopping
+- `reason`: Required explanation when blocking
+- Common fields: `continue`, `stopReason`, `suppressOutput`
+
+**Notification/PreCompact**:
+- Common fields only: `continue`, `stopReason`, `suppressOutput`
+
+All JSON structures are validated automatically.
 
 ## Examples
 
