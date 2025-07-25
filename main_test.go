@@ -131,7 +131,7 @@ func TestRunHooks_PostToolUse_Success(t *testing.T) {
 			},
 		},
 	}
-	
+
 	err := runHooks(config, PostToolUse)
 	if err != nil {
 		t.Errorf("runHooks() error = %v", err)

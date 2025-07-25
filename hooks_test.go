@@ -206,7 +206,15 @@ func TestExecutePreToolUseHook_CommandWithVariables(t *testing.T) {
 		ToolInput: ToolInput{FilePath: "test.go"},
 	}
 
-	err := executePreToolUseHook(hook, input, nil)
+	// JQクエリが動作するようにrawJSONを作成
+	rawJSON := map[string]interface{}{
+		"tool_name": "Write",
+		"tool_input": map[string]interface{}{
+			"file_path": "test.go",
+		},
+	}
+
+	err := executePreToolUseHook(hook, input, rawJSON)
 	if err != nil {
 		t.Errorf("executePreToolUseHook() error = %v", err)
 	}
@@ -399,7 +407,15 @@ func TestDryRunPreToolUseHooks_WithMatch(t *testing.T) {
 		ToolInput: ToolInput{FilePath: "test.go"},
 	}
 
-	err := dryRunPreToolUseHooks(config, input, nil)
+	// JQクエリが動作するようにrawJSONを作成
+	rawJSON := map[string]interface{}{
+		"tool_name": "Write",
+		"tool_input": map[string]interface{}{
+			"file_path": "test.go",
+		},
+	}
+
+	err := dryRunPreToolUseHooks(config, input, rawJSON)
 
 	// 標準出力を復元
 	w.Close()
