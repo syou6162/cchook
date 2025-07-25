@@ -128,7 +128,9 @@ func TestLoadConfig_EmptyFile(t *testing.T) {
 func TestGetDefaultConfigPath(t *testing.T) {
 	// 環境変数をバックアップ
 	originalXDG := os.Getenv("XDG_CONFIG_HOME")
-	defer os.Setenv("XDG_CONFIG_HOME", originalXDG)
+	defer func() {
+		_ = os.Setenv("XDG_CONFIG_HOME", originalXDG)
+	}()
 
 	tests := []struct {
 		name       string
@@ -149,7 +151,7 @@ func TestGetDefaultConfigPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("XDG_CONFIG_HOME", tt.xdgConfig)
+			_ = os.Setenv("XDG_CONFIG_HOME", tt.xdgConfig)
 
 			got := getDefaultConfigPath()
 

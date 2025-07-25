@@ -162,12 +162,12 @@ func TestExecutePreToolUseHook_OutputAction(t *testing.T) {
 	err := executePreToolUseHook(hook, input, nil)
 
 	// 標準出力を復元
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	// 出力を読み取り
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	if err != nil {
@@ -272,12 +272,12 @@ func TestExecutePreToolUseHooks_Integration(t *testing.T) {
 	err := executePreToolUseHooks(config, input, nil)
 
 	// 標準エラーを復元
-	w.Close()
+	_ = w.Close()
 	os.Stderr = oldStderr
 
 	// エラー出力を読み取り
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	stderrOutput := buf.String()
 
 	// executePreToolUseHooksはエラーを返さず、stdErr に出力するだけ
@@ -367,12 +367,12 @@ func TestDryRunPreToolUseHooks_NoMatch(t *testing.T) {
 	err := dryRunPreToolUseHooks(config, input, nil)
 
 	// 標準出力を復元
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	// 出力を読み取り
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	if err != nil {
@@ -418,12 +418,12 @@ func TestDryRunPreToolUseHooks_WithMatch(t *testing.T) {
 	err := dryRunPreToolUseHooks(config, input, rawJSON)
 
 	// 標準出力を復元
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	// 出力を読み取り
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	if err != nil {

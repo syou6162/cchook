@@ -43,8 +43,8 @@ func TestRunHooks_InvalidJSON(t *testing.T) {
 	os.Stdin = r
 
 	go func() {
-		defer w.Close()
-		w.Write([]byte(`{"invalid": json`)) // 不正なJSON
+		defer func() { _ = w.Close() }()
+		_, _ = w.Write([]byte(`{"invalid": json`)) // 不正なJSON
 	}()
 
 	config := &Config{}
@@ -77,8 +77,8 @@ func TestRunHooks_PreToolUse_Success(t *testing.T) {
 	}`
 
 	go func() {
-		defer w.Close()
-		w.Write([]byte(jsonInput))
+		defer func() { _ = w.Close() }()
+		_, _ = w.Write([]byte(jsonInput))
 	}()
 
 	config := &Config{
@@ -117,8 +117,8 @@ func TestRunHooks_PostToolUse_Success(t *testing.T) {
 	}`
 
 	go func() {
-		defer w.Close()
-		w.Write([]byte(jsonInput))
+		defer func() { _ = w.Close() }()
+		_, _ = w.Write([]byte(jsonInput))
 	}()
 
 	config := &Config{
@@ -161,8 +161,8 @@ func TestDryRunHooks_Success(t *testing.T) {
 	}`
 
 	go func() {
-		defer w.Close()
-		w.Write([]byte(jsonInput))
+		defer func() { _ = w.Close() }()
+		_, _ = w.Write([]byte(jsonInput))
 	}()
 
 	config := &Config{
@@ -179,12 +179,12 @@ func TestDryRunHooks_Success(t *testing.T) {
 	err := dryRunHooks(config, PreToolUse)
 
 	// 標準出力を復元
-	w2.Close()
+	_ = w2.Close()
 	os.Stdout = oldStdout
 
 	// 出力を読み取り
 	var buf bytes.Buffer
-	buf.ReadFrom(r2)
+	_, _ = buf.ReadFrom(r2)
 	output := buf.String()
 
 	if err != nil {
@@ -210,7 +210,7 @@ func TestRunHooks_EmptyInput(t *testing.T) {
 	// 空の標準入力を設定
 	r, w, _ := os.Pipe()
 	os.Stdin = r
-	w.Close() // すぐに閉じて EOF を発生させる
+	_ = w.Close() // すぐに閉じて EOF を発生させる
 
 	config := &Config{}
 	err := runHooks(config, PreToolUse)
@@ -233,8 +233,8 @@ func TestRunHooks_PartialJSON(t *testing.T) {
 	partialJSON := `{"session_id": "test"` // 不完全なJSON
 
 	go func() {
-		defer w.Close()
-		w.Write([]byte(partialJSON))
+		defer func() { _ = w.Close() }()
+		_, _ = w.Write([]byte(partialJSON))
 	}()
 
 	config := &Config{}
@@ -263,8 +263,8 @@ func TestRunHooks_WrongJSONType(t *testing.T) {
 	}` // NotificationInput の形式
 
 	go func() {
-		defer w.Close()
-		w.Write([]byte(wrongJSON))
+		defer func() { _ = w.Close() }()
+		_, _ = w.Write([]byte(wrongJSON))
 	}()
 
 	config := &Config{}

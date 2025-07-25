@@ -150,8 +150,8 @@ func TestParseInput_Success(t *testing.T) {
 
 	// JSONデータを書き込み
 	go func() {
-		defer w.Close()
-		w.Write([]byte(jsonInput))
+		defer func() { _ = w.Close() }()
+		_, _ = w.Write([]byte(jsonInput))
 	}()
 
 	// parseInputをテスト
@@ -183,8 +183,8 @@ func TestParseInput_InvalidJSON(t *testing.T) {
 
 	// 不正なJSONを書き込み
 	go func() {
-		defer w.Close()
-		w.Write([]byte(invalidJSON))
+		defer func() { _ = w.Close() }()
+		_, _ = w.Write([]byte(invalidJSON))
 	}()
 
 	// parseInputをテスト（エラーが期待される）
