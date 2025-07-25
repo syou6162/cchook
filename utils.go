@@ -35,6 +35,17 @@ func checkPreToolUseCondition(condition PreToolUseCondition, input *PreToolUseIn
 		if input.ToolInput.Command != "" {
 			return strings.Contains(input.ToolInput.Command, condition.Value)
 		}
+	case "command_starts_with":
+		// コマンドが指定文字列で始まる
+		if input.ToolInput.Command != "" {
+			return strings.HasPrefix(input.ToolInput.Command, condition.Value)
+		}
+	case "file_exists":
+		// 指定ファイルが存在する
+		if condition.Value != "" {
+			_, err := os.Stat(condition.Value)
+			return err == nil
+		}
 	}
 	return false
 }
@@ -50,6 +61,17 @@ func checkPostToolUseCondition(condition PostToolUseCondition, input *PostToolUs
 		// ToolInput構造体からCommand取得
 		if input.ToolInput.Command != "" {
 			return strings.Contains(input.ToolInput.Command, condition.Value)
+		}
+	case "command_starts_with":
+		// コマンドが指定文字列で始まる
+		if input.ToolInput.Command != "" {
+			return strings.HasPrefix(input.ToolInput.Command, condition.Value)
+		}
+	case "file_exists":
+		// 指定ファイルが存在する
+		if condition.Value != "" {
+			_, err := os.Stat(condition.Value)
+			return err == nil
 		}
 	}
 	return false

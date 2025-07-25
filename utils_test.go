@@ -78,6 +78,42 @@ func TestCheckPreToolUseCondition(t *testing.T) {
 			false,
 		},
 		{
+			"command_starts_with match",
+			PreToolUseCondition{Type: "command_starts_with", Value: "git"},
+			&PreToolUseInput{ToolInput: ToolInput{Command: "git status"}},
+			true,
+		},
+		{
+			"command_starts_with no match",
+			PreToolUseCondition{Type: "command_starts_with", Value: "docker"},
+			&PreToolUseInput{ToolInput: ToolInput{Command: "git status"}},
+			false,
+		},
+		{
+			"command_starts_with no command",
+			PreToolUseCondition{Type: "command_starts_with", Value: "git"},
+			&PreToolUseInput{ToolInput: ToolInput{}},
+			false,
+		},
+		{
+			"file_exists match",
+			PreToolUseCondition{Type: "file_exists", Value: "/tmp"},
+			&PreToolUseInput{ToolInput: ToolInput{}},
+			true,
+		},
+		{
+			"file_exists no match",
+			PreToolUseCondition{Type: "file_exists", Value: "/nonexistent/path"},
+			&PreToolUseInput{ToolInput: ToolInput{}},
+			false,
+		},
+		{
+			"file_exists empty value",
+			PreToolUseCondition{Type: "file_exists", Value: ""},
+			&PreToolUseInput{ToolInput: ToolInput{}},
+			false,
+		},
+		{
 			"unknown condition type",
 			PreToolUseCondition{Type: "unknown", Value: "value"},
 			&PreToolUseInput{ToolInput: ToolInput{FilePath: "main.go"}},
@@ -112,6 +148,30 @@ func TestCheckPostToolUseCondition(t *testing.T) {
 			PostToolUseCondition{Type: "command_contains", Value: "build"},
 			&PostToolUseInput{ToolInput: ToolInput{Command: "go build main.go"}},
 			true,
+		},
+		{
+			"command_starts_with match",
+			PostToolUseCondition{Type: "command_starts_with", Value: "npm"},
+			&PostToolUseInput{ToolInput: ToolInput{Command: "npm install"}},
+			true,
+		},
+		{
+			"command_starts_with no match",
+			PostToolUseCondition{Type: "command_starts_with", Value: "yarn"},
+			&PostToolUseInput{ToolInput: ToolInput{Command: "npm install"}},
+			false,
+		},
+		{
+			"file_exists match",
+			PostToolUseCondition{Type: "file_exists", Value: "/tmp"},
+			&PostToolUseInput{ToolInput: ToolInput{}},
+			true,
+		},
+		{
+			"file_exists no match",
+			PostToolUseCondition{Type: "file_exists", Value: "/nonexistent/path"},
+			&PostToolUseInput{ToolInput: ToolInput{}},
+			false,
 		},
 		{
 			"no match",
