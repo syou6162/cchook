@@ -2,6 +2,40 @@
 
 A CLI tool for executing hooks at various stages of Claude Code operations.
 
+## Background & Motivation
+
+Claude Code has a powerful hook system that allows executing custom commands at various stages of operation. However, writing hooks can become unwieldy for several reasons:
+
+- **Complex JSON configuration**: Hooks are configured in JSON format within settings, making them hard to read and maintain
+- **Repetitive jq processing**: When using multiple elements from input JSON, you need temporary files and repeated jq filters
+- **Single-line limitations**: JSON strings don't support multi-line formatting like YAML, leading to very long, hard-to-read command lines
+
+For example, a simple Stop hook that sends notifications via [ntfy](https://ntfy.sh) becomes a complex one-liner:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "transcript_path=$(jq -r '.transcript_path') && cat \"${transcript_path}\" | jq -s 'reverse | map(select(.type == \"assistant\" and .message.content[0].type == \"text\")) | .[0].message.content[0]' > /tmp/cc_ntfy.json && ntfy publish --markdown --title 'Claude Code' \"$(cat /tmp/cc_ntfy.json | jq -r '.text')\""
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**cchook** solves these problems by providing:
+- **YAML configuration**: Clean, readable multi-line configuration
+- **Template syntax**: Simple `{.field}` syntax for accessing JSON data with full jq query support
+- **Conditional logic**: Built-in conditions for common scenarios (file extensions, command patterns, etc.)
+- **Better maintainability**: Structured configuration that's easy to understand and modify
+
 ## Installation
 
 ```bash
