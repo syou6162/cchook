@@ -107,9 +107,8 @@ Create `~/.config/cchook/config.yaml` with your desired hooks:
 ```yaml
 # Auto-format Go files after Write/Edit
 PostToolUse:
-  - conditions:
-      - type: tool_name
-        value: "Write|Edit"
+  - matcher: "Write|Edit"
+    conditions:
       - type: file_extension
         value: ".go"
     actions:
@@ -118,17 +117,15 @@ PostToolUse:
 
 # Guide users to use better alternatives
 PreToolUse:
-  - conditions:
-      - type: tool_name
-        value: "Bash"
+  - matcher: "Bash"
+    conditions:
       - type: command_starts_with
         value: "python"
     actions:
       - type: output
         message: "pythonは使わず`uv`を代わりに使いましょう"
-  - conditions:
-      - type: tool_name
-        value: "WebFetch"
+  - matcher: "WebFetch"
+    conditions:
       - type: url_starts_with
         value: "https://github.com"
     actions:
@@ -144,18 +141,16 @@ Auto-format different file types:
 
 ```yaml
 PostToolUse:
-  - conditions:
-      - type: tool_name
-        value: "Write|Edit"
+  - matcher: "Write|Edit"
+    conditions:
       - type: file_extension
         value: ".go"
     actions:
       - type: command
         command: "gofmt -w {.tool_input.file_path}"
 
-  - conditions:
-      - type: tool_name
-        value: "Write|Edit"
+  - matcher: "Write|Edit"
+    conditions:
       - type: file_extension
         value: ".py"
     actions:
@@ -167,9 +162,8 @@ Run pre-commit hooks automatically:
 
 ```yaml
 PostToolUse:
-  - conditions:
-      - type: tool_name
-        value: "Write|Edit|MultiEdit"
+  - matcher: "Write|Edit|MultiEdit"
+    conditions:
       - type: file_exists
         value: ".pre-commit-config.yaml"
     actions:
@@ -183,9 +177,8 @@ Block dangerous commands:
 
 ```yaml
 PreToolUse:
-  - conditions:
-      - type: tool_name
-        value: "Bash"
+  - matcher: "Bash"
+    conditions:
       - type: command_starts_with
         value: "rm -rf"
     actions:
@@ -200,9 +193,8 @@ Track external API usage:
 
 ```yaml
 PreToolUse:
-  - conditions:
-      - type: tool_name
-        value: "WebFetch"
+  - matcher: "WebFetch"
+    conditions:
       - type: url_starts_with
         value: "https://api."
     actions:
@@ -300,9 +292,8 @@ YAML Multi-line Support:
 
 ```yaml
 PostToolUse:
-  - conditions:
-      - type: tool_name
-        value: "Write|Edit"
+  - matcher: "Write|Edit"
+    conditions:
       - type: file_extension
         value: ".py"
       - type: file_exists
@@ -318,9 +309,8 @@ PostToolUse:
 
 ```yaml
 PostToolUse:
-  - conditions:
-      - type: tool_name
-        value: "Write|Edit"
+  - matcher: "Write|Edit"
+    conditions:
       - type: file_extension
         value: ".go"
     actions:
