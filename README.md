@@ -107,9 +107,8 @@ Create `~/.config/cchook/config.yaml` with your desired hooks:
 ```yaml
 # Auto-format Go files after Write/Edit
 PostToolUse:
-  - conditions:
-      - type: tool_name
-        value: "Write|Edit"
+  - matcher: "Write|Edit"
+    conditions:
       - type: file_extension
         value: ".go"
     actions:
@@ -118,22 +117,62 @@ PostToolUse:
 
 # Guide users to use better alternatives
 PreToolUse:
-  - conditions:
-      - type: tool_name
-        value: "Bash"
+  - matcher: "Bash"
+    conditions:
       - type: command_starts_with
         value: "python"
     actions:
       - type: output
         message: "pythonは使わず`uv`を代わりに使いましょう"
-  - conditions:
-      - type: tool_name
-        value: "WebFetch"
+  - matcher: "WebFetch"
+    conditions:
       - type: url_starts_with
         value: "https://github.com"
     actions:
       - type: output
         message: "WebFetchではなく、`gh`コマンド経由で情報を取得しましょう"
+```
+
+## CLI Options
+
+### Configuration File Path
+
+By default, cchook looks for configuration files in the following order:
+
+1. Path specified by `-config` flag
+2. `$XDG_CONFIG_HOME/cchook/config.yaml` (if `XDG_CONFIG_HOME` is set)
+3. `~/.config/cchook/config.yaml` (default fallback)
+
+#### Using Custom Configuration File
+
+You can specify a custom configuration file path using the `-config` flag:
+
+```bash
+# Use custom config file
+cchook -config /path/to/my-config.yaml -event PreToolUse
+
+# Example: Development vs Production configs
+cchook -config ~/.config/cchook/dev-config.yaml -event PostToolUse
+cchook -config ~/.config/cchook/prod-config.yaml -event Stop
+```
+
+#### Example Claude Code Hook with Custom Config
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cchook -config ~/.config/cchook/dev-config.yaml -event PreToolUse"
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
 ## Configuration Examples
@@ -144,18 +183,16 @@ Auto-format different file types:
 
 ```yaml
 PostToolUse:
-  - conditions:
-      - type: tool_name
-        value: "Write|Edit"
+  - matcher: "Write|Edit"
+    conditions:
       - type: file_extension
         value: ".go"
     actions:
       - type: command
         command: "gofmt -w {.tool_input.file_path}"
 
-  - conditions:
-      - type: tool_name
-        value: "Write|Edit"
+  - matcher: "Write|Edit"
+    conditions:
       - type: file_extension
         value: ".py"
     actions:
@@ -167,9 +204,8 @@ Run pre-commit hooks automatically:
 
 ```yaml
 PostToolUse:
-  - conditions:
-      - type: tool_name
-        value: "Write|Edit|MultiEdit"
+  - matcher: "Write|Edit|MultiEdit"
+    conditions:
       - type: file_exists
         value: ".pre-commit-config.yaml"
     actions:
@@ -183,9 +219,8 @@ Block dangerous commands:
 
 ```yaml
 PreToolUse:
-  - conditions:
-      - type: tool_name
-        value: "Bash"
+  - matcher: "Bash"
+    conditions:
       - type: command_starts_with
         value: "rm -rf"
     actions:
@@ -200,9 +235,8 @@ Track external API usage:
 
 ```yaml
 PreToolUse:
-  - conditions:
-      - type: tool_name
-        value: "WebFetch"
+  - matcher: "WebFetch"
+    conditions:
       - type: url_starts_with
         value: "https://api."
     actions:
@@ -244,10 +278,15 @@ Stop:
 - `PreCompact`
   - Before conversation compaction
 
+### Matcher
+
+- `matcher`
+  - Match tool name using pipe-separated patterns (e.g., "Write|Edit", "Bash", "WebFetch")
+  - Empty matcher matches all tools
+  - Uses the same syntax as Claude Code's built-in hook matcher field
+
 ### Conditions
 
-- `tool_name`
-  - Match tool name (e.g., "Write|Edit", "Bash", "WebFetch")
 - `file_extension`
   - Match file extension in `tool_input.file_path`
 - `command_contains`
@@ -300,9 +339,8 @@ YAML Multi-line Support:
 
 ```yaml
 PostToolUse:
-  - conditions:
-      - type: tool_name
-        value: "Write|Edit"
+  - matcher: "Write|Edit"
+    conditions:
       - type: file_extension
         value: ".py"
       - type: file_exists
@@ -318,9 +356,8 @@ PostToolUse:
 
 ```yaml
 PostToolUse:
-  - conditions:
-      - type: tool_name
-        value: "Write|Edit"
+  - matcher: "Write|Edit"
+    conditions:
       - type: file_extension
         value: ".go"
     actions:
