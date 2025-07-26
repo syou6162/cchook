@@ -226,40 +226,40 @@ Stop:
 
 ### Event Types
 
-- PreToolUse
+- `PreToolUse`
   - Before tool execution (can block with exit_status: 2)
-- PostToolUse
+- `PostToolUse`
   - After tool execution
-- Stop
+- `Stop`
   - When Claude Code session ends
-- SubagentStop
+- `SubagentStop`
   - When a subagent terminates
-- Notification
+- `Notification`
   - System notifications
-- PreCompact
+- `PreCompact`
   - Before conversation compaction
 
 ### Conditions
 
-- tool_name
+- `tool_name`
   - Match tool name (e.g., "Write|Edit", "Bash", "WebFetch")
-- file_extension
+- `file_extension`
   - Match file extension in `tool_input.file_path`
-- command_contains
+- `command_contains`
   - Match substring in `tool_input.command`
-- command_starts_with
+- `command_starts_with`
   - Match command prefix
-- file_exists
+- `file_exists`
   - Check if specified file exists
-- url_starts_with
+- `url_starts_with`
   - Match URL prefix (WebFetch tool)
 
 ### Actions
 
-- command
+- `command`
   - Execute shell command
-- output
-  - Print message (default exit_status: 2 for PreToolUse, 0 for others)
+- `output`
+  - Print message (default `exit_status`: 2 for `PreToolUse`, 0 for others)
 
 ### Exit Status Control
 
