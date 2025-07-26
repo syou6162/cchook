@@ -82,11 +82,6 @@ Configure as a Claude Code hook in your settings.json:
 }
 ```
 
-**Manual execution** (for testing):
-```bash
-cchook -event PostToolUse < input.json
-cchook -command dry-run -event PreToolUse < input.json  
-```
 
 ## Configuration
 
@@ -118,34 +113,7 @@ PreToolUse:
 
 ## Input Format
 
-Expects JSON input via stdin:
-
-```json
-{
-  "session_id": "abc123",
-  "transcript_path": "/tmp/transcript",
-  "hook_event_name": "PostToolUse",
-  "tool_name": "Write",
-  "tool_input": {
-    "file_path": "main.go",
-    "content": "package main"
-  }
-}
-```
-
-**WebFetch tool input example:**
-```json
-{
-  "session_id": "abc123",
-  "transcript_path": "/tmp/transcript",
-  "hook_event_name": "PreToolUse",
-  "tool_name": "WebFetch",
-  "tool_input": {
-    "url": "https://api.example.com/data",
-    "prompt": "Summarize the API response"
-  }
-}
-```
+cchook receives JSON input from Claude Code hooks via stdin. For details on the JSON structure and available fields, see the [Claude Code hook documentation](https://docs.anthropic.com/ja/docs/claude-code/hooks).
 
 ## Templates
 
