@@ -80,7 +80,7 @@ Add cchook to your Claude Code hook configuration in `.claude/settings.json`:
       {
         "hooks": [
           {
-            "type": "command", 
+            "type": "command",
             "command": "cchook -event PreToolUse"
           }
         ]
@@ -152,7 +152,7 @@ PostToolUse:
     actions:
       - type: command
         command: "gofmt -w {.tool_input.file_path}"
-  
+
   - conditions:
       - type: tool_name
         value: "Write|Edit"
@@ -222,7 +222,7 @@ Stop:
   - actions:
       - type: command
         command: >
-          cat '{.transcript_path}' | 
+          cat '{.transcript_path}' |
           jq -s 'reverse | map(select(.type == "assistant" and .message.content[0].type == "text")) | .[0].message.content[0].text' |
           xargs -I {} ntfy publish --markdown --title 'Claude Code Complete' "{}"
 ```
