@@ -133,6 +133,48 @@ PreToolUse:
         message: "WebFetchではなく、`gh`コマンド経由で情報を取得しましょう"
 ```
 
+## CLI Options
+
+### Configuration File Path
+
+By default, cchook looks for configuration files in the following order:
+
+1. Path specified by `-config` flag
+2. `$XDG_CONFIG_HOME/cchook/config.yaml` (if `XDG_CONFIG_HOME` is set)
+3. `~/.config/cchook/config.yaml` (default fallback)
+
+#### Using Custom Configuration File
+
+You can specify a custom configuration file path using the `-config` flag:
+
+```bash
+# Use custom config file
+cchook -config /path/to/my-config.yaml -event PreToolUse
+
+# Example: Development vs Production configs
+cchook -config ~/.config/cchook/dev-config.yaml -event PostToolUse
+cchook -config ~/.config/cchook/prod-config.yaml -event Stop
+```
+
+#### Example Claude Code Hook with Custom Config
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cchook -config ~/.config/cchook/dev-config.yaml -event PreToolUse"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
 ## Configuration Examples
 
 ### File Processing
