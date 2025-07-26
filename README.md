@@ -60,7 +60,6 @@ Configure as a Claude Code hook in your settings.json:
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command", 
@@ -71,7 +70,6 @@ Configure as a Claude Code hook in your settings.json:
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit", 
         "hooks": [
           {
             "type": "command",
@@ -96,8 +94,9 @@ Create a YAML configuration file at `~/.config/cchook/config.yaml`:
 
 ```yaml
 PostToolUse:
-  - matcher: "Write|Edit"
-    conditions:
+  - conditions:
+      - type: tool_name
+        value: "Write|Edit"
       - type: file_extension
         value: ".go"
     actions:
@@ -107,8 +106,9 @@ PostToolUse:
         message: "Formatted {.tool_input.file_path}"
 
 PreToolUse:
-  - matcher: "Bash"
-    conditions:
+  - conditions:
+      - type: tool_name
+        value: "Bash"
       - type: command_contains
         value: "git add"
     actions:
