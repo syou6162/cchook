@@ -236,10 +236,15 @@ Stop:
 - `PreCompact`
   - Before conversation compaction
 
+### Matcher
+
+- `matcher`
+  - Match tool name using pipe-separated patterns (e.g., "Write|Edit", "Bash", "WebFetch")
+  - Empty matcher matches all tools
+  - Uses the same syntax as Claude Code's built-in hook matcher field
+
 ### Conditions
 
-- `tool_name`
-  - Match tool name (e.g., "Write|Edit", "Bash", "WebFetch")
 - `file_extension`
   - Match file extension in `tool_input.file_path`
 - `command_contains`
