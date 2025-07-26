@@ -146,9 +146,9 @@ Notification:
 
 **Access Patterns:**
 - `{.transcript_path}` - Access root fields directly
-- `{.data | length}` - Count array elements
-- `{[.data[] | select(.type == "assistant") | .content]}` - Filter and extract from arrays
-- `{.message | @base64}` - String transformations
+- `{.session_id}` - Access session identifier
+- `{.hook_event_name}` - Access hook event name
+- `{.tool_name}` - Access tool name
 - `{.}` - Access entire input JSON object
 - `{.tool_input.file_path}` - Access nested fields (Write/Edit tools)
 - `{.tool_input.url}` - Access URL field (WebFetch tool)
