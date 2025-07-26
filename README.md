@@ -50,11 +50,12 @@ cd cchook
 go build -o cchook
 ```
 
-## Usage
+## Quick Start
 
-Configure as a Claude Code hook in your settings.json:
+### 1. Configure Claude Code Hooks
 
-**`.claude/settings.json`**:
+Add cchook to your Claude Code hook configuration in `.claude/settings.json`:
+
 ```json
 {
   "hooks": {
@@ -82,10 +83,180 @@ Configure as a Claude Code hook in your settings.json:
 }
 ```
 
+### 2. Create Configuration File
 
-## Configuration
+Create `~/.config/cchook/config.yaml` with your desired hooks:
 
-Create a YAML configuration file at `~/.config/cchook/config.yaml`:
+```yaml
+# Auto-format Go files after Write/Edit
+PostToolUse:
+  - conditions:
+      - type: tool_name
+        value: "Write|Edit"
+      - type: file_extension
+        value: ".go"
+    actions:
+      - type: command
+        command: "gofmt -w {.tool_input.file_path}"
+
+# Guide users to use better alternatives
+PreToolUse:
+  - conditions:
+      - type: tool_name
+        value: "Bash"
+      - type: command_starts_with
+        value: "python"
+    actions:
+      - type: output
+        message: "pythonは使わず`uv`を代わりに使いましょう"
+  - conditions:
+      - type: tool_name
+        value: "WebFetch"
+      - type: url_starts_with
+        value: "https://github.com"
+    actions:
+      - type: output
+        message: "WebFetchではなく、`gh`コマンド経由で情報を取得しましょう"
+```
+
+## Configuration Examples
+
+### File Processing
+
+Auto-format different file types:
+```yaml
+PostToolUse:
+  - conditions:
+      - type: tool_name
+        value: "Write|Edit"
+      - type: file_extension
+        value: ".go"
+    actions:
+      - type: command
+        command: "gofmt -w {.tool_input.file_path}"
+  
+  - conditions:
+      - type: tool_name
+        value: "Write|Edit"
+      - type: file_extension
+        value: ".py"
+    actions:
+      - type: command
+        command: "black {.tool_input.file_path}"
+```
+
+### Command Safety
+
+Block dangerous commands:
+```yaml
+PreToolUse:
+  - conditions:
+      - type: tool_name
+        value: "Bash"
+      - type: command_starts_with
+        value: "rm -rf"
+    actions:
+      - type: output
+        message: "🚫 Dangerous command blocked!"
+        # exit_status: 2 (default - blocks execution)
+```
+
+### API Monitoring
+
+Track external API usage:
+```yaml
+PreToolUse:
+  - conditions:
+      - type: tool_name
+        value: "WebFetch"
+      - type: url_starts_with
+        value: "https://api."
+    actions:
+      - type: output
+        message: "🌐 API access: {.tool_input.url}"
+        exit_status: 0
+      - type: command
+        command: 'echo "{.session_id}: {.tool_input.url}" >> ~/api_access.log'
+```
+
+### Notifications
+
+Send completion notifications:
+```yaml
+Stop:
+  - actions:
+      - type: command
+        command: >
+          cat '{.transcript_path}' | 
+          jq -s 'reverse | map(select(.type == "assistant" and .message.content[0].type == "text")) | .[0].message.content[0].text' |
+          xargs -I {} ntfy publish --markdown --title 'Claude Code Complete' "{}"
+```
+
+## Configuration Reference
+
+### Event Types
+
+- **PreToolUse** - Before tool execution (can block with exit_status: 2)
+- **PostToolUse** - After tool execution
+- **Stop** - When Claude Code session ends
+- **SubagentStop** - When a subagent terminates
+- **Notification** - System notifications
+- **PreCompact** - Before conversation compaction
+
+### Conditions
+
+- **tool_name** - Match tool name (e.g., "Write|Edit", "Bash", "WebFetch")
+- **file_extension** - Match file extension in `tool_input.file_path`
+- **command_contains** - Match substring in `tool_input.command`
+- **command_starts_with** - Match command prefix
+- **file_exists** - Check if specified file exists
+- **url_starts_with** - Match URL prefix (WebFetch tool)
+
+### Actions
+
+- **command** - Execute shell command
+- **output** - Print message (default exit_status: 2 for PreToolUse, 0 for others)
+
+### Exit Status Control
+
+- **0** - Allow execution, output to stdout
+- **2** - Block execution (PreToolUse only), output to stderr
+- **Other** - Exit with specified code
+
+### Template Syntax
+
+Access JSON data using `{.field}` syntax with full jq query support:
+
+- **Simple fields**: `{.session_id}`, `{.tool_name}`, `{.hook_event_name}`
+- **Nested fields**: `{.tool_input.file_path}`, `{.tool_input.url}`
+- **Complex queries**: `{.transcript_path | @base64}`, `{.tool_input | keys}`
+- **Entire object**: `{.}`
+
+**YAML Multi-line Support:**
+- `>` - Folded style (newlines become spaces)
+- `|` - Literal style (preserves formatting)
+
+## Advanced Examples
+
+### Conditional File Processing
+
+```yaml
+PostToolUse:
+  - conditions:
+      - type: tool_name
+        value: "Write|Edit"
+      - type: file_extension
+        value: ".py"
+      - type: file_exists
+        value: "pyproject.toml"
+    actions:
+      - type: command
+        command: "ruff format {.tool_input.file_path}"
+      - type: command
+        command: "ruff check --fix {.tool_input.file_path}"
+```
+
+### Multi-Step Workflows
 
 ```yaml
 PostToolUse:
@@ -97,223 +268,27 @@ PostToolUse:
     actions:
       - type: command
         command: "gofmt -w {.tool_input.file_path}"
+      - type: command
+        command: "go vet {.tool_input.file_path}"
       - type: output
-        message: "Formatted {.tool_input.file_path}"
+        message: "✅ Go file formatted and vetted: {.tool_input.file_path}"
+        exit_status: 0
+```
 
-PreToolUse:
-  - conditions:
-      - type: tool_name
-        value: "Bash"
-      - type: command_contains
-        value: "git add"
-    actions:
-      - type: output
-        message: "Consider using semantic commit workflow"
+### Complex Notifications
+
+```yaml
+Stop:
+  - actions:
+      - type: command
+        command: |
+          LAST_MSG=$(cat '{.transcript_path}' | jq -s 'reverse | map(select(.type == "assistant" and .message.content[0].type == "text")) | .[0].message.content[0].text' | head -c 100)
+          ntfy publish --markdown --title 'Claude Code Session Complete' --tags 'checkmark' "$LAST_MSG..."
 ```
 
 ## Input Format
 
 cchook receives JSON input from Claude Code hooks via stdin. For details on the JSON structure and available fields, see the [Claude Code hook documentation](https://docs.anthropic.com/ja/docs/claude-code/hooks).
-
-## Templates
-
-Use `{jq_query}` for JSON processing with jq-compatible queries:
-
-```yaml
-Stop:
-  - actions:
-      - type: command
-        command: >
-          cat '{.transcript_path}' | 
-          jq -s 'reverse | map(select(.type == "assistant" and .message.content[0].type == "text")) | .[0].message.content[0].text' |
-          xargs -I {} ntfy publish --markdown --title 'Claude Code Complete' "{}"
-
-Notification:  
-  - actions:
-      - type: command
-        command: ntfy publish --markdown --title "{.hook_event_name}" "{.message}"
-```
-
-**JQ Features:**
-- Full jq query language support via [gojq](https://github.com/itchyny/gojq)
-- Array manipulation: `reverse`, `map`, `select`, `sort_by`
-- String processing: `@base64`, `ascii_upcase`, `length`
-- Complex data extraction from nested JSON structures
-
-**YAML Multi-line Support:**
-- `>` - Folded style (spaces preserved, newlines become spaces)
-- `|` - Literal style (preserves all formatting)
-
-**Access Patterns:**
-- `{.transcript_path}` - Access root fields directly
-- `{.session_id}` - Access session identifier
-- `{.hook_event_name}` - Access hook event name
-- `{.tool_name}` - Access tool name
-- `{.}` - Access entire input JSON object
-- `{.tool_input.file_path}` - Access nested fields (Write/Edit tools)
-- `{.tool_input.url}` - Access URL field (WebFetch tool)
-- `{.tool_input.prompt}` - Access prompt field (WebFetch tool)
-
-**Complex Example:**
-```yaml
-Stop:
-  - actions:
-      - type: command
-        command: >
-          cat '{.transcript_path}' | 
-          jq -s 'reverse | map(select(.type == "assistant" and .message.content[0].type == "text")) | .[0].message.content[0].text' |
-          xargs -I {} ntfy publish --markdown --title 'Claude Code Complete' --tags 'checkmark' "{}"
-```
-
-## Event Types
-
-- PreToolUse - Before tool execution
-- PostToolUse - After tool execution
-- Notification - System notifications
-- Stop - Session stop
-- SubagentStop - Subagent termination
-- PreCompact - Before conversation compaction
-
-## Conditions
-
-- `file_extension` - Match file extension in tool_input.file_path
-- `command_contains` - Match substring in tool_input.command
-- `command_starts_with` - Match if command starts with specified string
-- `file_exists` - Match if specified file exists
-- `url_starts_with` - Match if URL starts with specified string (WebFetch tool)
-
-## Actions
-
-- `command` - Execute shell command
-- `output` - Print message to stdout/stderr
-
-### ExitStatus Control
-
-Actions support an optional `exit_status` field to control execution behavior:
-
-- **Default for `output` actions**: `2` (blocks tool execution, outputs to stderr)
-- **ExitStatus `0`**: Normal execution (outputs to stdout)
-- **ExitStatus `2`**: Blocks tool execution (outputs to stderr) - **Useful for PreToolUse**
-- **Other values**: Exits with specified code (outputs to stdout)
-
-**Examples:**
-
-Block dangerous commands (recommended for PreToolUse):
-```yaml
-PreToolUse:
-  - matcher: "Bash"
-    conditions:
-      - type: command_starts_with
-        value: "rm -rf"
-    actions:
-      - type: output
-        message: "🚫 Dangerous command blocked!"
-        # exit_status: 2 (default for output actions)
-```
-
-Allow with warning (outputs to stdout):
-```yaml
-PreToolUse:
-  - matcher: "Bash"
-    conditions:
-      - type: command_contains
-        value: "git push"
-    actions:
-      - type: output
-        message: "⚠️ Pushing to remote repository"
-        exit_status: 0  # Allows tool execution
-```
-
-Custom exit behavior:
-```yaml
-PreToolUse:
-  - matcher: "Bash"
-    actions:
-      - type: output
-        message: "Custom exit status for specific workflows"
-        exit_status: 1  # Custom exit code
-```
-
-**Important Notes:**
-- **ExitStatus `2` in PreToolUse**: Blocks tool execution and sends message to Claude via stderr
-- **ExitStatus `0`**: Allows tool execution and outputs informational message to stdout
-
-## Examples
-
-Auto-format Go files:
-```yaml
-PostToolUse:
-  - matcher: "Write|Edit"
-    conditions:
-      - type: file_extension
-        value: ".go"
-    actions:
-      - type: command
-        command: "gofmt -w {.tool_input.file_path}"
-```
-
-Block git add (recommended approach):
-```yaml
-PreToolUse:
-  - matcher: "Bash"
-    conditions:
-      - type: command_contains
-        value: "git add"
-    actions:
-      - type: output
-        message: "🚫 Direct git add blocked. Use semantic commit workflow instead."
-        # exit_status: 2 (default - blocks execution)
-```
-
-Or warn about git add (allows execution):
-```yaml
-PreToolUse:
-  - matcher: "Bash"
-    conditions:
-      - type: command_contains
-        value: "git add"
-    actions:
-      - type: output
-        message: "⚠️ Warning: direct git add detected"
-        exit_status: 0  # Allows execution with warning
-```
-
-Check for Docker commands:
-```yaml
-PreToolUse:
-  - matcher: "Bash"
-    conditions:
-      - type: command_starts_with
-        value: "docker"
-      - type: file_exists
-        value: "Dockerfile"
-    actions:
-      - type: output
-        message: "Docker operation detected in project with Dockerfile"
-```
-
-Monitor WebFetch access to specific sites:
-```yaml
-PreToolUse:
-  - matcher: "WebFetch"
-    conditions:
-      - type: url_starts_with
-        value: "https://api."
-    actions:
-      - type: output
-        message: "🌐 API access detected: {.tool_input.url}"
-      - type: command
-        command: 'echo "API access: {.tool_input.url}" >> /tmp/api_access.log'
-        
-PostToolUse:
-  - matcher: "WebFetch"
-    conditions:
-      - type: url_starts_with
-        value: "https://news."
-    actions:
-      - type: command
-        command: 'echo "News content fetched from {.tool_input.url}" | ntfy publish "WebFetch News"'
-```
 
 ## Development
 
