@@ -141,6 +141,7 @@ PreToolUse:
 ### File Processing
 
 Auto-format different file types:
+
 ```yaml
 PostToolUse:
   - conditions:
@@ -163,6 +164,7 @@ PostToolUse:
 ```
 
 Run pre-commit hooks automatically:
+
 ```yaml
 PostToolUse:
   - conditions:
@@ -178,6 +180,7 @@ PostToolUse:
 ### Command Safety
 
 Block dangerous commands:
+
 ```yaml
 PreToolUse:
   - conditions:
@@ -194,6 +197,7 @@ PreToolUse:
 ### API Monitoring
 
 Track external API usage:
+
 ```yaml
 PreToolUse:
   - conditions:
@@ -212,6 +216,7 @@ PreToolUse:
 ### Notifications
 
 Send completion notifications:
+
 ```yaml
 Stop:
   - actions:
