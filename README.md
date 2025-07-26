@@ -1,5 +1,14 @@
 # cchook
 
+```
+  ██████╗  ██████╗ ██╗  ██╗  ██████╗   ██████╗  ██╗  ██╗
+ ██╔════╝ ██╔════╝ ██║  ██║ ██╔═══██╗ ██╔═══██╗ ██║ ██╔╝
+ ██║      ██║      ███████║ ██║   ██║ ██║   ██║ █████╔╝
+ ██║      ██║      ██╔══██║ ██║   ██║ ██║   ██║ ██╔═██╗
+ ╚██████╗ ╚██████╗ ██║  ██║ ╚██████╔╝ ╚██████╔╝ ██║  ██╗
+  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝  ╚═════╝   ╚═════╝  ╚═╝  ╚═╝
+```
+
 A CLI tool for executing hooks at various stages of Claude Code operations.
 
 ## Background & Motivation
@@ -143,6 +152,19 @@ PostToolUse:
     actions:
       - type: command
         command: "black {.tool_input.file_path}"
+```
+
+Run pre-commit hooks automatically:
+```yaml
+PostToolUse:
+  - conditions:
+      - type: tool_name
+        value: "Write|Edit|MultiEdit"
+      - type: file_exists
+        value: ".pre-commit-config.yaml"
+    actions:
+      - type: command
+        command: "pre-commit run --files {.tool_input.file_path}"
 ```
 
 ### Command Safety
