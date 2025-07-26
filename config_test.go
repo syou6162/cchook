@@ -172,9 +172,10 @@ func TestGetDefaultConfigPath(t *testing.T) {
 
 func TestLoadConfig_DefaultPath(t *testing.T) {
 	// デフォルトパスでの読み込み（ファイルが存在しない場合のエラー）
-	_, err := loadConfig("")
+	// 存在しないパスを明示的に指定してテスト
+	_, err := loadConfig("/tmp/non-existent-cchook-config.yaml")
 	if err == nil {
-		t.Error("Expected error when loading non-existent default config")
+		t.Error("Expected error when loading non-existent config")
 	}
 
 	if !strings.Contains(err.Error(), "failed to read config file") {

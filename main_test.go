@@ -86,7 +86,7 @@ func TestRunHooks_PreToolUse_Success(t *testing.T) {
 			{
 				Matcher: "Write",
 				Actions: []PreToolUseAction{
-					{Type: "output", Message: "Test message"},
+					{Type: "output", Message: "Test message", ExitStatus: &[]int{0}[0]},
 				},
 			},
 		},

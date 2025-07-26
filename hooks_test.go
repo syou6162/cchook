@@ -151,9 +151,10 @@ func TestExecutePreToolUseHook_OutputAction(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
+	exitStatus := 0
 	hook := PreToolUseHook{
 		Actions: []PreToolUseAction{
-			{Type: "output", Message: "Test message"},
+			{Type: "output", Message: "Test message", ExitStatus: &exitStatus},
 		},
 	}
 
@@ -236,9 +237,10 @@ func TestExecutePreToolUseHook_FailingCommand(t *testing.T) {
 }
 
 func TestExecutePostToolUseHook_Success(t *testing.T) {
+	exitStatus := 0
 	hook := PostToolUseHook{
 		Actions: []PostToolUseAction{
-			{Type: "output", Message: "Post-processing complete"},
+			{Type: "output", Message: "Post-processing complete", ExitStatus: &exitStatus},
 		},
 	}
 
@@ -280,9 +282,9 @@ func TestExecutePreToolUseHooks_Integration(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	stderrOutput := buf.String()
 
-	// executePreToolUseHooksはエラーを返さず、stdErr に出力するだけ
-	if err != nil {
-		t.Errorf("executePreToolUseHooks() error = %v", err)
+	// executePreToolUseHooksはフック失敗時にエラーを返す
+	if err == nil {
+		t.Error("Expected executePreToolUseHooks to return error for failing command")
 	}
 
 	if !strings.Contains(stderrOutput, "PreToolUse hook 0 failed") {
@@ -296,7 +298,7 @@ func TestExecutePostToolUseHooks_Integration(t *testing.T) {
 			{
 				Matcher: "Edit",
 				Actions: []PostToolUseAction{
-					{Type: "output", Message: "File processed"},
+					{Type: "output", Message: "File processed", ExitStatus: &[]int{0}[0]},
 				},
 			},
 		},
@@ -358,7 +360,7 @@ func TestDryRunPreToolUseHooks_NoMatch(t *testing.T) {
 
 	config := &Config{
 		PreToolUse: []PreToolUseHook{
-			{Matcher: "Edit", Actions: []PreToolUseAction{{Type: "output", Message: "test"}}},
+			{Matcher: "Edit", Actions: []PreToolUseAction{{Type: "output", Message: "test", ExitStatus: &[]int{0}[0]}}},
 		},
 	}
 
@@ -396,7 +398,7 @@ func TestDryRunPreToolUseHooks_WithMatch(t *testing.T) {
 				Matcher: "Write",
 				Actions: []PreToolUseAction{
 					{Type: "command", Command: "echo {.tool_input.file_path}"},
-					{Type: "output", Message: "Processing..."},
+					{Type: "output", Message: "Processing...", ExitStatus: &[]int{0}[0]},
 				},
 			},
 		},
