@@ -15,9 +15,12 @@ A CLI tool for executing hooks at various stages of Claude Code operations.
 
 Claude Code has a powerful [hook system](https://docs.anthropic.com/ja/docs/claude-code/hooks) that allows executing custom commands at various stages of operation. However, writing hooks can become unwieldy for several reasons:
 
-- **Complex JSON configuration**: Hooks are configured in JSON format within settings, making them hard to read and maintain
-- **Repetitive jq processing**: When using multiple elements from input JSON, you need temporary files and repeated jq filters
-- **Single-line limitations**: JSON strings don't support multi-line formatting like YAML, leading to very long, hard-to-read command lines
+- Complex JSON configuration
+  - Hooks are configured in JSON format within settings, making them hard to read and maintain
+- Repetitive jq processing
+  - When using multiple elements from input JSON, you need temporary files and repeated jq filters
+- Single-line limitations
+  - JSON strings don't support multi-line formatting like YAML, leading to very long, hard-to-read command lines
 
 For example, a simple Stop hook that sends notifications via [ntfy](https://ntfy.sh) becomes a complex one-liner:
 
@@ -40,10 +43,15 @@ For example, a simple Stop hook that sends notifications via [ntfy](https://ntfy
 ```
 
 **cchook** solves these problems by providing:
-- **YAML configuration**: Clean, readable multi-line configuration
-- **Template syntax**: Simple `{.field}` syntax for accessing JSON data with full jq query support
-- **Conditional logic**: Built-in conditions for common scenarios (file extensions, command patterns, etc.)
-- **Better maintainability**: Structured configuration that's easy to understand and modify
+
+- YAML configuration
+  - Clean, readable multi-line configuration
+- Template syntax
+  - Simple `{.field}` syntax for accessing JSON data with full jq query support
+- Conditional logic
+  - Built-in conditions for common scenarios (file extensions, command patterns, etc.)
+- Better maintainability
+  - Structured configuration that's easy to understand and modify
 
 ## Installation
 
@@ -218,45 +226,68 @@ Stop:
 
 ### Event Types
 
-- **PreToolUse** - Before tool execution (can block with exit_status: 2)
-- **PostToolUse** - After tool execution
-- **Stop** - When Claude Code session ends
-- **SubagentStop** - When a subagent terminates
-- **Notification** - System notifications
-- **PreCompact** - Before conversation compaction
+- PreToolUse
+  - Before tool execution (can block with exit_status: 2)
+- PostToolUse
+  - After tool execution
+- Stop
+  - When Claude Code session ends
+- SubagentStop
+  - When a subagent terminates
+- Notification
+  - System notifications
+- PreCompact
+  - Before conversation compaction
 
 ### Conditions
 
-- **tool_name** - Match tool name (e.g., "Write|Edit", "Bash", "WebFetch")
-- **file_extension** - Match file extension in `tool_input.file_path`
-- **command_contains** - Match substring in `tool_input.command`
-- **command_starts_with** - Match command prefix
-- **file_exists** - Check if specified file exists
-- **url_starts_with** - Match URL prefix (WebFetch tool)
+- tool_name
+  - Match tool name (e.g., "Write|Edit", "Bash", "WebFetch")
+- file_extension
+  - Match file extension in `tool_input.file_path`
+- command_contains
+  - Match substring in `tool_input.command`
+- command_starts_with
+  - Match command prefix
+- file_exists
+  - Check if specified file exists
+- url_starts_with
+  - Match URL prefix (WebFetch tool)
 
 ### Actions
 
-- **command** - Execute shell command
-- **output** - Print message (default exit_status: 2 for PreToolUse, 0 for others)
+- command
+  - Execute shell command
+- output
+  - Print message (default exit_status: 2 for PreToolUse, 0 for others)
 
 ### Exit Status Control
 
-- **0** - Allow execution, output to stdout
-- **2** - Block execution (PreToolUse only), output to stderr
-- **Other** - Exit with specified code
+- 0
+  - Allow execution, output to stdout
+- 2
+  - Block execution (PreToolUse only), output to stderr
+- Other
+  - Exit with specified code
 
 ### Template Syntax
 
 Access JSON data using `{.field}` syntax with full jq query support:
 
-- **Simple fields**: `{.session_id}`, `{.tool_name}`, `{.hook_event_name}`
-- **Nested fields**: `{.tool_input.file_path}`, `{.tool_input.url}`
-- **Complex queries**: `{.transcript_path | @base64}`, `{.tool_input | keys}`
-- **Entire object**: `{.}`
+- Simple fields
+  - `{.session_id}`, `{.tool_name}`, `{.hook_event_name}`
+- Nested fields
+  - `{.tool_input.file_path}`, `{.tool_input.url}`
+- Complex queries
+  - `{.transcript_path | @base64}`, `{.tool_input | keys}`
+- Entire object
+  - `{.}`
 
-**YAML Multi-line Support:**
-- `>` - Folded style (newlines become spaces)
-- `|` - Literal style (preserves formatting)
+YAML Multi-line Support:
+- `>`
+  - Folded style (newlines become spaces)
+- `|`
+  - Literal style (preserves formatting)
 
 ## Advanced Examples
 
