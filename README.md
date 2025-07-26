@@ -4,7 +4,7 @@ A CLI tool for executing hooks at various stages of Claude Code operations.
 
 ## Background & Motivation
 
-Claude Code has a powerful hook system that allows executing custom commands at various stages of operation. However, writing hooks can become unwieldy for several reasons:
+Claude Code has a powerful [hook system](https://docs.anthropic.com/ja/docs/claude-code/hooks) that allows executing custom commands at various stages of operation. However, writing hooks can become unwieldy for several reasons:
 
 - **Complex JSON configuration**: Hooks are configured in JSON format within settings, making them hard to read and maintain
 - **Repetitive jq processing**: When using multiple elements from input JSON, you need temporary files and repeated jq filters
