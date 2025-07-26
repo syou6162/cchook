@@ -1,5 +1,7 @@
 package main
 
+import "encoding/json"
+
 // イベントタイプのenum定義
 type HookEventType string
 
@@ -60,11 +62,8 @@ func (p *PreToolUseInput) GetToolName() string {
 	return p.ToolName
 }
 
-// Tool response structures - ドキュメントから確認できた構造
-type ToolResponse struct {
-	FilePath string `json:"filePath,omitempty"`
-	Success  bool   `json:"success,omitempty"`
-}
+// Tool response structures - ツールによって配列またはオブジェクトのパターンに対応
+type ToolResponse json.RawMessage
 
 // PostToolUse用
 type PostToolUseInput struct {

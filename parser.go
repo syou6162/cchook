@@ -99,11 +99,8 @@ func parsePostToolUseInput(rawInput json.RawMessage) (*PostToolUseInput, error) 
 		return nil, fmt.Errorf("failed to parse tool_input for %s: %w", temp.ToolName, err)
 	}
 
-	// tool_responseをパース
-	var toolResponse ToolResponse
-	if err := json.Unmarshal(temp.ToolResponse, &toolResponse); err != nil {
-		return nil, fmt.Errorf("failed to parse tool_response: %w", err)
-	}
+	// tool_responseをそのままRawMessageとして保持
+	toolResponse := ToolResponse(temp.ToolResponse)
 
 	return &PostToolUseInput{
 		BaseInput:    temp.BaseInput,
