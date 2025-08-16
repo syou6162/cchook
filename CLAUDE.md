@@ -15,20 +15,36 @@ go build -o cchook
 # Run all tests
 go test ./...
 
+# Run tests with verbose output
+go test -v ./...
+
 # Run specific test file
 go test -v ./hooks_test.go
+
+# Run specific test function
+go test -v -run TestExecutePreToolUseHooks ./hooks_test.go
 
 # Run with coverage
 go test -cover ./...
 
+# Run with coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+
 # Install locally for testing
 go install
 
-# Lint code (via pre-commit)
+# Lint code (via pre-commit) - requires pre-commit to be installed
 pre-commit run --all-files
+
+# Lint Go code directly with golangci-lint
+golangci-lint run
 
 # Test the tool manually (requires JSON input via stdin)
 echo '{"session_id":"test","hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"test.go"}}' | ./cchook -event PreToolUse
+
+# Dry-run mode for testing configurations
+echo '{"session_id":"test","hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"test.go"}}' | ./cchook -event PreToolUse -command "echo 'would execute: {.tool_name}'"
 ```
 
 ## Architecture
@@ -118,3 +134,25 @@ The tool uses YAML configuration with event-specific hook definitions. Each hook
 - `actions`: Command execution or output with optional exit_status
 
 Template variables are available based on the event type and include fields from BaseInput, tool-specific data, and full jq query support.
+
+## Common Workflows
+
+### Adding a New Hook Type
+1. Define the input structure in `types.go` with embedded BaseInput
+2. Add condition types if needed in `types.go`
+3. Implement parsing logic in `parser.go`
+4. Add hook execution function in `hooks.go`
+5. Implement condition checking in `utils.go`
+6. Add tests in corresponding `*_test.go` files
+
+### Testing Template Processing
+Template processing can be tested independently:
+```go
+// See template_jq_test.go for examples
+result := processTemplate("{.tool_name | ascii_upcase}", jsonData)
+```
+
+### Debugging Hook Execution
+1. Use dry-run mode with `-command` flag to test without side effects
+2. Check template expansion with simple echo commands
+3. Use verbose test output (`go test -v`) to see detailed execution flow
