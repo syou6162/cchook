@@ -156,61 +156,50 @@ type Action interface {
 
 // イベントタイプ毎の設定構造体
 type PreToolUseHook struct {
-	Matcher    string                `yaml:"matcher"`
-	Conditions []PreToolUseCondition `yaml:"conditions,omitempty"`
-	Actions    []PreToolUseAction    `yaml:"actions"`
+	Matcher    string             `yaml:"matcher"`
+	Conditions []Condition        `yaml:"conditions,omitempty"`
+	Actions    []PreToolUseAction `yaml:"actions"`
 }
 
 type PostToolUseHook struct {
-	Matcher    string                 `yaml:"matcher"`
-	Conditions []PostToolUseCondition `yaml:"conditions,omitempty"`
-	Actions    []PostToolUseAction    `yaml:"actions"`
+	Matcher    string              `yaml:"matcher"`
+	Conditions []Condition         `yaml:"conditions,omitempty"`
+	Actions    []PostToolUseAction `yaml:"actions"`
 }
 
 type NotificationHook struct {
-	Actions []NotificationAction `yaml:"actions"`
+	Conditions []Condition          `yaml:"conditions,omitempty"`
+	Actions    []NotificationAction `yaml:"actions"`
 }
 
 type StopHook struct {
-	Actions []StopAction `yaml:"actions"`
+	Conditions []Condition  `yaml:"conditions,omitempty"`
+	Actions    []StopAction `yaml:"actions"`
 }
 
 type SubagentStopHook struct {
-	Actions []SubagentStopAction `yaml:"actions"`
+	Conditions []Condition          `yaml:"conditions,omitempty"`
+	Actions    []SubagentStopAction `yaml:"actions"`
 }
 
 type PreCompactHook struct {
-	Actions []PreCompactAction `yaml:"actions"`
+	Conditions []Condition        `yaml:"conditions,omitempty"`
+	Actions    []PreCompactAction `yaml:"actions"`
 }
 
 type SessionStartHook struct {
-	Matcher    string                  `yaml:"matcher"` // "startup", "resume", or "clear"
-	Conditions []SessionStartCondition `yaml:"conditions,omitempty"`
-	Actions    []SessionStartAction    `yaml:"actions"`
+	Matcher    string               `yaml:"matcher"` // "startup", "resume", or "clear"
+	Conditions []Condition          `yaml:"conditions,omitempty"`
+	Actions    []SessionStartAction `yaml:"actions"`
 }
 
 type UserPromptSubmitHook struct {
-	Conditions []UserPromptSubmitCondition `yaml:"conditions,omitempty"`
-	Actions    []UserPromptSubmitAction    `yaml:"actions"`
+	Conditions []Condition              `yaml:"conditions,omitempty"`
+	Actions    []UserPromptSubmitAction `yaml:"actions"`
 }
 
-// イベントタイプ毎の条件構造体
-type PreToolUseCondition struct {
-	Type  string `yaml:"type"`
-	Value string `yaml:"value"`
-}
-
-type PostToolUseCondition struct {
-	Type  string `yaml:"type"`
-	Value string `yaml:"value"`
-}
-
-type UserPromptSubmitCondition struct {
-	Type  string `yaml:"type"`
-	Value string `yaml:"value"`
-}
-
-type SessionStartCondition struct {
+// 共通の条件構造体
+type Condition struct {
 	Type  string `yaml:"type"`
 	Value string `yaml:"value"`
 }
