@@ -1,6 +1,9 @@
 package main
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // イベントタイプのenum定義
 type HookEventType string
@@ -199,26 +202,68 @@ type UserPromptSubmitHook struct {
 }
 
 // 共通の条件構造体
-// ConditionType represents the type of condition to check
-type ConditionType string
+// ConditionType represents the type of condition to check (opaque struct)
+type ConditionType struct{ v string }
 
-// Condition types as constants
-const (
+// String returns the string representation of the condition type
+func (c ConditionType) String() string {
+	return c.v
+}
+
+// Predefined valid condition types (singletons)
+var (
 	// Common conditions (all events)
-	ConditionFileExists          ConditionType = "file_exists"
-	ConditionFileExistsRecursive ConditionType = "file_exists_recursive"
+	ConditionFileExists          = ConditionType{"file_exists"}
+	ConditionFileExistsRecursive = ConditionType{"file_exists_recursive"}
 
 	// Tool-related conditions (PreToolUse/PostToolUse)
-	ConditionFileExtension     ConditionType = "file_extension"
-	ConditionCommandContains   ConditionType = "command_contains"
-	ConditionCommandStartsWith ConditionType = "command_starts_with"
-	ConditionURLStartsWith     ConditionType = "url_starts_with"
+	ConditionFileExtension     = ConditionType{"file_extension"}
+	ConditionCommandContains   = ConditionType{"command_contains"}
+	ConditionCommandStartsWith = ConditionType{"command_starts_with"}
+	ConditionURLStartsWith     = ConditionType{"url_starts_with"}
 
 	// Prompt-related conditions (UserPromptSubmit)
-	ConditionPromptContains   ConditionType = "prompt_contains"
-	ConditionPromptStartsWith ConditionType = "prompt_starts_with"
-	ConditionPromptEndsWith   ConditionType = "prompt_ends_with"
+	ConditionPromptContains   = ConditionType{"prompt_contains"}
+	ConditionPromptStartsWith = ConditionType{"prompt_starts_with"}
+	ConditionPromptEndsWith   = ConditionType{"prompt_ends_with"}
 )
+
+// UnmarshalYAML implements yaml.Unmarshaler for ConditionType
+func (c *ConditionType) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+
+	switch s {
+	case "file_exists":
+		*c = ConditionFileExists
+	case "file_exists_recursive":
+		*c = ConditionFileExistsRecursive
+	case "file_extension":
+		*c = ConditionFileExtension
+	case "command_contains":
+		*c = ConditionCommandContains
+	case "command_starts_with":
+		*c = ConditionCommandStartsWith
+	case "url_starts_with":
+		*c = ConditionURLStartsWith
+	case "prompt_contains":
+		*c = ConditionPromptContains
+	case "prompt_starts_with":
+		*c = ConditionPromptStartsWith
+	case "prompt_ends_with":
+		*c = ConditionPromptEndsWith
+	default:
+		return fmt.Errorf("invalid condition type: %s", s)
+	}
+	return nil
+}
+
+// MarshalYAML implements yaml.Marshaler for ConditionType
+func (c ConditionType) MarshalYAML() (interface{}, error) {
+	return c.v, nil
+}
 
 type Condition struct {
 	Type  ConditionType `yaml:"type"`
