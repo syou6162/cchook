@@ -223,6 +223,113 @@ func TestExecuteSessionStartHooks(t *testing.T) {
 	}
 }
 
+func TestSessionStartHooksWithConditions(t *testing.T) {
+	// go.modは既に存在するはず
+	config := &Config{
+		SessionStart: []SessionStartHook{
+			{
+				Matcher: "startup",
+				Conditions: []SessionStartCondition{
+					{Type: "file_exists", Value: "go.mod"},
+				},
+				Actions: []SessionStartAction{
+					{
+						Type:    "output",
+						Message: "Go project detected",
+					},
+				},
+			},
+			{
+				Matcher: "startup",
+				Conditions: []SessionStartCondition{
+					{Type: "file_exists", Value: "nonexistent.file"},
+				},
+				Actions: []SessionStartAction{
+					{
+						Type:    "output",
+						Message: "This should not appear",
+					},
+				},
+			},
+			{
+				Matcher: "startup",
+				Conditions: []SessionStartCondition{
+					{Type: "file_exists_recursive", Value: "hooks_test.go"},
+				},
+				Actions: []SessionStartAction{
+					{
+						Type:    "output",
+						Message: "Test file found recursively",
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name           string
+		input          *SessionStartInput
+		expectedOutput []string
+	}{
+		{
+			name: "Conditions check - file_exists and file_exists_recursive",
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  SessionStart,
+				},
+				Source: "startup",
+			},
+			expectedOutput: []string{"Go project detected", "Test file found recursively"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// キャプチャ用バッファ
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			// rawJSON作成
+			rawJSON := map[string]interface{}{
+				"session_id":      tt.input.SessionID,
+				"transcript_path": tt.input.TranscriptPath,
+				"hook_event_name": string(tt.input.HookEventName),
+				"source":          tt.input.Source,
+			}
+
+			// フック実行
+			err := executeSessionStartHooks(config, tt.input, rawJSON)
+
+			// 出力キャプチャ
+			w.Close()
+			os.Stdout = oldStdout
+			var buf bytes.Buffer
+			io.Copy(&buf, r)
+			output := strings.TrimSpace(buf.String())
+
+			// エラーチェック
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			// 出力チェック
+			for _, expected := range tt.expectedOutput {
+				if !strings.Contains(output, expected) {
+					t.Errorf("Expected output to contain '%s', got '%s'", expected, output)
+				}
+			}
+
+			// "This should not appear"が出力されていないことを確認
+			if strings.Contains(output, "This should not appear") {
+				t.Errorf("Output should not contain 'This should not appear', got '%s'", output)
+			}
+		})
+	}
+}
+
 func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 	config := &Config{
 		UserPromptSubmit: []UserPromptSubmitHook{

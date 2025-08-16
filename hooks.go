@@ -294,6 +294,19 @@ func dryRunSessionStartHooks(config *Config, input *SessionStartInput, rawJSON i
 		if hook.Matcher != "" && hook.Matcher != input.Source {
 			continue
 		}
+		
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			if !checkSessionStartCondition(condition, input) {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+		
 		executed = true
 		fmt.Printf("[Hook %d] Matcher: %s, Source: %s\n", i+1, hook.Matcher, input.Source)
 		for _, action := range hook.Actions {
@@ -428,6 +441,19 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 		if hook.Matcher != "" && hook.Matcher != input.Source {
 			continue
 		}
+		
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			if !checkSessionStartCondition(condition, input) {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+		
 		for _, action := range hook.Actions {
 			if err := executeSessionStartAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "SessionStart hook %d failed: %v\n", i, err)
