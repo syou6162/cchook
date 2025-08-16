@@ -10,21 +10,24 @@ import (
 
 func TestShouldExecutePreToolUseHook(t *testing.T) {
 	tests := []struct {
-		name  string
-		hook  PreToolUseHook
-		input *PreToolUseInput
-		want  bool
+		name    string
+		hook    PreToolUseHook
+		input   *PreToolUseInput
+		want    bool
+		wantErr bool
 	}{
 		{
 			"Match with no conditions",
 			PreToolUseHook{Matcher: "Write"},
 			&PreToolUseInput{ToolName: "Write"},
 			true,
+			false,
 		},
 		{
 			"No match with matcher",
 			PreToolUseHook{Matcher: "Edit"},
 			&PreToolUseInput{ToolName: "Write"},
+			false,
 			false,
 		},
 		{
@@ -40,6 +43,7 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 				ToolInput: ToolInput{FilePath: "main.go"},
 			},
 			true,
+			false,
 		},
 		{
 			"Match but condition not satisfied",
@@ -53,6 +57,7 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 				ToolName:  "Write",
 				ToolInput: ToolInput{FilePath: "main.go"},
 			},
+			false,
 			false,
 		},
 		{
@@ -72,6 +77,7 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 				},
 			},
 			true,
+			false,
 		},
 		{
 			"Multiple conditions - one not satisfied",
@@ -90,6 +96,7 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 				},
 			},
 			false,
+			false,
 		},
 		{
 			"Empty matcher matches all",
@@ -104,12 +111,18 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 				ToolInput: ToolInput{FilePath: "main.go"},
 			},
 			true,
+			false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := shouldExecutePreToolUseHook(tt.hook, tt.input); got != tt.want {
+			got, err := shouldExecutePreToolUseHook(tt.hook, tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("shouldExecutePreToolUseHook() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
 				t.Errorf("shouldExecutePreToolUseHook() = %v, want %v", got, tt.want)
 			}
 		})
@@ -416,10 +429,11 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 
 func TestShouldExecutePostToolUseHook(t *testing.T) {
 	tests := []struct {
-		name  string
-		hook  PostToolUseHook
-		input *PostToolUseInput
-		want  bool
+		name    string
+		hook    PostToolUseHook
+		input   *PostToolUseInput
+		want    bool
+		wantErr bool
 	}{
 		{
 			"Match with condition",
@@ -434,18 +448,25 @@ func TestShouldExecutePostToolUseHook(t *testing.T) {
 				ToolInput: ToolInput{FilePath: "test.go"},
 			},
 			true,
+			false,
 		},
 		{
 			"No match",
 			PostToolUseHook{Matcher: "Write"},
 			&PostToolUseInput{ToolName: "Edit"},
 			false,
+			false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := shouldExecutePostToolUseHook(tt.hook, tt.input); got != tt.want {
+			got, err := shouldExecutePostToolUseHook(tt.hook, tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("shouldExecutePostToolUseHook() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
 				t.Errorf("shouldExecutePostToolUseHook() = %v, want %v", got, tt.want)
 			}
 		})

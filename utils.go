@@ -29,7 +29,7 @@ func fileExistsRecursive(filename string) bool {
 	if filename == "" {
 		return false
 	}
-	
+
 	found := false
 	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -56,115 +56,188 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-func checkPreToolUseCondition(condition Condition, input *PreToolUseInput) bool {
+func checkPreToolUseCondition(condition Condition, input *PreToolUseInput) (bool, error) {
 	// まず汎用条件をチェック
-	if checkCommonCondition(condition) {
-		return true
+	if matched, err := checkCommonCondition(condition); err != nil {
+		return false, err
+	} else if matched {
+		return true, nil
 	}
-	
+
 	// ツール固有の条件をチェック
-	return checkToolCondition(condition, &input.ToolInput)
+	if matched, err := checkToolCondition(condition, &input.ToolInput); err != nil {
+		return false, err
+	} else if matched {
+		return true, nil
+	}
+
+	// どの条件にもマッチしない場合はエラー
+	return false, fmt.Errorf("unknown condition type: %s", condition.Type)
 }
 
-func checkPostToolUseCondition(condition Condition, input *PostToolUseInput) bool {
+func checkPostToolUseCondition(condition Condition, input *PostToolUseInput) (bool, error) {
 	// まず汎用条件をチェック
-	if checkCommonCondition(condition) {
-		return true
+	if matched, err := checkCommonCondition(condition); err != nil {
+		return false, err
+	} else if matched {
+		return true, nil
 	}
-	
+
 	// ツール固有の条件をチェック
-	return checkToolCondition(condition, &input.ToolInput)
+	if matched, err := checkToolCondition(condition, &input.ToolInput); err != nil {
+		return false, err
+	} else if matched {
+		return true, nil
+	}
+
+	// どの条件にもマッチしない場合はエラー
+	return false, fmt.Errorf("unknown condition type: %s", condition.Type)
 }
 
-func checkUserPromptSubmitCondition(condition Condition, input *UserPromptSubmitInput) bool {
+func checkUserPromptSubmitCondition(condition Condition, input *UserPromptSubmitInput) (bool, error) {
 	// まず汎用条件をチェック
-	if checkCommonCondition(condition) {
-		return true
+	if matched, err := checkCommonCondition(condition); err != nil {
+		return false, err
+	} else if matched {
+		return true, nil
 	}
-	
+
 	// プロンプト固有の条件をチェック
-	return checkPromptCondition(condition, input.Prompt)
+	if matched, err := checkPromptCondition(condition, input.Prompt); err != nil {
+		return false, err
+	} else if matched {
+		return true, nil
+	}
+
+	// どの条件にもマッチしない場合はエラー
+	return false, fmt.Errorf("unknown condition type: %s", condition.Type)
 }
 
-func checkSessionStartCondition(condition Condition, input *SessionStartInput) bool {
+func checkSessionStartCondition(condition Condition, input *SessionStartInput) (bool, error) {
 	// SessionStartは汎用条件のみ使用
-	return checkCommonCondition(condition)
+	if matched, err := checkCommonCondition(condition); err != nil {
+		return false, err
+	} else if matched {
+		return true, nil
+	}
+
+	// SessionStartがサポートしない条件タイプの場合はエラー
+	return false, fmt.Errorf("unknown condition type for SessionStart: %s", condition.Type)
 }
 
 // 汎用条件チェック関数
-func checkCommonCondition(condition Condition) bool {
+func checkCommonCondition(condition Condition) (bool, error) {
 	switch condition.Type {
 	case ConditionFileExists:
 		// 指定ファイルが存在する
-		return fileExists(condition.Value)
+		return fileExists(condition.Value), nil
 	case ConditionFileExistsRecursive:
 		// ファイルが再帰的に存在するか
-		return fileExistsRecursive(condition.Value)
+		return fileExistsRecursive(condition.Value), nil
+	default:
+		// この関数では汎用条件のみをチェック
+		// 未知の条件タイプはエラーではなく、他の関数でチェックされる可能性がある
+		return false, nil
 	}
-	return false
 }
 
 // ツール関連の条件チェック関数
-func checkToolCondition(condition Condition, toolInput *ToolInput) bool {
+func checkToolCondition(condition Condition, toolInput *ToolInput) (bool, error) {
 	switch condition.Type {
 	case ConditionFileExtension:
 		// ToolInput構造体から直接FilePath取得
 		if toolInput.FilePath != "" {
-			return strings.HasSuffix(toolInput.FilePath, condition.Value)
+			return strings.HasSuffix(toolInput.FilePath, condition.Value), nil
 		}
+		return false, nil
 	case ConditionCommandContains:
 		// ToolInput構造体からCommand取得
 		if toolInput.Command != "" {
-			return strings.Contains(toolInput.Command, condition.Value)
+			return strings.Contains(toolInput.Command, condition.Value), nil
 		}
+		return false, nil
 	case ConditionCommandStartsWith:
 		// コマンドが指定文字列で始まる
 		if toolInput.Command != "" {
-			return strings.HasPrefix(toolInput.Command, condition.Value)
+			return strings.HasPrefix(toolInput.Command, condition.Value), nil
 		}
+		return false, nil
 	case ConditionURLStartsWith:
 		// URLが指定文字列で始まる
 		if toolInput.URL != "" {
-			return strings.HasPrefix(toolInput.URL, condition.Value)
+			return strings.HasPrefix(toolInput.URL, condition.Value), nil
 		}
+		return false, nil
+	default:
+		// この関数ではツール関連条件のみをチェック
+		return false, nil
 	}
-	return false
 }
 
 // プロンプト関連の条件チェック関数
-func checkPromptCondition(condition Condition, prompt string) bool {
+func checkPromptCondition(condition Condition, prompt string) (bool, error) {
 	switch condition.Type {
 	case ConditionPromptContains:
 		// プロンプトに指定文字列が含まれる
-		return strings.Contains(prompt, condition.Value)
+		return strings.Contains(prompt, condition.Value), nil
 	case ConditionPromptStartsWith:
 		// プロンプトが指定文字列で始まる
-		return strings.HasPrefix(prompt, condition.Value)
+		return strings.HasPrefix(prompt, condition.Value), nil
 	case ConditionPromptEndsWith:
 		// プロンプトが指定文字列で終わる
-		return strings.HasSuffix(prompt, condition.Value)
+		return strings.HasSuffix(prompt, condition.Value), nil
+	default:
+		// この関数ではプロンプト関連条件のみをチェック
+		return false, nil
 	}
-	return false
 }
 
 // Notification用の条件チェック（汎用条件のみ）
-func checkNotificationCondition(condition Condition, input *NotificationInput) bool {
-	return checkCommonCondition(condition)
+func checkNotificationCondition(condition Condition, input *NotificationInput) (bool, error) {
+	if matched, err := checkCommonCondition(condition); err != nil {
+		return false, err
+	} else if matched {
+		return true, nil
+	}
+
+	// Notificationがサポートしない条件タイプの場合はエラー
+	return false, fmt.Errorf("unknown condition type for Notification: %s", condition.Type)
 }
 
 // Stop用の条件チェック（汎用条件のみ）
-func checkStopCondition(condition Condition, input *StopInput) bool {
-	return checkCommonCondition(condition)
+func checkStopCondition(condition Condition, input *StopInput) (bool, error) {
+	if matched, err := checkCommonCondition(condition); err != nil {
+		return false, err
+	} else if matched {
+		return true, nil
+	}
+
+	// Stopがサポートしない条件タイプの場合はエラー
+	return false, fmt.Errorf("unknown condition type for Stop: %s", condition.Type)
 }
 
 // SubagentStop用の条件チェック（汎用条件のみ）
-func checkSubagentStopCondition(condition Condition, input *SubagentStopInput) bool {
-	return checkCommonCondition(condition)
+func checkSubagentStopCondition(condition Condition, input *SubagentStopInput) (bool, error) {
+	if matched, err := checkCommonCondition(condition); err != nil {
+		return false, err
+	} else if matched {
+		return true, nil
+	}
+
+	// SubagentStopがサポートしない条件タイプの場合はエラー
+	return false, fmt.Errorf("unknown condition type for SubagentStop: %s", condition.Type)
 }
 
 // PreCompact用の条件チェック（汎用条件のみ）
-func checkPreCompactCondition(condition Condition, input *PreCompactInput) bool {
-	return checkCommonCondition(condition)
+func checkPreCompactCondition(condition Condition, input *PreCompactInput) (bool, error) {
+	if matched, err := checkCommonCondition(condition); err != nil {
+		return false, err
+	} else if matched {
+		return true, nil
+	}
+
+	// PreCompactがサポートしない条件タイプの場合はエラー
+	return false, fmt.Errorf("unknown condition type for PreCompact: %s", condition.Type)
 }
 
 func runCommand(command string) error {

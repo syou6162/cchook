@@ -120,7 +120,12 @@ func dryRunPreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inter
 	fmt.Println("=== PreToolUse Hooks (Dry Run) ===")
 	executed := false
 	for i, hook := range config.PreToolUse {
-		if shouldExecutePreToolUseHook(hook, input) {
+		shouldExecute, err := shouldExecutePreToolUseHook(hook, input)
+		if err != nil {
+			fmt.Printf("[Hook %d] Condition check error: %v\n", i+1, err)
+			continue
+		}
+		if shouldExecute {
 			executed = true
 			fmt.Printf("[Hook %d] Would execute:\n", i+1)
 			for _, action := range hook.Actions {
@@ -144,7 +149,12 @@ func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON int
 	fmt.Println("=== PostToolUse Hooks (Dry Run) ===")
 	executed := false
 	for i, hook := range config.PostToolUse {
-		if shouldExecutePostToolUseHook(hook, input) {
+		shouldExecute, err := shouldExecutePostToolUseHook(hook, input)
+		if err != nil {
+			fmt.Printf("[Hook %d] Condition check error: %v\n", i+1, err)
+			continue
+		}
+		if shouldExecute {
 			executed = true
 			fmt.Printf("[Hook %d] Would execute:\n", i+1)
 			for _, action := range hook.Actions {
@@ -177,7 +187,13 @@ func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON i
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
-			if !checkNotificationCondition(condition, input) {
+			matched, err := checkNotificationCondition(condition, input)
+			if err != nil {
+				fmt.Printf("[Hook %d] Condition check error: %v\n", i+1, err)
+				shouldExecute = false
+				break
+			}
+			if !matched {
 				shouldExecute = false
 				break
 			}
@@ -218,7 +234,13 @@ func dryRunStopHooks(config *Config, input *StopInput, rawJSON interface{}) erro
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
-			if !checkStopCondition(condition, input) {
+			matched, err := checkStopCondition(condition, input)
+			if err != nil {
+				fmt.Printf("[Hook %d] Condition check error: %v\n", i+1, err)
+				shouldExecute = false
+				break
+			}
+			if !matched {
 				shouldExecute = false
 				break
 			}
@@ -259,7 +281,13 @@ func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON i
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
-			if !checkSubagentStopCondition(condition, input) {
+			matched, err := checkSubagentStopCondition(condition, input)
+			if err != nil {
+				fmt.Printf("[Hook %d] Condition check error: %v\n", i+1, err)
+				shouldExecute = false
+				break
+			}
+			if !matched {
 				shouldExecute = false
 				break
 			}
@@ -300,7 +328,13 @@ func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON inter
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
-			if !checkPreCompactCondition(condition, input) {
+			matched, err := checkPreCompactCondition(condition, input)
+			if err != nil {
+				fmt.Printf("[Hook %d] Condition check error: %v\n", i+1, err)
+				shouldExecute = false
+				break
+			}
+			if !matched {
 				shouldExecute = false
 				break
 			}
@@ -346,7 +380,13 @@ func dryRunSessionStartHooks(config *Config, input *SessionStartInput, rawJSON i
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
-			if !checkSessionStartCondition(condition, input) {
+			matched, err := checkSessionStartCondition(condition, input)
+			if err != nil {
+				fmt.Printf("[Hook %d] Condition check error: %v\n", i+1, err)
+				shouldExecute = false
+				break
+			}
+			if !matched {
 				shouldExecute = false
 				break
 			}
@@ -387,7 +427,13 @@ func dryRunUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, r
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
-			if !checkUserPromptSubmitCondition(condition, input) {
+			matched, err := checkUserPromptSubmitCondition(condition, input)
+			if err != nil {
+				fmt.Printf("[Hook %d] Condition check error: %v\n", i+1, err)
+				shouldExecute = false
+				break
+			}
+			if !matched {
 				shouldExecute = false
 				break
 			}
@@ -418,7 +464,12 @@ func dryRunUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, r
 // イベント別のフック実行関数
 func executePreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON interface{}) error {
 	for i, hook := range config.PreToolUse {
-		if shouldExecutePreToolUseHook(hook, input) {
+		shouldExecute, err := shouldExecutePreToolUseHook(hook, input)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "PreToolUse hook %d condition check failed: %v\n", i, err)
+			continue // 条件チェックエラーの場合はスキップして次のフックへ
+		}
+		if shouldExecute {
 			if err := executePreToolUseHook(hook, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "PreToolUse hook %d failed: %v\n", i, err)
 				return err // ExitErrorの場合はすぐに返す
@@ -430,7 +481,12 @@ func executePreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inte
 
 func executePostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON interface{}) error {
 	for i, hook := range config.PostToolUse {
-		if shouldExecutePostToolUseHook(hook, input) {
+		shouldExecute, err := shouldExecutePostToolUseHook(hook, input)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "PostToolUse hook %d condition check failed: %v\n", i, err)
+			continue // 条件チェックエラーの場合はスキップして次のフックへ
+		}
+		if shouldExecute {
 			if err := executePostToolUseHook(hook, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "PostToolUse hook %d failed: %v\n", i, err)
 			}
@@ -444,7 +500,13 @@ func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON 
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
-			if !checkNotificationCondition(condition, input) {
+			matched, err := checkNotificationCondition(condition, input)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Notification hook %d condition check failed: %v\n", i, err)
+				shouldExecute = false
+				break
+			}
+			if !matched {
 				shouldExecute = false
 				break
 			}
@@ -467,7 +529,13 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) err
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
-			if !checkStopCondition(condition, input) {
+			matched, err := checkStopCondition(condition, input)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Stop hook %d condition check failed: %v\n", i, err)
+				shouldExecute = false
+				break
+			}
+			if !matched {
 				shouldExecute = false
 				break
 			}
@@ -490,7 +558,13 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
-			if !checkSubagentStopCondition(condition, input) {
+			matched, err := checkSubagentStopCondition(condition, input)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "SubagentStop hook %d condition check failed: %v\n", i, err)
+				shouldExecute = false
+				break
+			}
+			if !matched {
 				shouldExecute = false
 				break
 			}
@@ -513,7 +587,13 @@ func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON inte
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
-			if !checkPreCompactCondition(condition, input) {
+			matched, err := checkPreCompactCondition(condition, input)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "PreCompact hook %d condition check failed: %v\n", i, err)
+				shouldExecute = false
+				break
+			}
+			if !matched {
 				shouldExecute = false
 				break
 			}
@@ -541,7 +621,13 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
-			if !checkSessionStartCondition(condition, input) {
+			matched, err := checkSessionStartCondition(condition, input)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "SessionStart hook %d condition check failed: %v\n", i, err)
+				shouldExecute = false
+				break
+			}
+			if !matched {
 				shouldExecute = false
 				break
 			}
@@ -560,11 +646,17 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 }
 
 func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, rawJSON interface{}) error {
-	for _, hook := range config.UserPromptSubmit {
+	for i, hook := range config.UserPromptSubmit {
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
-			if !checkUserPromptSubmitCondition(condition, input) {
+			matched, err := checkUserPromptSubmitCondition(condition, input)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "UserPromptSubmit hook %d condition check failed: %v\n", i, err)
+				shouldExecute = false
+				break
+			}
+			if !matched {
 				shouldExecute = false
 				break
 			}
@@ -583,36 +675,44 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 	return nil
 }
 
-func shouldExecutePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput) bool {
+func shouldExecutePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput) (bool, error) {
 	// マッチャーチェック
 	if !checkMatcher(hook.Matcher, input.ToolName) {
-		return false
+		return false, nil
 	}
 
 	// 条件チェック
 	for _, condition := range hook.Conditions {
-		if !checkPreToolUseCondition(condition, input) {
-			return false
+		matched, err := checkPreToolUseCondition(condition, input)
+		if err != nil {
+			return false, err
+		}
+		if !matched {
+			return false, nil
 		}
 	}
 
-	return true
+	return true, nil
 }
 
-func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput) bool {
+func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput) (bool, error) {
 	// マッチャーチェック
 	if !checkMatcher(hook.Matcher, input.ToolName) {
-		return false
+		return false, nil
 	}
 
 	// 条件チェック
 	for _, condition := range hook.Conditions {
-		if !checkPostToolUseCondition(condition, input) {
-			return false
+		matched, err := checkPostToolUseCondition(condition, input)
+		if err != nil {
+			return false, err
+		}
+		if !matched {
+			return false, nil
 		}
 	}
 
-	return true
+	return true, nil
 }
 
 func executePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput, rawJSON interface{}) error {
