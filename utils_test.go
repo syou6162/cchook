@@ -137,6 +137,24 @@ func TestCheckPreToolUseCondition(t *testing.T) {
 			&PreToolUseInput{ToolInput: ToolInput{FilePath: "main.go"}},
 			false,
 		},
+		{
+			"file_exists_recursive - file exists in current dir",
+			PreToolUseCondition{Type: "file_exists_recursive", Value: "utils_test.go"},
+			&PreToolUseInput{},
+			true,
+		},
+		{
+			"file_exists_recursive - file does not exist",
+			PreToolUseCondition{Type: "file_exists_recursive", Value: "nonexistent.txt"},
+			&PreToolUseInput{},
+			false,
+		},
+		{
+			"file_exists_recursive - go.mod exists",
+			PreToolUseCondition{Type: "file_exists_recursive", Value: "go.mod"},
+			&PreToolUseInput{},
+			true,
+		},
 	}
 
 	for _, tt := range tests {

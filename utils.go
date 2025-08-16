@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -51,6 +52,23 @@ func checkPreToolUseCondition(condition PreToolUseCondition, input *PreToolUseIn
 		if input.ToolInput.URL != "" {
 			return strings.HasPrefix(input.ToolInput.URL, condition.Value)
 		}
+	case "file_exists_recursive":
+		// ファイルが再帰的に存在するか
+		found := false
+		err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil // エラーがあっても続ける
+			}
+			if !info.IsDir() && filepath.Base(path) == condition.Value {
+				found = true
+				return filepath.SkipAll // 見つかったら探索を終了
+			}
+			return nil
+		})
+		if err != nil {
+			return false
+		}
+		return found
 	}
 	return false
 }
