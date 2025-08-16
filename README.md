@@ -303,11 +303,31 @@ Initialize session with custom setup:
 
 ```yaml
 SessionStart:
-  - actions:
+  - matcher: "startup"
+    actions:
       - type: command
         command: "echo 'Session {.session_id} started at $(date)' >> ~/claude-sessions.log"
       - type: output
         message: "🚀 Claude Code session initialized"
+        exit_status: 0
+
+  # Project-specific initialization
+  - matcher: "startup"
+    conditions:
+      - type: file_exists
+        value: "go.mod"
+    actions:
+      - type: output
+        message: "Go project detected - remember to run tests"
+        exit_status: 0
+
+  - matcher: "startup"
+    conditions:
+      - type: file_exists_recursive
+        value: "pyproject.toml"
+    actions:
+      - type: output
+        message: "Python project detected - using uv for package management"
         exit_status: 0
 ```
 
@@ -352,7 +372,7 @@ UserPromptSubmit:
   - Before conversation compaction
 - `SessionStart`
   - When Claude Code session starts
-  - No conditions available (actions only)
+  - Supports conditions like `file_exists` and `file_exists_recursive`
 - `UserPromptSubmit`
   - When user submits a prompt
 
@@ -390,6 +410,12 @@ UserPromptSubmit:
   - Check if specified file exists
 - `url_starts_with`
   - Match URL prefix (WebFetch tool)
+
+#### SessionStart
+- `file_exists`
+  - Check if specified file exists
+- `file_exists_recursive`
+  - Check if file exists recursively in directory tree
 
 #### UserPromptSubmit
 - `prompt_contains`
