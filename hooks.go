@@ -174,6 +174,18 @@ func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON i
 
 	executed := false
 	for i, hook := range config.Notification {
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			if !checkNotificationCondition(condition, input) {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+		
 		executed = true
 		fmt.Printf("[Hook %d] Would execute:\n", i+1)
 		for _, action := range hook.Actions {
@@ -203,6 +215,18 @@ func dryRunStopHooks(config *Config, input *StopInput, rawJSON interface{}) erro
 
 	executed := false
 	for i, hook := range config.Stop {
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			if !checkStopCondition(condition, input) {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+		
 		executed = true
 		fmt.Printf("[Hook %d] Would execute:\n", i+1)
 		for _, action := range hook.Actions {
@@ -232,6 +256,18 @@ func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON i
 
 	executed := false
 	for i, hook := range config.SubagentStop {
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			if !checkSubagentStopCondition(condition, input) {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+		
 		executed = true
 		fmt.Printf("[Hook %d] Would execute:\n", i+1)
 		for _, action := range hook.Actions {
@@ -261,6 +297,18 @@ func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON inter
 
 	executed := false
 	for i, hook := range config.PreCompact {
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			if !checkPreCompactCondition(condition, input) {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+		
 		executed = true
 		fmt.Printf("[Hook %d] Would execute:\n", i+1)
 		for _, action := range hook.Actions {
@@ -393,6 +441,18 @@ func executePostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON in
 
 func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON interface{}) error {
 	for i, hook := range config.Notification {
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			if !checkNotificationCondition(condition, input) {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+		
 		for _, action := range hook.Actions {
 			if err := executeNotificationAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "Notification hook %d failed: %v\n", i, err)
@@ -404,6 +464,18 @@ func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON 
 
 func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) error {
 	for i, hook := range config.Stop {
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			if !checkStopCondition(condition, input) {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+		
 		for _, action := range hook.Actions {
 			if err := executeStopAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "Stop hook %d failed: %v\n", i, err)
@@ -415,6 +487,18 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) err
 
 func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON interface{}) error {
 	for i, hook := range config.SubagentStop {
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			if !checkSubagentStopCondition(condition, input) {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+		
 		for _, action := range hook.Actions {
 			if err := executeSubagentStopAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "SubagentStop hook %d failed: %v\n", i, err)
@@ -426,6 +510,18 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 
 func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON interface{}) error {
 	for i, hook := range config.PreCompact {
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			if !checkPreCompactCondition(condition, input) {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+		
 		for _, action := range hook.Actions {
 			if err := executePreCompactAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "PreCompact hook %d failed: %v\n", i, err)
