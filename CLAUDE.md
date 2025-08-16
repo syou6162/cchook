@@ -134,3 +134,25 @@ The tool uses YAML configuration with event-specific hook definitions. Each hook
 - `actions`: Command execution or output with optional exit_status
 
 Template variables are available based on the event type and include fields from BaseInput, tool-specific data, and full jq query support.
+
+## Common Workflows
+
+### Adding a New Hook Type
+1. Define the input structure in `types.go` with embedded BaseInput
+2. Add condition types if needed in `types.go`
+3. Implement parsing logic in `parser.go`
+4. Add hook execution function in `hooks.go`
+5. Implement condition checking in `utils.go`
+6. Add tests in corresponding `*_test.go` files
+
+### Testing Template Processing
+Template processing can be tested independently:
+```go
+// See template_jq_test.go for examples
+result := processTemplate("{.tool_name | ascii_upcase}", jsonData)
+```
+
+### Debugging Hook Execution
+1. Use dry-run mode with `-command` flag to test without side effects
+2. Check template expansion with simple echo commands
+3. Use verbose test output (`go test -v`) to see detailed execution flow
