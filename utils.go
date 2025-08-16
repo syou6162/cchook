@@ -63,86 +63,27 @@ func checkPreToolUseCondition(condition Condition, input *PreToolUseInput) bool 
 	}
 	
 	// ツール固有の条件をチェック
-	switch condition.Type {
-	case "file_extension":
-		// ToolInput構造体から直接FilePath取得
-		if input.ToolInput.FilePath != "" {
-			return strings.HasSuffix(input.ToolInput.FilePath, condition.Value)
-		}
-	case "command_contains":
-		// ToolInput構造体からCommand取得
-		if input.ToolInput.Command != "" {
-			return strings.Contains(input.ToolInput.Command, condition.Value)
-		}
-	case "command_starts_with":
-		// コマンドが指定文字列で始まる
-		if input.ToolInput.Command != "" {
-			return strings.HasPrefix(input.ToolInput.Command, condition.Value)
-		}
-	case "url_starts_with":
-		// URLが指定文字列で始まる
-		if input.ToolInput.URL != "" {
-			return strings.HasPrefix(input.ToolInput.URL, condition.Value)
-		}
-	}
-	return false
+	return checkToolCondition(condition, &input.ToolInput)
 }
 
 func checkPostToolUseCondition(condition Condition, input *PostToolUseInput) bool {
 	// まず汎用条件をチェック（file_existsのみ、file_exists_recursiveは現状PostToolUseには実装されていない）
-	switch condition.Type {
-	case "file_exists":
-		// 指定ファイルが存在する
+	if condition.Type == "file_exists" {
 		return fileExists(condition.Value)
 	}
 	
 	// ツール固有の条件をチェック
-	switch condition.Type {
-	case "file_extension":
-		// ToolInput構造体から直接FilePath取得
-		if input.ToolInput.FilePath != "" {
-			return strings.HasSuffix(input.ToolInput.FilePath, condition.Value)
-		}
-	case "command_contains":
-		// ToolInput構造体からCommand取得
-		if input.ToolInput.Command != "" {
-			return strings.Contains(input.ToolInput.Command, condition.Value)
-		}
-	case "command_starts_with":
-		// コマンドが指定文字列で始まる
-		if input.ToolInput.Command != "" {
-			return strings.HasPrefix(input.ToolInput.Command, condition.Value)
-		}
-	case "url_starts_with":
-		// URLが指定文字列で始まる
-		if input.ToolInput.URL != "" {
-			return strings.HasPrefix(input.ToolInput.URL, condition.Value)
-		}
-	}
-	return false
+	return checkToolCondition(condition, &input.ToolInput)
 }
 
 func checkUserPromptSubmitCondition(condition Condition, input *UserPromptSubmitInput) bool {
 	// まず汎用条件をチェック（file_existsのみ実装されている）
-	switch condition.Type {
-	case "file_exists":
-		// 指定ファイルが存在する
+	if condition.Type == "file_exists" {
 		return fileExists(condition.Value)
 	}
 	
 	// プロンプト固有の条件をチェック
-	switch condition.Type {
-	case "prompt_contains":
-		// プロンプトに指定文字列が含まれる
-		return strings.Contains(input.Prompt, condition.Value)
-	case "prompt_starts_with":
-		// プロンプトが指定文字列で始まる
-		return strings.HasPrefix(input.Prompt, condition.Value)
-	case "prompt_ends_with":
-		// プロンプトが指定文字列で終わる
-		return strings.HasSuffix(input.Prompt, condition.Value)
-	}
-	return false
+	return checkPromptCondition(condition, input.Prompt)
 }
 
 func checkSessionStartCondition(condition Condition, input *SessionStartInput) bool {
@@ -159,6 +100,49 @@ func checkCommonCondition(condition Condition) bool {
 	case "file_exists_recursive":
 		// ファイルが再帰的に存在するか
 		return fileExistsRecursive(condition.Value)
+	}
+	return false
+}
+
+// ツール関連の条件チェック関数
+func checkToolCondition(condition Condition, toolInput *ToolInput) bool {
+	switch condition.Type {
+	case "file_extension":
+		// ToolInput構造体から直接FilePath取得
+		if toolInput.FilePath != "" {
+			return strings.HasSuffix(toolInput.FilePath, condition.Value)
+		}
+	case "command_contains":
+		// ToolInput構造体からCommand取得
+		if toolInput.Command != "" {
+			return strings.Contains(toolInput.Command, condition.Value)
+		}
+	case "command_starts_with":
+		// コマンドが指定文字列で始まる
+		if toolInput.Command != "" {
+			return strings.HasPrefix(toolInput.Command, condition.Value)
+		}
+	case "url_starts_with":
+		// URLが指定文字列で始まる
+		if toolInput.URL != "" {
+			return strings.HasPrefix(toolInput.URL, condition.Value)
+		}
+	}
+	return false
+}
+
+// プロンプト関連の条件チェック関数
+func checkPromptCondition(condition Condition, prompt string) bool {
+	switch condition.Type {
+	case "prompt_contains":
+		// プロンプトに指定文字列が含まれる
+		return strings.Contains(prompt, condition.Value)
+	case "prompt_starts_with":
+		// プロンプトが指定文字列で始まる
+		return strings.HasPrefix(prompt, condition.Value)
+	case "prompt_ends_with":
+		// プロンプトが指定文字列で終わる
+		return strings.HasSuffix(prompt, condition.Value)
 	}
 	return false
 }
