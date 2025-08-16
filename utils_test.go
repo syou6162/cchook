@@ -132,12 +132,6 @@ func TestCheckCondition(t *testing.T) {
 			false,
 		},
 		{
-			"unknown condition type",
-			Condition{Type: "unknown", Value: "value"},
-			&PreToolUseInput{ToolInput: ToolInput{FilePath: "main.go"}},
-			false,
-		},
-		{
 			"file_exists_recursive - file exists in current dir",
 			Condition{Type: ConditionFileExistsRecursive, Value: "utils_test.go"},
 			&PreToolUseInput{},

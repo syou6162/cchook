@@ -61,14 +61,14 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 				Matcher: "Write",
 				Conditions: []Condition{
 					{Type: ConditionFileExtension, Value: ".go"},
-					{Type: "command_contains", Value: "test"},
+					{Type: ConditionCommandContains, Value: "test"},
 				},
 			},
 			&PreToolUseInput{
 				ToolName: "Write",
 				ToolInput: ToolInput{
-					FilePath: "main.go",
-					Command:  "test command",
+					FilePath: "test.go",
+					Command:  "go test",
 				},
 			},
 			true,
@@ -79,22 +79,30 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 				Matcher: "Write",
 				Conditions: []Condition{
 					{Type: ConditionFileExtension, Value: ".go"},
-					{Type: "command_contains", Value: "build"},
+					{Type: ConditionCommandContains, Value: "build"},
 				},
 			},
 			&PreToolUseInput{
 				ToolName: "Write",
 				ToolInput: ToolInput{
-					FilePath: "main.go",
-					Command:  "test command",
+					FilePath: "test.go",
+					Command:  "go test",
 				},
 			},
 			false,
 		},
 		{
 			"Empty matcher matches all",
-			PreToolUseHook{Matcher: ""},
-			&PreToolUseInput{ToolName: "AnyTool"},
+			PreToolUseHook{
+				Matcher: "",
+				Conditions: []Condition{
+					{Type: ConditionFileExtension, Value: ".go"},
+				},
+			},
+			&PreToolUseInput{
+				ToolName:  "AnyTool",
+				ToolInput: ToolInput{FilePath: "main.go"},
+			},
 			true,
 		},
 	}
