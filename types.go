@@ -6,18 +6,20 @@ import "encoding/json"
 type HookEventType string
 
 const (
-	PreToolUse   HookEventType = "PreToolUse"
-	PostToolUse  HookEventType = "PostToolUse"
-	Notification HookEventType = "Notification"
-	Stop         HookEventType = "Stop"
-	SubagentStop HookEventType = "SubagentStop"
-	PreCompact   HookEventType = "PreCompact"
+	PreToolUse       HookEventType = "PreToolUse"
+	PostToolUse      HookEventType = "PostToolUse"
+	Notification     HookEventType = "Notification"
+	Stop             HookEventType = "Stop"
+	SubagentStop     HookEventType = "SubagentStop"
+	PreCompact       HookEventType = "PreCompact"
+	SessionStart     HookEventType = "SessionStart"
+	UserPromptSubmit HookEventType = "UserPromptSubmit"
 )
 
 // イベントタイプの妥当性検証
 func (e HookEventType) IsValid() bool {
 	switch e {
-	case PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact:
+	case PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact, SessionStart, UserPromptSubmit:
 		return true
 	default:
 		return false
@@ -118,6 +120,26 @@ func (p *PreCompactInput) GetToolName() string {
 	return ""
 }
 
+// SessionStart用
+type SessionStartInput struct {
+	BaseInput
+	Source string `json:"source"` // "startup", "resume", or "clear"
+}
+
+func (s *SessionStartInput) GetToolName() string {
+	return ""
+}
+
+// UserPromptSubmit用
+type UserPromptSubmitInput struct {
+	BaseInput
+	Prompt string `json:"prompt"` // ユーザーが送信したプロンプト
+}
+
+func (u *UserPromptSubmitInput) GetToolName() string {
+	return ""
+}
+
 // Hook共通インターフェース
 type Hook interface {
 	GetMatcher() string
@@ -161,6 +183,16 @@ type PreCompactHook struct {
 	Actions []PreCompactAction `yaml:"actions"`
 }
 
+type SessionStartHook struct {
+	Matcher string               `yaml:"matcher"` // "startup", "resume", or "clear"
+	Actions []SessionStartAction `yaml:"actions"`
+}
+
+type UserPromptSubmitHook struct {
+	Conditions []UserPromptSubmitCondition `yaml:"conditions,omitempty"`
+	Actions    []UserPromptSubmitAction    `yaml:"actions"`
+}
+
 // イベントタイプ毎の条件構造体
 type PreToolUseCondition struct {
 	Type  string `yaml:"type"`
@@ -168,6 +200,11 @@ type PreToolUseCondition struct {
 }
 
 type PostToolUseCondition struct {
+	Type  string `yaml:"type"`
+	Value string `yaml:"value"`
+}
+
+type UserPromptSubmitCondition struct {
 	Type  string `yaml:"type"`
 	Value string `yaml:"value"`
 }
@@ -215,12 +252,28 @@ type PreCompactAction struct {
 	ExitStatus *int   `yaml:"exit_status,omitempty"`
 }
 
+type SessionStartAction struct {
+	Type       string `yaml:"type"`
+	Command    string `yaml:"command,omitempty"`
+	Message    string `yaml:"message,omitempty"`
+	ExitStatus *int   `yaml:"exit_status,omitempty"`
+}
+
+type UserPromptSubmitAction struct {
+	Type       string `yaml:"type"`
+	Command    string `yaml:"command,omitempty"`
+	Message    string `yaml:"message,omitempty"`
+	ExitStatus *int   `yaml:"exit_status,omitempty"`
+}
+
 // 設定ファイル構造
 type Config struct {
-	PreToolUse   []PreToolUseHook   `yaml:"PreToolUse,omitempty"`
-	PostToolUse  []PostToolUseHook  `yaml:"PostToolUse,omitempty"`
-	Notification []NotificationHook `yaml:"Notification,omitempty"`
-	Stop         []StopHook         `yaml:"Stop,omitempty"`
-	SubagentStop []SubagentStopHook `yaml:"SubagentStop,omitempty"`
-	PreCompact   []PreCompactHook   `yaml:"PreCompact,omitempty"`
+	PreToolUse       []PreToolUseHook       `yaml:"PreToolUse,omitempty"`
+	PostToolUse      []PostToolUseHook      `yaml:"PostToolUse,omitempty"`
+	Notification     []NotificationHook     `yaml:"Notification,omitempty"`
+	Stop             []StopHook             `yaml:"Stop,omitempty"`
+	SubagentStop     []SubagentStopHook     `yaml:"SubagentStop,omitempty"`
+	PreCompact       []PreCompactHook       `yaml:"PreCompact,omitempty"`
+	SessionStart     []SessionStartHook     `yaml:"SessionStart,omitempty"`
+	UserPromptSubmit []UserPromptSubmitHook `yaml:"UserPromptSubmit,omitempty"`
 }

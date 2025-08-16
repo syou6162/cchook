@@ -87,6 +87,27 @@ func checkPostToolUseCondition(condition PostToolUseCondition, input *PostToolUs
 	return false
 }
 
+func checkUserPromptSubmitCondition(condition UserPromptSubmitCondition, input *UserPromptSubmitInput) bool {
+	switch condition.Type {
+	case "prompt_contains":
+		// プロンプトに指定文字列が含まれる
+		return strings.Contains(input.Prompt, condition.Value)
+	case "prompt_starts_with":
+		// プロンプトが指定文字列で始まる
+		return strings.HasPrefix(input.Prompt, condition.Value)
+	case "prompt_ends_with":
+		// プロンプトが指定文字列で終わる
+		return strings.HasSuffix(input.Prompt, condition.Value)
+	case "file_exists":
+		// 指定ファイルが存在する
+		if condition.Value != "" {
+			_, err := os.Stat(condition.Value)
+			return err == nil
+		}
+	}
+	return false
+}
+
 func runCommand(command string) error {
 	if strings.TrimSpace(command) == "" {
 		return fmt.Errorf("empty command")
