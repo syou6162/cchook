@@ -10,29 +10,32 @@ import (
 
 func TestShouldExecutePreToolUseHook(t *testing.T) {
 	tests := []struct {
-		name  string
-		hook  PreToolUseHook
-		input *PreToolUseInput
-		want  bool
+		name    string
+		hook    PreToolUseHook
+		input   *PreToolUseInput
+		want    bool
+		wantErr bool
 	}{
 		{
 			"Match with no conditions",
 			PreToolUseHook{Matcher: "Write"},
 			&PreToolUseInput{ToolName: "Write"},
 			true,
+			false,
 		},
 		{
 			"No match with matcher",
 			PreToolUseHook{Matcher: "Edit"},
 			&PreToolUseInput{ToolName: "Write"},
 			false,
+			false,
 		},
 		{
 			"Match with satisfied condition",
 			PreToolUseHook{
 				Matcher: "Write",
-				Conditions: []PreToolUseCondition{
-					{Type: "file_extension", Value: ".go"},
+				Conditions: []Condition{
+					{Type: ConditionFileExtension, Value: ".go"},
 				},
 			},
 			&PreToolUseInput{
@@ -40,68 +43,86 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 				ToolInput: ToolInput{FilePath: "main.go"},
 			},
 			true,
+			false,
 		},
 		{
 			"Match but condition not satisfied",
 			PreToolUseHook{
 				Matcher: "Write",
-				Conditions: []PreToolUseCondition{
-					{Type: "file_extension", Value: ".py"},
+				Conditions: []Condition{
+					{Type: ConditionFileExtension, Value: ".py"},
 				},
 			},
 			&PreToolUseInput{
 				ToolName:  "Write",
 				ToolInput: ToolInput{FilePath: "main.go"},
 			},
+			false,
 			false,
 		},
 		{
 			"Multiple conditions - all satisfied",
 			PreToolUseHook{
 				Matcher: "Write",
-				Conditions: []PreToolUseCondition{
-					{Type: "file_extension", Value: ".go"},
-					{Type: "command_contains", Value: "test"},
+				Conditions: []Condition{
+					{Type: ConditionFileExtension, Value: ".go"},
+					{Type: ConditionCommandContains, Value: "test"},
 				},
 			},
 			&PreToolUseInput{
 				ToolName: "Write",
 				ToolInput: ToolInput{
-					FilePath: "main.go",
-					Command:  "test command",
+					FilePath: "test.go",
+					Command:  "go test",
 				},
 			},
 			true,
+			false,
 		},
 		{
 			"Multiple conditions - one not satisfied",
 			PreToolUseHook{
 				Matcher: "Write",
-				Conditions: []PreToolUseCondition{
-					{Type: "file_extension", Value: ".go"},
-					{Type: "command_contains", Value: "build"},
+				Conditions: []Condition{
+					{Type: ConditionFileExtension, Value: ".go"},
+					{Type: ConditionCommandContains, Value: "build"},
 				},
 			},
 			&PreToolUseInput{
 				ToolName: "Write",
 				ToolInput: ToolInput{
-					FilePath: "main.go",
-					Command:  "test command",
+					FilePath: "test.go",
+					Command:  "go test",
 				},
 			},
+			false,
 			false,
 		},
 		{
 			"Empty matcher matches all",
-			PreToolUseHook{Matcher: ""},
-			&PreToolUseInput{ToolName: "AnyTool"},
+			PreToolUseHook{
+				Matcher: "",
+				Conditions: []Condition{
+					{Type: ConditionFileExtension, Value: ".go"},
+				},
+			},
+			&PreToolUseInput{
+				ToolName:  "AnyTool",
+				ToolInput: ToolInput{FilePath: "main.go"},
+			},
 			true,
+			false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := shouldExecutePreToolUseHook(tt.hook, tt.input); got != tt.want {
+			got, err := shouldExecutePreToolUseHook(tt.hook, tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("shouldExecutePreToolUseHook() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
 				t.Errorf("shouldExecutePreToolUseHook() = %v, want %v", got, tt.want)
 			}
 		})
@@ -229,8 +250,8 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 		SessionStart: []SessionStartHook{
 			{
 				Matcher: "startup",
-				Conditions: []SessionStartCondition{
-					{Type: "file_exists", Value: "go.mod"},
+				Conditions: []Condition{
+					{Type: ConditionFileExists, Value: "go.mod"},
 				},
 				Actions: []SessionStartAction{
 					{
@@ -241,8 +262,8 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 			},
 			{
 				Matcher: "startup",
-				Conditions: []SessionStartCondition{
-					{Type: "file_exists", Value: "nonexistent.file"},
+				Conditions: []Condition{
+					{Type: ConditionFileExists, Value: "nonexistent.file"},
 				},
 				Actions: []SessionStartAction{
 					{
@@ -253,8 +274,8 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 			},
 			{
 				Matcher: "startup",
-				Conditions: []SessionStartCondition{
-					{Type: "file_exists_recursive", Value: "hooks_test.go"},
+				Conditions: []Condition{
+					{Type: ConditionFileExistsRecursive, Value: "hooks_test.go"},
 				},
 				Actions: []SessionStartAction{
 					{
@@ -334,8 +355,8 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 	config := &Config{
 		UserPromptSubmit: []UserPromptSubmitHook{
 			{
-				Conditions: []UserPromptSubmitCondition{
-					{Type: "prompt_contains", Value: "block"},
+				Conditions: []Condition{
+					{Type: ConditionPromptContains, Value: "block"},
 				},
 				Actions: []UserPromptSubmitAction{
 					{
@@ -408,17 +429,18 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 
 func TestShouldExecutePostToolUseHook(t *testing.T) {
 	tests := []struct {
-		name  string
-		hook  PostToolUseHook
-		input *PostToolUseInput
-		want  bool
+		name    string
+		hook    PostToolUseHook
+		input   *PostToolUseInput
+		want    bool
+		wantErr bool
 	}{
 		{
 			"Match with condition",
 			PostToolUseHook{
 				Matcher: "Edit",
-				Conditions: []PostToolUseCondition{
-					{Type: "file_extension", Value: ".go"},
+				Conditions: []Condition{
+					{Type: ConditionFileExtension, Value: ".go"},
 				},
 			},
 			&PostToolUseInput{
@@ -426,18 +448,25 @@ func TestShouldExecutePostToolUseHook(t *testing.T) {
 				ToolInput: ToolInput{FilePath: "test.go"},
 			},
 			true,
+			false,
 		},
 		{
 			"No match",
 			PostToolUseHook{Matcher: "Write"},
 			&PostToolUseInput{ToolName: "Edit"},
 			false,
+			false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := shouldExecutePostToolUseHook(tt.hook, tt.input); got != tt.want {
+			got, err := shouldExecutePostToolUseHook(tt.hook, tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("shouldExecutePostToolUseHook() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
 				t.Errorf("shouldExecutePostToolUseHook() = %v, want %v", got, tt.want)
 			}
 		})

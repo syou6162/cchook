@@ -53,7 +53,7 @@ PreToolUse:
 		t.Errorf("Expected 1 condition, got %d", len(config.PostToolUse[0].Conditions))
 	}
 
-	if config.PostToolUse[0].Conditions[0].Type != "file_extension" {
+	if config.PostToolUse[0].Conditions[0].Type != ConditionFileExtension {
 		t.Errorf("Expected condition type 'file_extension', got '%s'", config.PostToolUse[0].Conditions[0].Type)
 	}
 

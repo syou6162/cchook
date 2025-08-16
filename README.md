@@ -53,6 +53,15 @@ For example, a simple Stop hook that sends notifications via [ntfy](https://ntfy
 - Better maintainability
   - Structured configuration that's easy to understand and modify
 
+## Features
+
+- **YAML Configuration**: Write clean, maintainable hook configurations
+- **Template Engine**: Use `{.field}` syntax with full jq query support
+- **Conditional Execution**: Execute actions based on file types, commands, or prompts
+- **Error Handling**: Robust error handling for unknown condition types
+- **Dry-Run Mode**: Test configurations before deployment
+- **Performance**: Cached jq query compilation for efficient template processing
+
 ## Installation
 
 ```bash
@@ -155,6 +164,12 @@ PreToolUse:
 
 ## CLI Options
 
+### Flags
+
+- `-event` (required): Specify the event type (PreToolUse, PostToolUse, SessionStart, etc.)
+- `-config`: Path to configuration file (default: `~/.config/cchook/config.yaml`)
+- `-command`: Override configuration with a single command (useful for dry-run testing)
+
 ### Configuration File Path
 
 By default, cchook looks for configuration files in the following order:
@@ -174,6 +189,16 @@ cchook -config /path/to/my-config.yaml -event PreToolUse
 # Example: Development vs Production configs
 cchook -config ~/.config/cchook/dev-config.yaml -event PostToolUse
 cchook -config ~/.config/cchook/prod-config.yaml -event Stop
+```
+
+#### Dry-Run Testing
+
+Test your configuration without making actual changes:
+
+```bash
+# Test with a simple echo command
+echo '{"session_id":"test","hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"test.go"}}' | \
+  cchook -event PreToolUse -command "echo 'Would process: {.tool_name} on {.tool_input.file_path}'"
 ```
 
 #### Example Claude Code Hook with Custom Config
@@ -385,47 +410,36 @@ UserPromptSubmit:
 
 ### Conditions
 
-#### PreToolUse
+All conditions return proper error messages for unknown condition types, ensuring clear feedback when misconfigured.
+
+#### Common Conditions (All Events)
+- `file_exists`
+  - Check if specified file exists
+- `file_exists_recursive`
+  - Check if file exists recursively in directory tree
+
+#### PreToolUse & PostToolUse
+- All common conditions, plus:
 - `file_extension`
   - Match file extension in `tool_input.file_path`
 - `command_contains`
   - Match substring in `tool_input.command`
 - `command_starts_with`
   - Match command prefix
-- `file_exists`
-  - Check if specified file exists
-- `file_exists_recursive`
-  - Check if file exists recursively in directory tree
 - `url_starts_with`
   - Match URL prefix (WebFetch tool)
-
-#### PostToolUse
-- `file_extension`
-  - Match file extension in `tool_input.file_path`
-- `command_contains`
-  - Match substring in `tool_input.command`
-- `command_starts_with`
-  - Match command prefix
-- `file_exists`
-  - Check if specified file exists
-- `url_starts_with`
-  - Match URL prefix (WebFetch tool)
-
-#### SessionStart
-- `file_exists`
-  - Check if specified file exists
-- `file_exists_recursive`
-  - Check if file exists recursively in directory tree
 
 #### UserPromptSubmit
+- All common conditions, plus:
 - `prompt_contains`
   - Match substring in user prompt
 - `prompt_starts_with`
   - Match prompt prefix
 - `prompt_ends_with`
   - Match prompt suffix
-- `file_exists`
-  - Check if specified file exists
+
+#### Other Events (SessionStart, Stop, Notification, SubagentStop, PreCompact)
+- Support common conditions only (`file_exists`, `file_exists_recursive`)
 
 ### Actions
 
@@ -516,9 +530,41 @@ cchook receives JSON input from Claude Code hooks via stdin. For details on the 
 
 ## Development
 
+### Testing
+
 ```bash
+# Run all tests
 go test ./...
+
+# Run with verbose output
+go test -v ./...
+
+# Run with coverage
+go test -cover ./...
+
+# Generate coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
+
+### Building
+
+```bash
+# Build binary
 go build -o cchook
+
+# Install locally
+go install
+```
+
+### Linting
+
+```bash
+# Using pre-commit hooks
+pre-commit run --all-files
+
+# Direct golangci-lint
+golangci-lint run
 ```
 
 ## License

@@ -59,10 +59,11 @@ The application follows a modular architecture with clear separation of concerns
 - Handles ExitError for proper exit codes and output routing
 
 **Type System** (`types.go`)
-- Defines all event types: PreToolUse, PostToolUse, Stop, SubagentStop, Notification, PreCompact
+- Defines all event types: PreToolUse, PostToolUse, Stop, SubagentStop, Notification, PreCompact, SessionStart, UserPromptSubmit
 - Event-specific input structures with embedded BaseInput
 - Hook and Action interfaces for polymorphic behavior
 - Separate condition and action types for each event
+- Opaque struct pattern for ConditionType with predefined singletons
 
 **Configuration** (`config.go`)
 - YAML configuration loading with XDG_CONFIG_HOME support
@@ -92,7 +93,8 @@ The application follows a modular architecture with clear separation of concerns
 - Error handling with `[JQ_ERROR: ...]` format
 
 **Utilities** (`utils.go`)
-- Condition checking functions per event type
+- Condition checking functions per event type with `(bool, error)` return
+- Sentinel error pattern (`ErrConditionNotHandled`) for unknown condition types
 - Command execution wrapper
 - File existence, extension, and URL pattern matching
 
@@ -113,7 +115,9 @@ The application follows a modular architecture with clear separation of concerns
 
 **Condition System**: Event-specific condition types with common patterns (file_extension, command_contains, etc.)
 
-**Error Handling**: Custom ExitError type for precise control over exit codes and stderr/stdout routing
+**Error Handling**:
+- Custom ExitError type for precise control over exit codes and stderr/stdout routing
+- Sentinel error pattern for condition type handling to distinguish between "condition not matched" and "condition type unknown"
 
 **Caching**: JQ query compilation caching for performance optimization
 
@@ -124,7 +128,7 @@ Tests are organized by component with comprehensive coverage:
 - Integration tests for hook execution flows
 - Template processing tests with real-world examples
 - Dry-run functionality testing
-- Error condition coverage
+- Error condition coverage including unknown condition types
 
 ## Configuration Format
 
@@ -139,10 +143,10 @@ Template variables are available based on the event type and include fields from
 
 ### Adding a New Hook Type
 1. Define the input structure in `types.go` with embedded BaseInput
-2. Add condition types if needed in `types.go`
+2. Add condition types if needed in `types.go` using the opaque struct pattern
 3. Implement parsing logic in `parser.go`
 4. Add hook execution function in `hooks.go`
-5. Implement condition checking in `utils.go`
+5. Implement condition checking in `utils.go` with `(bool, error)` return
 6. Add tests in corresponding `*_test.go` files
 
 ### Testing Template Processing
