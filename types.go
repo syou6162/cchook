@@ -1,6 +1,9 @@
 package main
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // イベントタイプのenum定義
 type HookEventType string
@@ -156,63 +159,115 @@ type Action interface {
 
 // イベントタイプ毎の設定構造体
 type PreToolUseHook struct {
-	Matcher    string                `yaml:"matcher"`
-	Conditions []PreToolUseCondition `yaml:"conditions,omitempty"`
-	Actions    []PreToolUseAction    `yaml:"actions"`
+	Matcher    string             `yaml:"matcher"`
+	Conditions []Condition        `yaml:"conditions,omitempty"`
+	Actions    []PreToolUseAction `yaml:"actions"`
 }
 
 type PostToolUseHook struct {
-	Matcher    string                 `yaml:"matcher"`
-	Conditions []PostToolUseCondition `yaml:"conditions,omitempty"`
-	Actions    []PostToolUseAction    `yaml:"actions"`
+	Matcher    string              `yaml:"matcher"`
+	Conditions []Condition         `yaml:"conditions,omitempty"`
+	Actions    []PostToolUseAction `yaml:"actions"`
 }
 
 type NotificationHook struct {
-	Actions []NotificationAction `yaml:"actions"`
+	Conditions []Condition          `yaml:"conditions,omitempty"`
+	Actions    []NotificationAction `yaml:"actions"`
 }
 
 type StopHook struct {
-	Actions []StopAction `yaml:"actions"`
+	Conditions []Condition  `yaml:"conditions,omitempty"`
+	Actions    []StopAction `yaml:"actions"`
 }
 
 type SubagentStopHook struct {
-	Actions []SubagentStopAction `yaml:"actions"`
+	Conditions []Condition          `yaml:"conditions,omitempty"`
+	Actions    []SubagentStopAction `yaml:"actions"`
 }
 
 type PreCompactHook struct {
-	Actions []PreCompactAction `yaml:"actions"`
+	Conditions []Condition        `yaml:"conditions,omitempty"`
+	Actions    []PreCompactAction `yaml:"actions"`
 }
 
 type SessionStartHook struct {
-	Matcher    string                  `yaml:"matcher"` // "startup", "resume", or "clear"
-	Conditions []SessionStartCondition `yaml:"conditions,omitempty"`
-	Actions    []SessionStartAction    `yaml:"actions"`
+	Matcher    string               `yaml:"matcher"` // "startup", "resume", or "clear"
+	Conditions []Condition          `yaml:"conditions,omitempty"`
+	Actions    []SessionStartAction `yaml:"actions"`
 }
 
 type UserPromptSubmitHook struct {
-	Conditions []UserPromptSubmitCondition `yaml:"conditions,omitempty"`
-	Actions    []UserPromptSubmitAction    `yaml:"actions"`
+	Conditions []Condition              `yaml:"conditions,omitempty"`
+	Actions    []UserPromptSubmitAction `yaml:"actions"`
 }
 
-// イベントタイプ毎の条件構造体
-type PreToolUseCondition struct {
-	Type  string `yaml:"type"`
-	Value string `yaml:"value"`
+// 共通の条件構造体
+// ConditionType represents the type of condition to check (opaque struct)
+type ConditionType struct{ v string }
+
+// String returns the string representation of the condition type
+func (c ConditionType) String() string {
+	return c.v
 }
 
-type PostToolUseCondition struct {
-	Type  string `yaml:"type"`
-	Value string `yaml:"value"`
+// Predefined valid condition types (singletons)
+var (
+	// Common conditions (all events)
+	ConditionFileExists          = ConditionType{"file_exists"}
+	ConditionFileExistsRecursive = ConditionType{"file_exists_recursive"}
+
+	// Tool-related conditions (PreToolUse/PostToolUse)
+	ConditionFileExtension     = ConditionType{"file_extension"}
+	ConditionCommandContains   = ConditionType{"command_contains"}
+	ConditionCommandStartsWith = ConditionType{"command_starts_with"}
+	ConditionURLStartsWith     = ConditionType{"url_starts_with"}
+
+	// Prompt-related conditions (UserPromptSubmit)
+	ConditionPromptContains   = ConditionType{"prompt_contains"}
+	ConditionPromptStartsWith = ConditionType{"prompt_starts_with"}
+	ConditionPromptEndsWith   = ConditionType{"prompt_ends_with"}
+)
+
+// UnmarshalYAML implements yaml.Unmarshaler for ConditionType
+func (c *ConditionType) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+
+	switch s {
+	case "file_exists":
+		*c = ConditionFileExists
+	case "file_exists_recursive":
+		*c = ConditionFileExistsRecursive
+	case "file_extension":
+		*c = ConditionFileExtension
+	case "command_contains":
+		*c = ConditionCommandContains
+	case "command_starts_with":
+		*c = ConditionCommandStartsWith
+	case "url_starts_with":
+		*c = ConditionURLStartsWith
+	case "prompt_contains":
+		*c = ConditionPromptContains
+	case "prompt_starts_with":
+		*c = ConditionPromptStartsWith
+	case "prompt_ends_with":
+		*c = ConditionPromptEndsWith
+	default:
+		return fmt.Errorf("invalid condition type: %s", s)
+	}
+	return nil
 }
 
-type UserPromptSubmitCondition struct {
-	Type  string `yaml:"type"`
-	Value string `yaml:"value"`
+// MarshalYAML implements yaml.Marshaler for ConditionType
+func (c ConditionType) MarshalYAML() (interface{}, error) {
+	return c.v, nil
 }
 
-type SessionStartCondition struct {
-	Type  string `yaml:"type"`
-	Value string `yaml:"value"`
+type Condition struct {
+	Type  ConditionType `yaml:"type"`
+	Value string        `yaml:"value"`
 }
 
 // イベントタイプ毎のアクション構造体
