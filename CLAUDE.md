@@ -15,20 +15,36 @@ go build -o cchook
 # Run all tests
 go test ./...
 
+# Run tests with verbose output
+go test -v ./...
+
 # Run specific test file
 go test -v ./hooks_test.go
+
+# Run specific test function
+go test -v -run TestExecutePreToolUseHooks ./hooks_test.go
 
 # Run with coverage
 go test -cover ./...
 
+# Run with coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+
 # Install locally for testing
 go install
 
-# Lint code (via pre-commit)
+# Lint code (via pre-commit) - requires pre-commit to be installed
 pre-commit run --all-files
+
+# Lint Go code directly with golangci-lint
+golangci-lint run
 
 # Test the tool manually (requires JSON input via stdin)
 echo '{"session_id":"test","hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"test.go"}}' | ./cchook -event PreToolUse
+
+# Dry-run mode for testing configurations
+echo '{"session_id":"test","hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"test.go"}}' | ./cchook -event PreToolUse -command "echo 'would execute: {.tool_name}'"
 ```
 
 ## Architecture
