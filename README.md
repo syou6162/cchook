@@ -233,6 +233,22 @@ PostToolUse:
         command: "pre-commit run --files {.tool_input.file_path}"
 ```
 
+Conditional processing based on project type:
+
+```yaml
+PreToolUse:
+  - matcher: "Write|Edit"
+    conditions:
+      - type: file_extension
+        value: ".py"
+      - type: file_exists_recursive
+        value: "pyproject.toml"
+    actions:
+      - type: output
+        message: "📝 Python project detected with pyproject.toml"
+        exit_status: 0
+```
+
 ### Command Safety
 
 Block dangerous commands:
@@ -349,6 +365,21 @@ UserPromptSubmit:
 
 ### Conditions
 
+#### PreToolUse
+- `file_extension`
+  - Match file extension in `tool_input.file_path`
+- `command_contains`
+  - Match substring in `tool_input.command`
+- `command_starts_with`
+  - Match command prefix
+- `file_exists`
+  - Check if specified file exists
+- `file_exists_recursive`
+  - Check if file exists recursively in directory tree
+- `url_starts_with`
+  - Match URL prefix (WebFetch tool)
+
+#### PostToolUse
 - `file_extension`
   - Match file extension in `tool_input.file_path`
 - `command_contains`
