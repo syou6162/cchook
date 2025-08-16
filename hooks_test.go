@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -102,6 +103,197 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := shouldExecutePreToolUseHook(tt.hook, tt.input); got != tt.want {
 				t.Errorf("shouldExecutePreToolUseHook() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExecuteSessionStartHooks(t *testing.T) {
+	config := &Config{
+		SessionStart: []SessionStartHook{
+			{
+				Matcher: "startup",
+				Actions: []SessionStartAction{
+					{
+						Type:    "output",
+						Message: "Session started: {.session_id}",
+					},
+				},
+			},
+			{
+				Matcher: "resume",
+				Actions: []SessionStartAction{
+					{
+						Type:    "output",
+						Message: "Session resumed",
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name           string
+		input          *SessionStartInput
+		expectedOutput string
+		shouldMatch    bool
+	}{
+		{
+			name: "Startup matcher matches",
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session-123",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  SessionStart,
+				},
+				Source: "startup",
+			},
+			expectedOutput: "Session started: test-session-123",
+			shouldMatch:    true,
+		},
+		{
+			name: "Resume matcher matches",
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session-456",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  SessionStart,
+				},
+				Source: "resume",
+			},
+			expectedOutput: "Session resumed",
+			shouldMatch:    true,
+		},
+		{
+			name: "Clear source doesn't match",
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session-789",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  SessionStart,
+				},
+				Source: "clear",
+			},
+			expectedOutput: "",
+			shouldMatch:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// キャプチャ用バッファ
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			// rawJSON作成
+			rawJSON := map[string]interface{}{
+				"session_id":      tt.input.SessionID,
+				"transcript_path": tt.input.TranscriptPath,
+				"hook_event_name": string(tt.input.HookEventName),
+				"source":          tt.input.Source,
+			}
+
+			// フック実行
+			err := executeSessionStartHooks(config, tt.input, rawJSON)
+
+			// 出力キャプチャ
+			w.Close()
+			os.Stdout = oldStdout
+			var buf bytes.Buffer
+			io.Copy(&buf, r)
+			output := strings.TrimSpace(buf.String())
+
+			// エラーチェック
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			// 出力チェック
+			if tt.shouldMatch {
+				if output != tt.expectedOutput {
+					t.Errorf("Expected output '%s', got '%s'", tt.expectedOutput, output)
+				}
+			} else {
+				if output != "" {
+					t.Errorf("Expected no output, got '%s'", output)
+				}
+			}
+		})
+	}
+}
+
+func TestExecuteUserPromptSubmitHooks(t *testing.T) {
+	config := &Config{
+		UserPromptSubmit: []UserPromptSubmitHook{
+			{
+				Conditions: []UserPromptSubmitCondition{
+					{Type: "prompt_contains", Value: "block"},
+				},
+				Actions: []UserPromptSubmitAction{
+					{
+						Type:       "output",
+						Message:    "Blocked prompt",
+						ExitStatus: intPtr(2),
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		input       *UserPromptSubmitInput
+		shouldError bool
+	}{
+		{
+			name: "Blocked prompt",
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test123",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "This contains block keyword",
+			},
+			shouldError: true,
+		},
+		{
+			name: "Allowed prompt",
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test456",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "This is allowed",
+			},
+			shouldError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rawJSON := map[string]interface{}{
+				"session_id":      tt.input.SessionID,
+				"hook_event_name": string(tt.input.HookEventName),
+				"prompt":          tt.input.Prompt,
+			}
+
+			err := executeUserPromptSubmitHooks(config, tt.input, rawJSON)
+
+			if tt.shouldError && err == nil {
+				t.Errorf("Expected error, got nil")
+			}
+			if !tt.shouldError && err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
+
+			if tt.shouldError && err != nil {
+				exitErr, ok := err.(*ExitError)
+				if !ok {
+					t.Errorf("Expected ExitError, got %T", err)
+				} else if exitErr.Code != 2 {
+					t.Errorf("Expected exit code 2, got %d", exitErr.Code)
+				}
 			}
 		})
 	}

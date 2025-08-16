@@ -322,3 +322,112 @@ func TestRunCommand_CommandFails(t *testing.T) {
 		t.Error("Expected error for failing command, got nil")
 	}
 }
+
+func TestCheckUserPromptSubmitCondition(t *testing.T) {
+	tests := []struct {
+		name      string
+		condition UserPromptSubmitCondition
+		input     *UserPromptSubmitInput
+		want      bool
+	}{
+		{
+			name: "prompt_contains matches",
+			condition: UserPromptSubmitCondition{
+				Type:  "prompt_contains",
+				Value: "secret",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test123",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "This contains a secret keyword",
+			},
+			want: true,
+		},
+		{
+			name: "prompt_contains doesn't match",
+			condition: UserPromptSubmitCondition{
+				Type:  "prompt_contains",
+				Value: "password",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test123",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "This is a normal prompt",
+			},
+			want: false,
+		},
+		{
+			name: "prompt_starts_with matches",
+			condition: UserPromptSubmitCondition{
+				Type:  "prompt_starts_with",
+				Value: "DEBUG:",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test123",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "DEBUG: Show me the logs",
+			},
+			want: true,
+		},
+		{
+			name: "prompt_starts_with doesn't match",
+			condition: UserPromptSubmitCondition{
+				Type:  "prompt_starts_with",
+				Value: "ERROR:",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test123",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "Show me the error logs",
+			},
+			want: false,
+		},
+		{
+			name: "prompt_ends_with matches",
+			condition: UserPromptSubmitCondition{
+				Type:  "prompt_ends_with",
+				Value: "?",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test123",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "What is this?",
+			},
+			want: true,
+		},
+		{
+			name: "prompt_ends_with doesn't match",
+			condition: UserPromptSubmitCondition{
+				Type:  "prompt_ends_with",
+				Value: "!",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test123",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "This is a statement",
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := checkUserPromptSubmitCondition(tt.condition, tt.input)
+			if got != tt.want {
+				t.Errorf("checkUserPromptSubmitCondition() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
