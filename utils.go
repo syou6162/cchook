@@ -24,6 +24,38 @@ func checkMatcher(matcher string, toolName string) bool {
 	return false
 }
 
+// fileExistsRecursive は指定されたファイル名がディレクトリツリー内に存在するかを再帰的に検索する
+func fileExistsRecursive(filename string) bool {
+	if filename == "" {
+		return false
+	}
+	
+	found := false
+	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // エラーがあっても続ける
+		}
+		if !info.IsDir() && filepath.Base(path) == filename {
+			found = true
+			return filepath.SkipAll // 見つかったら探索を終了
+		}
+		return nil
+	})
+	if err != nil {
+		return false
+	}
+	return found
+}
+
+// fileExists は指定されたパスにファイルが存在するかをチェックする
+func fileExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	_, err := os.Stat(path)
+	return err == nil
+}
+
 func checkPreToolUseCondition(condition PreToolUseCondition, input *PreToolUseInput) bool {
 	switch condition.Type {
 	case "file_extension":
@@ -43,10 +75,7 @@ func checkPreToolUseCondition(condition PreToolUseCondition, input *PreToolUseIn
 		}
 	case "file_exists":
 		// 指定ファイルが存在する
-		if condition.Value != "" {
-			_, err := os.Stat(condition.Value)
-			return err == nil
-		}
+		return fileExists(condition.Value)
 	case "url_starts_with":
 		// URLが指定文字列で始まる
 		if input.ToolInput.URL != "" {
@@ -118,10 +147,19 @@ func checkUserPromptSubmitCondition(condition UserPromptSubmitCondition, input *
 		return strings.HasSuffix(input.Prompt, condition.Value)
 	case "file_exists":
 		// 指定ファイルが存在する
-		if condition.Value != "" {
-			_, err := os.Stat(condition.Value)
-			return err == nil
-		}
+		return fileExists(condition.Value)
+	}
+	return false
+}
+
+func checkSessionStartCondition(condition SessionStartCondition, input *SessionStartInput) bool {
+	switch condition.Type {
+	case "file_exists":
+		// 指定ファイルが存在する
+		return fileExists(condition.Value)
+	case "file_exists_recursive":
+		// ファイルが再帰的に存在するか
+		return fileExistsRecursive(condition.Value)
 	}
 	return false
 }
