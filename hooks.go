@@ -43,6 +43,18 @@ func runHooks(config *Config, eventType HookEventType) error {
 			return err
 		}
 		return executePreCompactHooks(config, input, rawJSON)
+	case SessionStart:
+		input, rawJSON, err := parseInput[*SessionStartInput](eventType)
+		if err != nil {
+			return err
+		}
+		return executeSessionStartHooks(config, input, rawJSON)
+	case UserPromptSubmit:
+		input, rawJSON, err := parseInput[*UserPromptSubmitInput](eventType)
+		if err != nil {
+			return err
+		}
+		return executeUserPromptSubmitHooks(config, input, rawJSON)
 	default:
 		return fmt.Errorf("unsupported event type: %s", eventType)
 	}
@@ -86,6 +98,18 @@ func dryRunHooks(config *Config, eventType HookEventType) error {
 			return err
 		}
 		return dryRunPreCompactHooks(config, input, rawJSON)
+	case SessionStart:
+		input, rawJSON, err := parseInput[*SessionStartInput](eventType)
+		if err != nil {
+			return err
+		}
+		return dryRunSessionStartHooks(config, input, rawJSON)
+	case UserPromptSubmit:
+		input, rawJSON, err := parseInput[*UserPromptSubmitInput](eventType)
+		if err != nil {
+			return err
+		}
+		return dryRunUserPromptSubmitHooks(config, input, rawJSON)
 	default:
 		return fmt.Errorf("unsupported event type: %s", eventType)
 	}
@@ -256,6 +280,80 @@ func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON inter
 	return nil
 }
 
+func dryRunSessionStartHooks(config *Config, input *SessionStartInput, rawJSON interface{}) error {
+	fmt.Println("=== SessionStart Hooks (Dry Run) ===")
+
+	if len(config.SessionStart) == 0 {
+		fmt.Println("No SessionStart hooks configured")
+		return nil
+	}
+
+	executed := false
+	for i, hook := range config.SessionStart {
+		// マッチャーチェック
+		if hook.Matcher != "" && hook.Matcher != input.Source {
+			continue
+		}
+		executed = true
+		fmt.Printf("[Hook %d] Matcher: %s, Source: %s\n", i+1, hook.Matcher, input.Source)
+		for _, action := range hook.Actions {
+			switch action.Type {
+			case "command":
+				cmd := unifiedTemplateReplace(action.Command, rawJSON)
+				fmt.Printf("  Command: %s\n", cmd)
+			case "output":
+				fmt.Printf("  Message: %s\n", action.Message)
+			}
+		}
+	}
+
+	if !executed {
+		fmt.Println("No matching SessionStart hooks found")
+	}
+	return nil
+}
+
+func dryRunUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, rawJSON interface{}) error {
+	fmt.Println("=== UserPromptSubmit Hooks (Dry Run) ===")
+
+	if len(config.UserPromptSubmit) == 0 {
+		fmt.Println("No UserPromptSubmit hooks configured")
+		return nil
+	}
+
+	executed := false
+	for i, hook := range config.UserPromptSubmit {
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			if !checkUserPromptSubmitCondition(condition, input) {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+
+		executed = true
+		fmt.Printf("[Hook %d] Prompt: %s\n", i+1, input.Prompt)
+		for _, action := range hook.Actions {
+			switch action.Type {
+			case "command":
+				cmd := unifiedTemplateReplace(action.Command, rawJSON)
+				fmt.Printf("  Command: %s\n", cmd)
+			case "output":
+				fmt.Printf("  Message: %s\n", action.Message)
+			}
+		}
+	}
+
+	if !executed {
+		fmt.Println("No matching UserPromptSubmit hooks found")
+	}
+	return nil
+}
+
 // イベント別のフック実行関数
 func executePreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON interface{}) error {
 	for i, hook := range config.PreToolUse {
@@ -318,6 +416,45 @@ func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON inte
 		for _, action := range hook.Actions {
 			if err := executePreCompactAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "PreCompact hook %d failed: %v\n", i, err)
+			}
+		}
+	}
+	return nil
+}
+
+func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON interface{}) error {
+	for i, hook := range config.SessionStart {
+		// マッチャーチェック (startup, resume, clear)
+		if hook.Matcher != "" && hook.Matcher != input.Source {
+			continue
+		}
+		for _, action := range hook.Actions {
+			if err := executeSessionStartAction(action, input, rawJSON); err != nil {
+				fmt.Fprintf(os.Stderr, "SessionStart hook %d failed: %v\n", i, err)
+			}
+		}
+	}
+	return nil
+}
+
+func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, rawJSON interface{}) error {
+	for _, hook := range config.UserPromptSubmit {
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			if !checkUserPromptSubmitCondition(condition, input) {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+
+		for _, action := range hook.Actions {
+			if err := executeUserPromptSubmitAction(action, input, rawJSON); err != nil {
+				// UserPromptSubmitはブロッキング可能なので、エラーを返す
+				return err
 			}
 		}
 	}
