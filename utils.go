@@ -67,9 +67,9 @@ func checkPreToolUseCondition(condition Condition, input *PreToolUseInput) bool 
 }
 
 func checkPostToolUseCondition(condition Condition, input *PostToolUseInput) bool {
-	// まず汎用条件をチェック（file_existsのみ、file_exists_recursiveは現状PostToolUseには実装されていない）
-	if condition.Type == "file_exists" {
-		return fileExists(condition.Value)
+	// まず汎用条件をチェック
+	if checkCommonCondition(condition) {
+		return true
 	}
 	
 	// ツール固有の条件をチェック
@@ -77,9 +77,9 @@ func checkPostToolUseCondition(condition Condition, input *PostToolUseInput) boo
 }
 
 func checkUserPromptSubmitCondition(condition Condition, input *UserPromptSubmitInput) bool {
-	// まず汎用条件をチェック（file_existsのみ実装されている）
-	if condition.Type == "file_exists" {
-		return fileExists(condition.Value)
+	// まず汎用条件をチェック
+	if checkCommonCondition(condition) {
+		return true
 	}
 	
 	// プロンプト固有の条件をチェック
@@ -94,10 +94,10 @@ func checkSessionStartCondition(condition Condition, input *SessionStartInput) b
 // 汎用条件チェック関数
 func checkCommonCondition(condition Condition) bool {
 	switch condition.Type {
-	case "file_exists":
+	case ConditionFileExists:
 		// 指定ファイルが存在する
 		return fileExists(condition.Value)
-	case "file_exists_recursive":
+	case ConditionFileExistsRecursive:
 		// ファイルが再帰的に存在するか
 		return fileExistsRecursive(condition.Value)
 	}
@@ -107,22 +107,22 @@ func checkCommonCondition(condition Condition) bool {
 // ツール関連の条件チェック関数
 func checkToolCondition(condition Condition, toolInput *ToolInput) bool {
 	switch condition.Type {
-	case "file_extension":
+	case ConditionFileExtension:
 		// ToolInput構造体から直接FilePath取得
 		if toolInput.FilePath != "" {
 			return strings.HasSuffix(toolInput.FilePath, condition.Value)
 		}
-	case "command_contains":
+	case ConditionCommandContains:
 		// ToolInput構造体からCommand取得
 		if toolInput.Command != "" {
 			return strings.Contains(toolInput.Command, condition.Value)
 		}
-	case "command_starts_with":
+	case ConditionCommandStartsWith:
 		// コマンドが指定文字列で始まる
 		if toolInput.Command != "" {
 			return strings.HasPrefix(toolInput.Command, condition.Value)
 		}
-	case "url_starts_with":
+	case ConditionURLStartsWith:
 		// URLが指定文字列で始まる
 		if toolInput.URL != "" {
 			return strings.HasPrefix(toolInput.URL, condition.Value)
@@ -134,13 +134,13 @@ func checkToolCondition(condition Condition, toolInput *ToolInput) bool {
 // プロンプト関連の条件チェック関数
 func checkPromptCondition(condition Condition, prompt string) bool {
 	switch condition.Type {
-	case "prompt_contains":
+	case ConditionPromptContains:
 		// プロンプトに指定文字列が含まれる
 		return strings.Contains(prompt, condition.Value)
-	case "prompt_starts_with":
+	case ConditionPromptStartsWith:
 		// プロンプトが指定文字列で始まる
 		return strings.HasPrefix(prompt, condition.Value)
-	case "prompt_ends_with":
+	case ConditionPromptEndsWith:
 		// プロンプトが指定文字列で終わる
 		return strings.HasSuffix(prompt, condition.Value)
 	}

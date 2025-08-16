@@ -199,9 +199,30 @@ type UserPromptSubmitHook struct {
 }
 
 // 共通の条件構造体
+// ConditionType represents the type of condition to check
+type ConditionType string
+
+// Condition types as constants
+const (
+	// Common conditions (all events)
+	ConditionFileExists          ConditionType = "file_exists"
+	ConditionFileExistsRecursive ConditionType = "file_exists_recursive"
+
+	// Tool-related conditions (PreToolUse/PostToolUse)
+	ConditionFileExtension     ConditionType = "file_extension"
+	ConditionCommandContains   ConditionType = "command_contains"
+	ConditionCommandStartsWith ConditionType = "command_starts_with"
+	ConditionURLStartsWith     ConditionType = "url_starts_with"
+
+	// Prompt-related conditions (UserPromptSubmit)
+	ConditionPromptContains   ConditionType = "prompt_contains"
+	ConditionPromptStartsWith ConditionType = "prompt_starts_with"
+	ConditionPromptEndsWith   ConditionType = "prompt_ends_with"
+)
+
 type Condition struct {
-	Type  string `yaml:"type"`
-	Value string `yaml:"value"`
+	Type  ConditionType `yaml:"type"`
+	Value string        `yaml:"value"`
 }
 
 // イベントタイプ毎のアクション構造体

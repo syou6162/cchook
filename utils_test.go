@@ -43,91 +43,91 @@ func TestCheckCondition(t *testing.T) {
 	}{
 		{
 			"file_extension match",
-			Condition{Type: "file_extension", Value: ".go"},
+			Condition{Type: ConditionFileExtension, Value: ".go"},
 			&PreToolUseInput{ToolInput: ToolInput{FilePath: "main.go"}},
 			true,
 		},
 		{
 			"file_extension no match",
-			Condition{Type: "file_extension", Value: ".py"},
+			Condition{Type: ConditionFileExtension, Value: ".py"},
 			&PreToolUseInput{ToolInput: ToolInput{FilePath: "main.go"}},
 			false,
 		},
 		{
 			"file_extension no file_path",
-			Condition{Type: "file_extension", Value: ".go"},
+			Condition{Type: ConditionFileExtension, Value: ".go"},
 			&PreToolUseInput{ToolInput: ToolInput{}},
 			false,
 		},
 		{
 			"command_contains match",
-			Condition{Type: "command_contains", Value: "git add"},
+			Condition{Type: ConditionCommandContains, Value: "git add"},
 			&PreToolUseInput{ToolInput: ToolInput{Command: "git add file.txt"}},
 			true,
 		},
 		{
 			"command_contains no match",
-			Condition{Type: "command_contains", Value: "git commit"},
+			Condition{Type: ConditionCommandContains, Value: "git commit"},
 			&PreToolUseInput{ToolInput: ToolInput{Command: "git add file.txt"}},
 			false,
 		},
 		{
 			"command_contains no command",
-			Condition{Type: "command_contains", Value: "git add"},
+			Condition{Type: ConditionCommandContains, Value: "git add"},
 			&PreToolUseInput{ToolInput: ToolInput{}},
 			false,
 		},
 		{
 			"command_starts_with match",
-			Condition{Type: "command_starts_with", Value: "git"},
+			Condition{Type: ConditionCommandStartsWith, Value: "git"},
 			&PreToolUseInput{ToolInput: ToolInput{Command: "git status"}},
 			true,
 		},
 		{
 			"command_starts_with no match",
-			Condition{Type: "command_starts_with", Value: "docker"},
+			Condition{Type: ConditionCommandStartsWith, Value: "docker"},
 			&PreToolUseInput{ToolInput: ToolInput{Command: "git status"}},
 			false,
 		},
 		{
 			"command_starts_with no command",
-			Condition{Type: "command_starts_with", Value: "git"},
+			Condition{Type: ConditionCommandStartsWith, Value: "git"},
 			&PreToolUseInput{ToolInput: ToolInput{}},
 			false,
 		},
 		{
 			"file_exists match",
-			Condition{Type: "file_exists", Value: "/tmp"},
+			Condition{Type: ConditionFileExists, Value: "/tmp"},
 			&PreToolUseInput{ToolInput: ToolInput{}},
 			true,
 		},
 		{
 			"file_exists no match",
-			Condition{Type: "file_exists", Value: "/nonexistent/path"},
+			Condition{Type: ConditionFileExists, Value: "/nonexistent/path"},
 			&PreToolUseInput{ToolInput: ToolInput{}},
 			false,
 		},
 		{
 			"file_exists empty value",
-			Condition{Type: "file_exists", Value: ""},
+			Condition{Type: ConditionFileExists, Value: ""},
 			&PreToolUseInput{ToolInput: ToolInput{}},
 			false,
 		},
 		{
 			"url_starts_with match",
-			Condition{Type: "url_starts_with", Value: "https://example.com"},
+			Condition{Type: ConditionURLStartsWith, Value: "https://example.com"},
 			&PreToolUseInput{ToolInput: ToolInput{URL: "https://example.com/page"}},
 			true,
 		},
 		{
 			"url_starts_with no match",
-			Condition{Type: "url_starts_with", Value: "https://other.com"},
+			Condition{Type: ConditionURLStartsWith, Value: "https://other.com"},
 			&PreToolUseInput{ToolInput: ToolInput{URL: "https://example.com/page"}},
 			false,
 		},
 		{
 			"url_starts_with no url",
-			Condition{Type: "url_starts_with", Value: "https://example.com"},
+			Condition{Type: ConditionURLStartsWith, Value: "https://example.com"},
 			&PreToolUseInput{ToolInput: ToolInput{}},
 			false,
 		},
@@ -139,19 +139,19 @@ func TestCheckCondition(t *testing.T) {
 		},
 		{
 			"file_exists_recursive - file exists in current dir",
-			Condition{Type: "file_exists_recursive", Value: "utils_test.go"},
+			Condition{Type: ConditionFileExistsRecursive, Value: "utils_test.go"},
 			&PreToolUseInput{},
 			true,
 		},
 		{
 			"file_exists_recursive - file does not exist",
-			Condition{Type: "file_exists_recursive", Value: "nonexistent.txt"},
+			Condition{Type: ConditionFileExistsRecursive, Value: "nonexistent.txt"},
 			&PreToolUseInput{},
 			false,
 		},
 		{
 			"file_exists_recursive - go.mod exists",
-			Condition{Type: "file_exists_recursive", Value: "go.mod"},
+			Condition{Type: ConditionFileExistsRecursive, Value: "go.mod"},
 			&PreToolUseInput{},
 			true,
 		},
@@ -175,55 +175,55 @@ func TestCheckPostToolUseCondition(t *testing.T) {
 	}{
 		{
 			"file_extension match",
-			Condition{Type: "file_extension", Value: ".go"},
+			Condition{Type: ConditionFileExtension, Value: ".go"},
 			&PostToolUseInput{ToolInput: ToolInput{FilePath: "main.go"}},
 			true,
 		},
 		{
 			"command_contains match",
-			Condition{Type: "command_contains", Value: "build"},
+			Condition{Type: ConditionCommandContains, Value: "build"},
 			&PostToolUseInput{ToolInput: ToolInput{Command: "go build main.go"}},
 			true,
 		},
 		{
 			"command_starts_with match",
-			Condition{Type: "command_starts_with", Value: "npm"},
+			Condition{Type: ConditionCommandStartsWith, Value: "npm"},
 			&PostToolUseInput{ToolInput: ToolInput{Command: "npm install"}},
 			true,
 		},
 		{
 			"command_starts_with no match",
-			Condition{Type: "command_starts_with", Value: "yarn"},
+			Condition{Type: ConditionCommandStartsWith, Value: "yarn"},
 			&PostToolUseInput{ToolInput: ToolInput{Command: "npm install"}},
 			false,
 		},
 		{
 			"file_exists match",
-			Condition{Type: "file_exists", Value: "/tmp"},
+			Condition{Type: ConditionFileExists, Value: "/tmp"},
 			&PostToolUseInput{ToolInput: ToolInput{}},
 			true,
 		},
 		{
 			"file_exists no match",
-			Condition{Type: "file_exists", Value: "/nonexistent/path"},
+			Condition{Type: ConditionFileExists, Value: "/nonexistent/path"},
 			&PostToolUseInput{ToolInput: ToolInput{}},
 			false,
 		},
 		{
 			"url_starts_with match",
-			Condition{Type: "url_starts_with", Value: "https://api.example.com"},
+			Condition{Type: ConditionURLStartsWith, Value: "https://api.example.com"},
 			&PostToolUseInput{ToolInput: ToolInput{URL: "https://api.example.com/v1/data"}},
 			true,
 		},
 		{
 			"url_starts_with no match",
-			Condition{Type: "url_starts_with", Value: "https://api.other.com"},
+			Condition{Type: ConditionURLStartsWith, Value: "https://api.other.com"},
 			&PostToolUseInput{ToolInput: ToolInput{URL: "https://api.example.com/v1/data"}},
 			false,
 		},
 		{
 			"no match",
-			Condition{Type: "file_extension", Value: ".py"},
+			Condition{Type: ConditionFileExtension, Value: ".py"},
 			&PostToolUseInput{ToolInput: ToolInput{FilePath: "main.go"}},
 			false,
 		},
@@ -351,7 +351,7 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 		{
 			name: "prompt_contains matches",
 			condition: Condition{
-				Type:  "prompt_contains",
+				Type:  ConditionPromptContains,
 				Value: "secret",
 			},
 			input: &UserPromptSubmitInput{
@@ -366,7 +366,7 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 		{
 			name: "prompt_contains doesn't match",
 			condition: Condition{
-				Type:  "prompt_contains",
+				Type:  ConditionPromptContains,
 				Value: "password",
 			},
 			input: &UserPromptSubmitInput{
@@ -381,7 +381,7 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 		{
 			name: "prompt_starts_with matches",
 			condition: Condition{
-				Type:  "prompt_starts_with",
+				Type:  ConditionPromptStartsWith,
 				Value: "DEBUG:",
 			},
 			input: &UserPromptSubmitInput{
@@ -396,7 +396,7 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 		{
 			name: "prompt_starts_with doesn't match",
 			condition: Condition{
-				Type:  "prompt_starts_with",
+				Type:  ConditionPromptStartsWith,
 				Value: "ERROR:",
 			},
 			input: &UserPromptSubmitInput{
@@ -411,7 +411,7 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 		{
 			name: "prompt_ends_with matches",
 			condition: Condition{
-				Type:  "prompt_ends_with",
+				Type:  ConditionPromptEndsWith,
 				Value: "?",
 			},
 			input: &UserPromptSubmitInput{
@@ -426,7 +426,7 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 		{
 			name: "prompt_ends_with doesn't match",
 			condition: Condition{
-				Type:  "prompt_ends_with",
+				Type:  ConditionPromptEndsWith,
 				Value: "!",
 			},
 			input: &UserPromptSubmitInput{

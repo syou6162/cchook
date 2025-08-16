@@ -32,7 +32,7 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 			PreToolUseHook{
 				Matcher: "Write",
 				Conditions: []Condition{
-					{Type: "file_extension", Value: ".go"},
+					{Type: ConditionFileExtension, Value: ".go"},
 				},
 			},
 			&PreToolUseInput{
@@ -46,7 +46,7 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 			PreToolUseHook{
 				Matcher: "Write",
 				Conditions: []Condition{
-					{Type: "file_extension", Value: ".py"},
+					{Type: ConditionFileExtension, Value: ".py"},
 				},
 			},
 			&PreToolUseInput{
@@ -60,7 +60,7 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 			PreToolUseHook{
 				Matcher: "Write",
 				Conditions: []Condition{
-					{Type: "file_extension", Value: ".go"},
+					{Type: ConditionFileExtension, Value: ".go"},
 					{Type: "command_contains", Value: "test"},
 				},
 			},
@@ -78,7 +78,7 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 			PreToolUseHook{
 				Matcher: "Write",
 				Conditions: []Condition{
-					{Type: "file_extension", Value: ".go"},
+					{Type: ConditionFileExtension, Value: ".go"},
 					{Type: "command_contains", Value: "build"},
 				},
 			},
@@ -230,7 +230,7 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 			{
 				Matcher: "startup",
 				Conditions: []Condition{
-					{Type: "file_exists", Value: "go.mod"},
+					{Type: ConditionFileExists, Value: "go.mod"},
 				},
 				Actions: []SessionStartAction{
 					{
@@ -242,7 +242,7 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 			{
 				Matcher: "startup",
 				Conditions: []Condition{
-					{Type: "file_exists", Value: "nonexistent.file"},
+					{Type: ConditionFileExists, Value: "nonexistent.file"},
 				},
 				Actions: []SessionStartAction{
 					{
@@ -254,7 +254,7 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 			{
 				Matcher: "startup",
 				Conditions: []Condition{
-					{Type: "file_exists_recursive", Value: "hooks_test.go"},
+					{Type: ConditionFileExistsRecursive, Value: "hooks_test.go"},
 				},
 				Actions: []SessionStartAction{
 					{
@@ -335,7 +335,7 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 		UserPromptSubmit: []UserPromptSubmitHook{
 			{
 				Conditions: []Condition{
-					{Type: "prompt_contains", Value: "block"},
+					{Type: ConditionPromptContains, Value: "block"},
 				},
 				Actions: []UserPromptSubmitAction{
 					{
@@ -418,7 +418,7 @@ func TestShouldExecutePostToolUseHook(t *testing.T) {
 			PostToolUseHook{
 				Matcher: "Edit",
 				Conditions: []Condition{
-					{Type: "file_extension", Value: ".go"},
+					{Type: ConditionFileExtension, Value: ".go"},
 				},
 			},
 			&PostToolUseInput{

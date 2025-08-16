@@ -59,10 +59,11 @@ The application follows a modular architecture with clear separation of concerns
 - Handles ExitError for proper exit codes and output routing
 
 **Type System** (`types.go`)
-- Defines all event types: PreToolUse, PostToolUse, Stop, SubagentStop, Notification, PreCompact
+- Defines all event types: PreToolUse, PostToolUse, Stop, SubagentStop, Notification, PreCompact, SessionStart, UserPromptSubmit
 - Event-specific input structures with embedded BaseInput
+- Unified `Condition` structure for all events (refactored from separate condition types)
 - Hook and Action interfaces for polymorphic behavior
-- Separate condition and action types for each event
+- All hooks now support conditions (including Notification, Stop, SubagentStop, PreCompact)
 
 **Configuration** (`config.go`)
 - YAML configuration loading with XDG_CONFIG_HOME support
@@ -79,6 +80,7 @@ The application follows a modular architecture with clear separation of concerns
 - Matcher checking (partial string matching with pipe separation)
 - Condition evaluation per event type
 - Dry-run mode for debugging configurations
+- All hooks now check conditions before executing actions
 
 **Action Execution** (`actions.go`)
 - Command execution via shell
@@ -92,9 +94,13 @@ The application follows a modular architecture with clear separation of concerns
 - Error handling with `[JQ_ERROR: ...]` format
 
 **Utilities** (`utils.go`)
-- Condition checking functions per event type
+- Centralized condition checking functions:
+  - `checkCommonCondition`: file_exists, file_exists_recursive (all events)
+  - `checkToolCondition`: file_extension, command_contains, command_starts_with, url_starts_with (PreToolUse/PostToolUse)
+  - `checkPromptCondition`: prompt_contains, prompt_starts_with, prompt_ends_with (UserPromptSubmit)
+- Event-specific condition checkers that delegate to centralized functions
 - Command execution wrapper
-- File existence, extension, and URL pattern matching
+- File existence and recursive file search utilities
 
 ### Data Flow
 
@@ -111,7 +117,10 @@ The application follows a modular architecture with clear separation of concerns
 
 **Template System**: Consistent `{.field}` syntax across all actions, powered by gojq for complex queries
 
-**Condition System**: Event-specific condition types with common patterns (file_extension, command_contains, etc.)
+**Condition System**:
+- Unified `Condition` type for all events
+- Centralized condition checking logic to avoid duplication
+- Three categories: common conditions (all events), tool conditions (PreToolUse/PostToolUse), prompt conditions (UserPromptSubmit)
 
 **Error Handling**: Custom ExitError type for precise control over exit codes and stderr/stdout routing
 
@@ -129,9 +138,15 @@ Tests are organized by component with comprehensive coverage:
 ## Configuration Format
 
 The tool uses YAML configuration with event-specific hook definitions. Each hook contains:
-- `matcher`: Tool name pattern matching (partial, pipe-separated)
-- `conditions`: Event-specific condition checks
+- `matcher`: Tool name pattern matching (partial, pipe-separated) - used by PreToolUse, PostToolUse, SessionStart
+- `conditions`: Unified condition checks across all event types
 - `actions`: Command execution or output with optional exit_status
+
+Available conditions by event type:
+- **All events**: file_exists, file_exists_recursive
+- **PreToolUse/PostToolUse**: Above plus file_extension, command_contains, command_starts_with, url_starts_with
+- **UserPromptSubmit**: file_exists plus prompt_contains, prompt_starts_with, prompt_ends_with
+- **SessionStart/Notification/Stop/SubagentStop/PreCompact**: file_exists, file_exists_recursive
 
 Template variables are available based on the event type and include fields from BaseInput, tool-specific data, and full jq query support.
 
@@ -139,11 +154,20 @@ Template variables are available based on the event type and include fields from
 
 ### Adding a New Hook Type
 1. Define the input structure in `types.go` with embedded BaseInput
-2. Add condition types if needed in `types.go`
+2. Add to the unified `Condition` type if new condition types are needed
 3. Implement parsing logic in `parser.go`
-4. Add hook execution function in `hooks.go`
-5. Implement condition checking in `utils.go`
+4. Add hook execution function in `hooks.go` with condition checking
+5. Extend condition checking functions in `utils.go` if needed
 6. Add tests in corresponding `*_test.go` files
+
+### Adding a New Condition Type
+1. Determine if it's a common, tool-specific, or prompt-specific condition
+2. Add the case to the appropriate checking function in `utils.go`:
+   - Common: add to `checkCommonCondition`
+   - Tool-related: add to `checkToolCondition`
+   - Prompt-related: add to `checkPromptCondition`
+3. Update the event-specific checkers to use the centralized function
+4. Add test cases to `utils_test.go`
 
 ### Testing Template Processing
 Template processing can be tested independently:
@@ -156,3 +180,11 @@ result := processTemplate("{.tool_name | ascii_upcase}", jsonData)
 1. Use dry-run mode with `-command` flag to test without side effects
 2. Check template expansion with simple echo commands
 3. Use verbose test output (`go test -v`) to see detailed execution flow
+
+## Recent Refactoring
+
+The codebase recently underwent significant refactoring to improve maintainability:
+- Consolidated four identical condition struct types into a single `Condition` type
+- Extracted common condition checking logic into centralized functions
+- Added condition support to all hook types (previously some hooks didn't support conditions)
+- Improved code reusability and reduced duplication across condition checkers
