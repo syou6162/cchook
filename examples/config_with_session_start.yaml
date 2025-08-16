@@ -1,0 +1,156 @@
+# SessionStartとUserPromptSubmitの実用的な設定例
+
+# セッション開始時の自動設定
+SessionStart:
+  # 新規セッション開始時にプロジェクト分析を実行
+  - matcher: startup
+    actions:
+      - type: command
+        command: "bash examples/project_analyzer.sh '{.session_id}'"
+
+  # セッション再開時には簡単なメッセージのみ
+  - matcher: resume
+    actions:
+      - type: output
+        message: "📌 セッション再開: {.session_id} (作業ディレクトリ: {.cwd})"
+
+  # /clearコマンド実行時
+  - matcher: clear
+    actions:
+      - type: output
+        message: "🗑️ コンテキストをクリアしました"
+
+# ユーザープロンプトの検証とガイダンス
+UserPromptSubmit:
+  # 秘密情報の誤送信を防ぐ
+  - conditions:
+      - type: prompt_contains
+        value: "api_key"
+    actions:
+      - type: output
+        message: "⚠️ APIキーが含まれている可能性があります。環境変数の使用を検討してください。"
+        exit_status: 2  # ブロック
+
+  - conditions:
+      - type: prompt_contains
+        value: "password"
+    actions:
+      - type: output
+        message: "⚠️ パスワードが含まれている可能性があります。送信をブロックしました。"
+        exit_status: 2  # ブロック
+
+  # デバッグモード
+  - conditions:
+      - type: prompt_starts_with
+        value: "DEBUG:"
+    actions:
+      - type: command
+        command: "echo '[DEBUG MODE] プロンプト: {.prompt}' >> debug.log"
+      - type: output
+        message: "🐛 デバッグモード: プロンプトがdebug.logに記録されました"
+
+# ツール使用の最適化
+PreToolUse:
+  # Goファイルの編集時にSerena MCPの使用を促す
+  - matcher: "Edit|Write"
+    conditions:
+      - type: file_extension
+        value: ".go"
+    actions:
+      - type: output
+        message: |
+          💡 ヒント: Goファイルの編集にはMCP Serenaの使用を推奨します
+          • mcp__serena__replace_symbol_body: 関数/メソッドの本体を置換
+          • mcp__serena__find_symbol: シンボルの定義を検索
+          • より精密なコード編集が可能です
+
+  # TypeScript/JavaScriptファイルの編集時も同様
+  - matcher: "Edit|Write"
+    conditions:
+      - type: file_extension
+        value: ".ts"
+    actions:
+      - type: output
+        message: "💡 ヒント: TypeScriptファイルもMCP Serenaでシンボル単位の編集が可能です"
+
+  # Pythonファイルの編集時
+  - matcher: "Edit|Write"
+    conditions:
+      - type: file_extension
+        value: ".py"
+    actions:
+      - type: output
+        message: "💡 ヒント: PythonファイルもMCP Serenaで関数/クラス単位の編集が可能です"
+
+  # 危険なコマンドの実行を警告
+  - matcher: "Bash"
+    conditions:
+      - type: command_contains
+        value: "rm -rf"
+    actions:
+      - type: output
+        message: "⚠️ 危険: 'rm -rf'コマンドが検出されました。実行を続けますか？"
+        exit_status: 0  # 警告のみ、ブロックはしない
+
+  # mainブランチでのgit操作を警告
+  - matcher: "Bash"
+    conditions:
+      - type: command_starts_with
+        value: "git commit"
+    actions:
+      - type: command
+        command: |
+          BRANCH=$(git branch --show-current 2>/dev/null)
+          if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+            echo "⚠️ 警告: main/masterブランチでコミットしようとしています！"
+            echo "💡 git worktreeで作業ブランチを作成することを推奨します"
+          fi
+
+# ツール実行後の処理
+PostToolUse:
+  # テストファイルが作成/更新されたらテスト実行を提案
+  - matcher: "Write|Edit"
+    conditions:
+      - type: file_extension
+        value: "_test.go"
+    actions:
+      - type: output
+        message: "✅ テストファイルが更新されました。'go test ./...'でテストを実行してください"
+
+  # package.jsonが更新されたらnpm installを提案
+  - matcher: "Write|Edit"
+    conditions:
+      - type: file_extension
+        value: "package.json"
+    actions:
+      - type: output
+        message: "📦 package.jsonが更新されました。'npm install'の実行が必要かもしれません"
+
+# 通知設定
+Notification:
+  - actions:
+      - type: command
+        command: "date '+%Y-%m-%d %H:%M:%S' >> ~/.cchook_notifications.log && echo '{.message}' >> ~/.cchook_notifications.log"
+
+# セッション終了時
+Stop:
+  - actions:
+      - type: command
+        command: |
+          echo "=== セッション終了: $(date) ===" >> ~/.cchook_session.log
+          echo "セッションID: {.session_id}" >> ~/.cchook_session.log
+          git status --short 2>/dev/null >> ~/.cchook_session.log || true
+      - type: output
+        message: "👋 セッションを終了しました。変更内容は ~/.cchook_session.log に記録されました。"
+
+# Subagent終了時
+SubagentStop:
+  - actions:
+      - type: output
+        message: "🤖 Subagentタスクが完了しました"
+
+# コンパクト実行時
+PreCompact:
+  - actions:
+      - type: output
+        message: "♻️ コンテキストをコンパクト化しています... (トリガー: {.trigger})"
