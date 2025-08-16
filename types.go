@@ -184,8 +184,9 @@ type PreCompactHook struct {
 }
 
 type SessionStartHook struct {
-	Matcher string               `yaml:"matcher"` // "startup", "resume", or "clear"
-	Actions []SessionStartAction `yaml:"actions"`
+	Matcher    string                  `yaml:"matcher"` // "startup", "resume", or "clear"
+	Conditions []SessionStartCondition `yaml:"conditions,omitempty"`
+	Actions    []SessionStartAction    `yaml:"actions"`
 }
 
 type UserPromptSubmitHook struct {
@@ -205,6 +206,11 @@ type PostToolUseCondition struct {
 }
 
 type UserPromptSubmitCondition struct {
+	Type  string `yaml:"type"`
+	Value string `yaml:"value"`
+}
+
+type SessionStartCondition struct {
 	Type  string `yaml:"type"`
 	Value string `yaml:"value"`
 }
