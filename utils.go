@@ -56,7 +56,13 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-func checkPreToolUseCondition(condition PreToolUseCondition, input *PreToolUseInput) bool {
+func checkPreToolUseCondition(condition Condition, input *PreToolUseInput) bool {
+	// まず汎用条件をチェック
+	if checkCommonCondition(condition) {
+		return true
+	}
+	
+	// ツール固有の条件をチェック
 	switch condition.Type {
 	case "file_extension":
 		// ToolInput構造体から直接FilePath取得
@@ -73,22 +79,24 @@ func checkPreToolUseCondition(condition PreToolUseCondition, input *PreToolUseIn
 		if input.ToolInput.Command != "" {
 			return strings.HasPrefix(input.ToolInput.Command, condition.Value)
 		}
-	case "file_exists":
-		// 指定ファイルが存在する
-		return fileExists(condition.Value)
 	case "url_starts_with":
 		// URLが指定文字列で始まる
 		if input.ToolInput.URL != "" {
 			return strings.HasPrefix(input.ToolInput.URL, condition.Value)
 		}
-	case "file_exists_recursive":
-		// ファイルが再帰的に存在するか
-		return fileExistsRecursive(condition.Value)
 	}
 	return false
 }
 
-func checkPostToolUseCondition(condition PostToolUseCondition, input *PostToolUseInput) bool {
+func checkPostToolUseCondition(condition Condition, input *PostToolUseInput) bool {
+	// まず汎用条件をチェック（file_existsのみ、file_exists_recursiveは現状PostToolUseには実装されていない）
+	switch condition.Type {
+	case "file_exists":
+		// 指定ファイルが存在する
+		return fileExists(condition.Value)
+	}
+	
+	// ツール固有の条件をチェック
 	switch condition.Type {
 	case "file_extension":
 		// ToolInput構造体から直接FilePath取得
@@ -105,9 +113,6 @@ func checkPostToolUseCondition(condition PostToolUseCondition, input *PostToolUs
 		if input.ToolInput.Command != "" {
 			return strings.HasPrefix(input.ToolInput.Command, condition.Value)
 		}
-	case "file_exists":
-		// 指定ファイルが存在する
-		return fileExists(condition.Value)
 	case "url_starts_with":
 		// URLが指定文字列で始まる
 		if input.ToolInput.URL != "" {
@@ -117,7 +122,15 @@ func checkPostToolUseCondition(condition PostToolUseCondition, input *PostToolUs
 	return false
 }
 
-func checkUserPromptSubmitCondition(condition UserPromptSubmitCondition, input *UserPromptSubmitInput) bool {
+func checkUserPromptSubmitCondition(condition Condition, input *UserPromptSubmitInput) bool {
+	// まず汎用条件をチェック（file_existsのみ実装されている）
+	switch condition.Type {
+	case "file_exists":
+		// 指定ファイルが存在する
+		return fileExists(condition.Value)
+	}
+	
+	// プロンプト固有の条件をチェック
 	switch condition.Type {
 	case "prompt_contains":
 		// プロンプトに指定文字列が含まれる
@@ -128,14 +141,17 @@ func checkUserPromptSubmitCondition(condition UserPromptSubmitCondition, input *
 	case "prompt_ends_with":
 		// プロンプトが指定文字列で終わる
 		return strings.HasSuffix(input.Prompt, condition.Value)
-	case "file_exists":
-		// 指定ファイルが存在する
-		return fileExists(condition.Value)
 	}
 	return false
 }
 
-func checkSessionStartCondition(condition SessionStartCondition, input *SessionStartInput) bool {
+func checkSessionStartCondition(condition Condition, input *SessionStartInput) bool {
+	// SessionStartは汎用条件のみ使用
+	return checkCommonCondition(condition)
+}
+
+// 汎用条件チェック関数
+func checkCommonCondition(condition Condition) bool {
 	switch condition.Type {
 	case "file_exists":
 		// 指定ファイルが存在する
@@ -145,6 +161,26 @@ func checkSessionStartCondition(condition SessionStartCondition, input *SessionS
 		return fileExistsRecursive(condition.Value)
 	}
 	return false
+}
+
+// Notification用の条件チェック（汎用条件のみ）
+func checkNotificationCondition(condition Condition, input *NotificationInput) bool {
+	return checkCommonCondition(condition)
+}
+
+// Stop用の条件チェック（汎用条件のみ）
+func checkStopCondition(condition Condition, input *StopInput) bool {
+	return checkCommonCondition(condition)
+}
+
+// SubagentStop用の条件チェック（汎用条件のみ）
+func checkSubagentStopCondition(condition Condition, input *SubagentStopInput) bool {
+	return checkCommonCondition(condition)
+}
+
+// PreCompact用の条件チェック（汎用条件のみ）
+func checkPreCompactCondition(condition Condition, input *PreCompactInput) bool {
+	return checkCommonCondition(condition)
 }
 
 func runCommand(command string) error {
