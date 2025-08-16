@@ -95,6 +95,26 @@ Add cchook to your Claude Code hook configuration in `.claude/settings.json`:
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cchook -event SessionStart"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cchook -event UserPromptSubmit"
+          }
+        ]
+      }
     ]
   }
 }
@@ -261,6 +281,43 @@ Stop:
           xargs -I {} ntfy publish --markdown --title 'Claude Code Complete' "{}"
 ```
 
+### Session Management
+
+Initialize session with custom setup:
+
+```yaml
+SessionStart:
+  - actions:
+      - type: command
+        command: "echo 'Session {.session_id} started at $(date)' >> ~/claude-sessions.log"
+      - type: output
+        message: "🚀 Claude Code session initialized"
+        exit_status: 0
+```
+
+### User Prompt Filtering
+
+Guide users based on their prompts:
+
+```yaml
+UserPromptSubmit:
+  - conditions:
+      - type: prompt_contains
+        value: "delete"
+    actions:
+      - type: output
+        message: "⚠️ 削除操作を実行する前に、必ずバックアップを取ってください"
+        exit_status: 0
+
+  - conditions:
+      - type: prompt_starts_with
+        value: "python"
+    actions:
+      - type: output
+        message: "💡 Pythonの代わりに`uv`を使用することをお勧めします"
+        exit_status: 0
+```
+
 ## Configuration Reference
 
 ### Event Types
@@ -277,6 +334,11 @@ Stop:
   - System notifications
 - `PreCompact`
   - Before conversation compaction
+- `SessionStart`
+  - When Claude Code session starts
+  - No conditions available (actions only)
+- `UserPromptSubmit`
+  - When user submits a prompt
 
 ### Matcher
 
@@ -297,6 +359,16 @@ Stop:
   - Check if specified file exists
 - `url_starts_with`
   - Match URL prefix (WebFetch tool)
+
+#### UserPromptSubmit
+- `prompt_contains`
+  - Match substring in user prompt
+- `prompt_starts_with`
+  - Match prompt prefix
+- `prompt_ends_with`
+  - Match prompt suffix
+- `file_exists`
+  - Check if specified file exists
 
 ### Actions
 
