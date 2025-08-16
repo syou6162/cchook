@@ -83,21 +83,7 @@ func checkPreToolUseCondition(condition PreToolUseCondition, input *PreToolUseIn
 		}
 	case "file_exists_recursive":
 		// ファイルが再帰的に存在するか
-		found := false
-		err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return nil // エラーがあっても続ける
-			}
-			if !info.IsDir() && filepath.Base(path) == condition.Value {
-				found = true
-				return filepath.SkipAll // 見つかったら探索を終了
-			}
-			return nil
-		})
-		if err != nil {
-			return false
-		}
-		return found
+		return fileExistsRecursive(condition.Value)
 	}
 	return false
 }
@@ -121,10 +107,7 @@ func checkPostToolUseCondition(condition PostToolUseCondition, input *PostToolUs
 		}
 	case "file_exists":
 		// 指定ファイルが存在する
-		if condition.Value != "" {
-			_, err := os.Stat(condition.Value)
-			return err == nil
-		}
+		return fileExists(condition.Value)
 	case "url_starts_with":
 		// URLが指定文字列で始まる
 		if input.ToolInput.URL != "" {
