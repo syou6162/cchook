@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -9,6 +10,9 @@ import (
 )
 
 // parseInput関数は parser.go に移動
+
+// ErrConditionNotHandled は、条件タイプがその関数では処理されないことを示す
+var ErrConditionNotHandled = errors.New("condition not handled by this function")
 
 // 共通マッチャーチェック関数
 func checkMatcher(matcher string, toolName string) bool {
@@ -58,67 +62,81 @@ func fileExists(path string) bool {
 
 func checkPreToolUseCondition(condition Condition, input *PreToolUseInput) (bool, error) {
 	// まず汎用条件をチェック
-	if matched, err := checkCommonCondition(condition); err != nil {
-		return false, err
-	} else if matched {
-		return true, nil
+	matched, err := checkCommonCondition(condition)
+	if err == nil {
+		return matched, nil // 処理された
+	}
+	if !errors.Is(err, ErrConditionNotHandled) {
+		return false, err // 本当のエラー
 	}
 
 	// ツール固有の条件をチェック
-	if matched, err := checkToolCondition(condition, &input.ToolInput); err != nil {
-		return false, err
-	} else if matched {
-		return true, nil
+	matched, err = checkToolCondition(condition, &input.ToolInput)
+	if err == nil {
+		return matched, nil // 処理された
+	}
+	if !errors.Is(err, ErrConditionNotHandled) {
+		return false, err // 本当のエラー
 	}
 
-	// どの条件にもマッチしない場合はエラー
+	// どの関数も処理しなかった場合はエラー
 	return false, fmt.Errorf("unknown condition type: %s", condition.Type)
 }
 
 func checkPostToolUseCondition(condition Condition, input *PostToolUseInput) (bool, error) {
 	// まず汎用条件をチェック
-	if matched, err := checkCommonCondition(condition); err != nil {
-		return false, err
-	} else if matched {
-		return true, nil
+	matched, err := checkCommonCondition(condition)
+	if err == nil {
+		return matched, nil // 処理された
+	}
+	if !errors.Is(err, ErrConditionNotHandled) {
+		return false, err // 本当のエラー
 	}
 
 	// ツール固有の条件をチェック
-	if matched, err := checkToolCondition(condition, &input.ToolInput); err != nil {
-		return false, err
-	} else if matched {
-		return true, nil
+	matched, err = checkToolCondition(condition, &input.ToolInput)
+	if err == nil {
+		return matched, nil // 処理された
+	}
+	if !errors.Is(err, ErrConditionNotHandled) {
+		return false, err // 本当のエラー
 	}
 
-	// どの条件にもマッチしない場合はエラー
+	// どの関数も処理しなかった場合はエラー
 	return false, fmt.Errorf("unknown condition type: %s", condition.Type)
 }
 
 func checkUserPromptSubmitCondition(condition Condition, input *UserPromptSubmitInput) (bool, error) {
 	// まず汎用条件をチェック
-	if matched, err := checkCommonCondition(condition); err != nil {
-		return false, err
-	} else if matched {
-		return true, nil
+	matched, err := checkCommonCondition(condition)
+	if err == nil {
+		return matched, nil // 処理された
+	}
+	if !errors.Is(err, ErrConditionNotHandled) {
+		return false, err // 本当のエラー
 	}
 
 	// プロンプト固有の条件をチェック
-	if matched, err := checkPromptCondition(condition, input.Prompt); err != nil {
-		return false, err
-	} else if matched {
-		return true, nil
+	matched, err = checkPromptCondition(condition, input.Prompt)
+	if err == nil {
+		return matched, nil // 処理された
+	}
+	if !errors.Is(err, ErrConditionNotHandled) {
+		return false, err // 本当のエラー
 	}
 
-	// どの条件にもマッチしない場合はエラー
+	// どの関数も処理しなかった場合はエラー
 	return false, fmt.Errorf("unknown condition type: %s", condition.Type)
 }
 
 func checkSessionStartCondition(condition Condition, input *SessionStartInput) (bool, error) {
 	// SessionStartは汎用条件のみ使用
-	if matched, err := checkCommonCondition(condition); err != nil {
-		return false, err
-	} else if matched {
-		return true, nil
+	matched, err := checkCommonCondition(condition)
+	if err == nil {
+		return matched, nil // 処理された
+	}
+	if !errors.Is(err, ErrConditionNotHandled) {
+		return false, err // 本当のエラー
 	}
 
 	// SessionStartがサポートしない条件タイプの場合はエラー
@@ -136,8 +154,8 @@ func checkCommonCondition(condition Condition) (bool, error) {
 		return fileExistsRecursive(condition.Value), nil
 	default:
 		// この関数では汎用条件のみをチェック
-		// 未知の条件タイプはエラーではなく、他の関数でチェックされる可能性がある
-		return false, nil
+		// 処理できない条件タイプの場合はErrConditionNotHandledを返す
+		return false, ErrConditionNotHandled
 	}
 }
 
@@ -170,7 +188,7 @@ func checkToolCondition(condition Condition, toolInput *ToolInput) (bool, error)
 		return false, nil
 	default:
 		// この関数ではツール関連条件のみをチェック
-		return false, nil
+		return false, ErrConditionNotHandled
 	}
 }
 
@@ -188,16 +206,19 @@ func checkPromptCondition(condition Condition, prompt string) (bool, error) {
 		return strings.HasSuffix(prompt, condition.Value), nil
 	default:
 		// この関数ではプロンプト関連条件のみをチェック
-		return false, nil
+		return false, ErrConditionNotHandled
 	}
 }
 
 // Notification用の条件チェック（汎用条件のみ）
 func checkNotificationCondition(condition Condition, input *NotificationInput) (bool, error) {
-	if matched, err := checkCommonCondition(condition); err != nil {
-		return false, err
-	} else if matched {
-		return true, nil
+	// Notificationは汎用条件のみ使用
+	matched, err := checkCommonCondition(condition)
+	if err == nil {
+		return matched, nil // 処理された
+	}
+	if !errors.Is(err, ErrConditionNotHandled) {
+		return false, err // 本当のエラー
 	}
 
 	// Notificationがサポートしない条件タイプの場合はエラー
@@ -206,10 +227,13 @@ func checkNotificationCondition(condition Condition, input *NotificationInput) (
 
 // Stop用の条件チェック（汎用条件のみ）
 func checkStopCondition(condition Condition, input *StopInput) (bool, error) {
-	if matched, err := checkCommonCondition(condition); err != nil {
-		return false, err
-	} else if matched {
-		return true, nil
+	// Stopは汎用条件のみ使用
+	matched, err := checkCommonCondition(condition)
+	if err == nil {
+		return matched, nil // 処理された
+	}
+	if !errors.Is(err, ErrConditionNotHandled) {
+		return false, err // 本当のエラー
 	}
 
 	// Stopがサポートしない条件タイプの場合はエラー
@@ -218,10 +242,13 @@ func checkStopCondition(condition Condition, input *StopInput) (bool, error) {
 
 // SubagentStop用の条件チェック（汎用条件のみ）
 func checkSubagentStopCondition(condition Condition, input *SubagentStopInput) (bool, error) {
-	if matched, err := checkCommonCondition(condition); err != nil {
-		return false, err
-	} else if matched {
-		return true, nil
+	// SubagentStopは汎用条件のみ使用
+	matched, err := checkCommonCondition(condition)
+	if err == nil {
+		return matched, nil // 処理された
+	}
+	if !errors.Is(err, ErrConditionNotHandled) {
+		return false, err // 本当のエラー
 	}
 
 	// SubagentStopがサポートしない条件タイプの場合はエラー
@@ -230,10 +257,13 @@ func checkSubagentStopCondition(condition Condition, input *SubagentStopInput) (
 
 // PreCompact用の条件チェック（汎用条件のみ）
 func checkPreCompactCondition(condition Condition, input *PreCompactInput) (bool, error) {
-	if matched, err := checkCommonCondition(condition); err != nil {
-		return false, err
-	} else if matched {
-		return true, nil
+	// PreCompactは汎用条件のみ使用
+	matched, err := checkCommonCondition(condition)
+	if err == nil {
+		return matched, nil // 処理された
+	}
+	if !errors.Is(err, ErrConditionNotHandled) {
+		return false, err // 本当のエラー
 	}
 
 	// PreCompactがサポートしない条件タイプの場合はエラー
