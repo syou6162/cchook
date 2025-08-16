@@ -69,6 +69,38 @@ func executePreCompactAction(action PreCompactAction, input *PreCompactInput, ra
 	return nil
 }
 
+func executeSessionStartAction(action SessionStartAction, input *SessionStartInput, rawJSON interface{}) error {
+	switch action.Type {
+	case "command":
+		cmd := unifiedTemplateReplace(action.Command, rawJSON)
+		if err := runCommand(cmd); err != nil {
+			return err
+		}
+	case "output":
+		// SessionStartはブロッキング不要なので、exitStatusが指定されていない場合は通常出力
+		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
+		if action.ExitStatus != nil && *action.ExitStatus != 0 {
+			stderr := *action.ExitStatus == 2
+			return NewExitError(*action.ExitStatus, processedMessage, stderr)
+		}
+		fmt.Println(processedMessage)
+	}
+	return nil
+}
+
+func executeUserPromptSubmitAction(action UserPromptSubmitAction, input *UserPromptSubmitInput, rawJSON interface{}) error {
+	switch action.Type {
+	case "command":
+		cmd := unifiedTemplateReplace(action.Command, rawJSON)
+		if err := runCommand(cmd); err != nil {
+			return err
+		}
+	case "output":
+		return handleOutput(action.Message, action.ExitStatus, rawJSON)
+	}
+	return nil
+}
+
 func executePreToolUseAction(action PreToolUseAction, input *PreToolUseInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
