@@ -603,3 +603,154 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckGitTrackedFileOperation(t *testing.T) {
+	// 実際のGitリポジトリでテストするために、このプロジェクト自体のファイルを使用
+	tests := []struct {
+		name      string
+		condition Condition
+		input     *PreToolUseInput
+		want      bool
+		wantErr   bool
+	}{
+		{
+			name: "rm command with git tracked file - go.mod",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "rm go.mod",
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "rm command with non-existent file",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "rm /tmp/nonexistent-file-12345.txt",
+				},
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "mv command with git tracked file",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "mv",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "mv utils.go utils_backup.go",
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "rm with multiple files including git tracked",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm|mv",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "rm -rf /tmp/test.txt main.go",
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "rm with options and quoted file",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: `rm -f "types.go"`,
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "mv with target directory option",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "mv",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "mv -t /tmp main.go",
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "ls command should not match",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm|mv",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "ls -la main.go",
+				},
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "rm with environment variable expansion",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "rm $HOME/nonexistent.txt",
+				},
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "empty command",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "",
+				},
+			},
+			want:    false,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := checkPreToolUseCondition(tt.condition, tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkPreToolUseCondition() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("checkPreToolUseCondition() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
