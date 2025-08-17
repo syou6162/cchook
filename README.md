@@ -300,7 +300,7 @@ PreToolUse:
           ⚠️  Error: Attempting to operate on Git-tracked files
           Use 'git rm' or 'git mv' instead for Git-tracked files
           Command attempted: {.tool_input.command}
-        exit_status: 1  # Block with exit code 1
+        exit_status: 2  # Block execution (exit code 2 blocks in PreToolUse)
 ```
 
 ### API Monitoring
@@ -375,16 +375,25 @@ Guide users based on their prompts using regex patterns:
 
 ```yaml
 UserPromptSubmit:
-  # Match multiple keywords with OR condition
+  # Add context/warnings (exit_status: 0 - adds to context)
   - conditions:
       - type: prompt_regex
         value: "delete|削除|remove"
     actions:
       - type: output
         message: "⚠️ 削除操作を実行する前に、必ずバックアップを取ってください"
-        exit_status: 0
+        exit_status: 0  # Adds message to context, prompt continues
 
-  # Match prompts starting with specific words
+  # Block dangerous prompts (exit_status: 2 - blocks prompt)
+  - conditions:
+      - type: prompt_regex
+        value: "rm -rf /"
+    actions:
+      - type: output
+        message: "🚫 危険なコマンドが含まれています。このプロンプトはブロックされました。"
+        exit_status: 2  # Blocks prompt processing, shows message to user
+
+  # Add helpful context
   - conditions:
       - type: prompt_regex
         value: "^(python|pip|conda)"
@@ -393,7 +402,7 @@ UserPromptSubmit:
         message: "💡 Pythonの代わりに`uv`を使用することをお勧めします"
         exit_status: 0
 
-  # Match prompts ending with question mark
+  # Add context for questions
   - conditions:
       - type: prompt_regex
         value: "\\?$"
@@ -472,16 +481,21 @@ All conditions return proper error messages for unknown condition types, ensurin
 - `command`
   - Execute shell command
 - `output`
-  - Print message (default `exit_status`: 2 for `PreToolUse`, 0 for others)
+  - Print message
+  - Default `exit_status`:
+    - 0 for SessionStart, UserPromptSubmit (non-blocking events)
+    - 2 for PreToolUse, PostToolUse, Stop, SubagentStop, Notification, PreCompact
 
 ### Exit Status Control
 
 - 0
-  - Allow execution, output to stdout
+  - Success, allow execution, output to stdout
 - 2
-  - Block execution (PreToolUse only), output to stderr
-- Other
-  - Exit with specified code
+  - Block execution (PreToolUse), output to stderr
+  - Claude will process the stderr message
+- Other (1, 3, etc.)
+  - Non-blocking error, stderr shown to user
+  - Execution continues normally
 
 ### Template Syntax
 
