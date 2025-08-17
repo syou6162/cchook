@@ -260,6 +260,14 @@ func (c *ConditionType) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		*c = ConditionEveryNPrompts
 	case "git_tracked_file_operation":
 		*c = ConditionGitTrackedFileOperation
+	case "cwd_is":
+		*c = ConditionCwdIs
+	case "cwd_is_not":
+		*c = ConditionCwdIsNot
+	case "cwd_contains":
+		*c = ConditionCwdContains
+	case "cwd_not_contains":
+		*c = ConditionCwdNotContains
 	default:
 		return fmt.Errorf("invalid condition type: %s", s)
 	}
