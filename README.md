@@ -358,24 +358,35 @@ SessionStart:
 
 ### User Prompt Filtering
 
-Guide users based on their prompts:
+Guide users based on their prompts using regex patterns:
 
 ```yaml
 UserPromptSubmit:
+  # Match multiple keywords with OR condition
   - conditions:
-      - type: prompt_contains
-        value: "delete"
+      - type: prompt_regex
+        value: "delete|削除|remove"
     actions:
       - type: output
         message: "⚠️ 削除操作を実行する前に、必ずバックアップを取ってください"
         exit_status: 0
 
+  # Match prompts starting with specific words
   - conditions:
-      - type: prompt_starts_with
-        value: "python"
+      - type: prompt_regex
+        value: "^(python|pip|conda)"
     actions:
       - type: output
         message: "💡 Pythonの代わりに`uv`を使用することをお勧めします"
+        exit_status: 0
+
+  # Match prompts ending with question mark
+  - conditions:
+      - type: prompt_regex
+        value: "\\?$"
+    actions:
+      - type: output
+        message: "📚 質問を検知しました。ドキュメントを確認することをお勧めします"
         exit_status: 0
 ```
 
@@ -431,12 +442,11 @@ All conditions return proper error messages for unknown condition types, ensurin
 
 #### UserPromptSubmit
 - All common conditions, plus:
-- `prompt_contains`
-  - Match substring in user prompt
-- `prompt_starts_with`
-  - Match prompt prefix
-- `prompt_ends_with`
-  - Match prompt suffix
+- `prompt_regex`
+  - Match user prompt with regular expression
+  - Supports OR conditions: `"help|助けて|サポート"`
+  - Supports anchors: `"^prefix"` (starts with), `"suffix$"` (ends with)
+  - Supports complex patterns: `"^(DEBUG|INFO|WARN|ERROR):"`
 
 #### Other Events (SessionStart, Stop, Notification, SubagentStop, PreCompact)
 - Support common conditions only (`file_exists`, `file_exists_recursive`)
