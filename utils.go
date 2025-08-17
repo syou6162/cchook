@@ -165,6 +165,52 @@ func checkCommonCondition(condition Condition) (bool, error) {
 
 // ツール関連の条件チェック関数
 // isGitTracked checks if a file is tracked by Git
+// findGitRepository finds the Git repository containing the given path
+func findGitRepository(path string) (*git.Repository, error) {
+	dir := filepath.Dir(path)
+	for {
+		repo, err := git.PlainOpen(dir)
+		if err == nil {
+			return repo, nil
+		}
+
+		// 親ディレクトリへ
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// ルートディレクトリに到達
+			return nil, fmt.Errorf("not a git repository")
+		}
+		dir = parent
+	}
+}
+
+// isFileTrackedInRepo checks if a file is tracked in the given Git repository
+func isFileTrackedInRepo(repo *git.Repository, absPath string) (bool, error) {
+	// リポジトリのルートディレクトリを取得
+	wt, err := repo.Worktree()
+	if err != nil {
+		return false, err
+	}
+
+	// リポジトリルートからの相対パスを計算
+	relPath, err := filepath.Rel(wt.Filesystem.Root(), absPath)
+	if err != nil {
+		return false, err
+	}
+
+	// Gitのindexは常にスラッシュを使う
+	relPath = filepath.ToSlash(relPath)
+
+	// インデックスをチェック
+	idx, err := repo.Storer.Index()
+	if err != nil {
+		return false, err
+	}
+
+	_, err = idx.Entry(relPath)
+	return err == nil, nil
+}
+
 func isGitTracked(filePath string) (bool, error) {
 	// 絶対パスに変換
 	absPath, err := filepath.Abs(filePath)
@@ -172,49 +218,19 @@ func isGitTracked(filePath string) (bool, error) {
 		return false, err
 	}
 
-	// リポジトリを探す（現在のディレクトリから上に向かって探索）
-	dir := filepath.Dir(absPath)
-	for {
-		repo, err := git.PlainOpen(dir)
-		if err == nil {
-			// リポジトリが見つかった
-			// リポジトリのルートディレクトリを取得
-			wt, err := repo.Worktree()
-			if err != nil {
-				return false, err
-			}
-
-			// リポジトリルートからの相対パスを計算
-			relPath, err := filepath.Rel(wt.Filesystem.Root(), absPath)
-			if err != nil {
-				return false, err
-			}
-
-			// Gitのindexは常にスラッシュを使う
-			relPath = filepath.ToSlash(relPath)
-
-			// インデックスをチェック
-			idx, err := repo.Storer.Index()
-			if err != nil {
-				return false, err
-			}
-
-			_, err = idx.Entry(relPath)
-			return err == nil, nil
-		}
-
-		// 親ディレクトリへ
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			// ルートディレクトリに到達
-			return false, nil
-		}
-		dir = parent
+	// リポジトリを探す
+	repo, err := findGitRepository(absPath)
+	if err != nil {
+		// Gitリポジトリではない
+		return false, nil
 	}
+
+	// ファイルがトラックされているかチェック
+	return isFileTrackedInRepo(repo, absPath)
 }
 
 // checkGitTrackedFileOperation checks if a command is trying to operate on Git-tracked files
-func checkGitTrackedFileOperation(command string, allowedOps string) (bool, error) {
+func checkGitTrackedFileOperation(command string, blockedOps string) (bool, error) {
 	if command == "" {
 		return false, nil
 	}
@@ -230,20 +246,20 @@ func checkGitTrackedFileOperation(command string, allowedOps string) (bool, erro
 		return false, nil
 	}
 
-	// 許可された操作のリストを作成
-	allowedOpsList := strings.Split(allowedOps, "|")
+	// ブロック対象のコマンドリストを作成
+	blockedOpsList := strings.Split(blockedOps, "|")
 	cmdName := args[0]
 
-	// コマンドが対象のものかチェック
-	isTargetCmd := false
-	for _, op := range allowedOpsList {
+	// コマンドがブロック対象かチェック
+	isBlockedCmd := false
+	for _, op := range blockedOpsList {
 		if cmdName == strings.TrimSpace(op) {
-			isTargetCmd = true
+			isBlockedCmd = true
 			break
 		}
 	}
 
-	if !isTargetCmd {
+	if !isBlockedCmd {
 		return false, nil
 	}
 
