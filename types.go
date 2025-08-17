@@ -224,6 +224,9 @@ var (
 
 	// Prompt-related conditions (UserPromptSubmit)
 	ConditionPromptRegex = ConditionType{"prompt_regex"}
+
+	// Git-related conditions (PreToolUse for Bash commands)
+	ConditionGitTrackedFileOperation = ConditionType{"git_tracked_file_operation"}
 )
 
 // UnmarshalYAML implements yaml.Unmarshaler for ConditionType
@@ -248,6 +251,8 @@ func (c *ConditionType) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		*c = ConditionURLStartsWith
 	case "prompt_regex":
 		*c = ConditionPromptRegex
+	case "git_tracked_file_operation":
+		*c = ConditionGitTrackedFileOperation
 	default:
 		return fmt.Errorf("invalid condition type: %s", s)
 	}

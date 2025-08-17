@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -599,6 +600,231 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("checkUserPromptSubmitCondition() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCheckGitTrackedFileOperation(t *testing.T) {
+	// テスト用の一時的なGitリポジトリを作成
+	tmpDir := t.TempDir()
+
+	// Git リポジトリを初期化
+	if err := runCommand("cd " + tmpDir + " && git init"); err != nil {
+		t.Fatalf("Failed to init git repo: %v", err)
+	}
+
+	// Git設定（コミット用）
+	if err := runCommand("cd " + tmpDir + " && git config user.email 'test@example.com' && git config user.name 'Test User'"); err != nil {
+		t.Fatalf("Failed to configure git: %v", err)
+	}
+
+	// テスト用のファイルを作成してGitに追加
+	testFile := filepath.Join(tmpDir, "tracked.txt")
+	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+	if err := runCommand("cd " + tmpDir + " && git add tracked.txt && git commit -m 'test'"); err != nil {
+		t.Fatalf("Failed to add file to git: %v", err)
+	}
+
+	// Git管理外のファイルも作成
+	untrackedFile := filepath.Join(tmpDir, "untracked.txt")
+	if err := os.WriteFile(untrackedFile, []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create untracked file: %v", err)
+	}
+
+	// 元のディレクトリを保存して、テスト後に戻す
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tmpDir)
+
+	tests := []struct {
+		name      string
+		condition Condition
+		input     *PreToolUseInput
+		want      bool
+		wantErr   bool
+	}{
+		{
+			name: "rm command with git tracked file",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "rm tracked.txt",
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "rm command with untracked file",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "rm untracked.txt",
+				},
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "mv command with git tracked file",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "mv",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "mv tracked.txt tracked_backup.txt",
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "rm with multiple files including git tracked",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm|mv",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "rm -rf untracked.txt tracked.txt",
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "rm with options and quoted file",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: `rm -f "tracked.txt"`,
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "mv with target directory option",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "mv",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "mv -t /tmp tracked.txt",
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "ls command should not match",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm|mv",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "ls -la tracked.txt",
+				},
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "rm with environment variable expansion",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "rm $HOME/nonexistent.txt",
+				},
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "empty command",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "",
+				},
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "git rm should NOT be blocked",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm|mv",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "git rm tracked.txt",
+				},
+			},
+			want:    false, // git rmはブロック対象ではない
+			wantErr: false,
+		},
+		{
+			name: "git mv should NOT be blocked",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm|mv",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "git mv tracked.txt renamed.txt",
+				},
+			},
+			want:    false, // git mvはブロック対象ではない
+			wantErr: false,
+		},
+		{
+			name: "git rm with options should NOT be blocked",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "git rm --cached tracked.txt",
+				},
+			},
+			want:    false, // git rmはブロック対象ではない
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := checkPreToolUseCondition(tt.condition, tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkPreToolUseCondition() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("checkPreToolUseCondition() = %v, want %v", got, tt.want)
 			}
 		})
 	}

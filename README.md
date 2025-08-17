@@ -271,7 +271,6 @@ PreToolUse:
     actions:
       - type: output
         message: "📝 Python project detected with pyproject.toml"
-        exit_status: 0
 ```
 
 ### Command Safety
@@ -287,26 +286,20 @@ PreToolUse:
     actions:
       - type: output
         message: "🚫 Dangerous command blocked!"
-        # exit_status: 2 (default - blocks execution)
-```
 
-### API Monitoring
-
-Track external API usage:
-
-```yaml
-PreToolUse:
-  - matcher: "WebFetch"
+  # Protect Git-tracked files from accidental deletion/move
+  - matcher: "Bash"
     conditions:
-      - type: url_starts_with
-        value: "https://api."
+      - type: git_tracked_file_operation
+        value: "rm|mv"  # Check both rm and mv commands
     actions:
       - type: output
-        message: "🌐 API access: {.tool_input.url}"
-        exit_status: 0
-      - type: command
-        command: 'echo "{.session_id}: {.tool_input.url}" >> ~/api_access.log'
+        message: |
+          ⚠️  Error: Attempting to operate on Git-tracked files
+          Use 'git rm' or 'git mv' instead for Git-tracked files
+          Command attempted: {.tool_input.command}
 ```
+
 
 ### Notifications
 
@@ -334,7 +327,6 @@ SessionStart:
         command: "echo 'Session {.session_id} started at $(date)' >> ~/claude-sessions.log"
       - type: output
         message: "🚀 Claude Code session initialized"
-        exit_status: 0
 
   # Project-specific initialization
   - matcher: "startup"
@@ -344,7 +336,6 @@ SessionStart:
     actions:
       - type: output
         message: "Go project detected - remember to run tests"
-        exit_status: 0
 
   - matcher: "startup"
     conditions:
@@ -353,7 +344,6 @@ SessionStart:
     actions:
       - type: output
         message: "Python project detected - using uv for package management"
-        exit_status: 0
 ```
 
 ### User Prompt Filtering
@@ -362,32 +352,12 @@ Guide users based on their prompts using regex patterns:
 
 ```yaml
 UserPromptSubmit:
-  # Match multiple keywords with OR condition
-  - conditions:
-      - type: prompt_regex
-        value: "delete|削除|remove"
-    actions:
-      - type: output
-        message: "⚠️ 削除操作を実行する前に、必ずバックアップを取ってください"
-        exit_status: 0
-
-  # Match prompts starting with specific words
-  - conditions:
-      - type: prompt_regex
-        value: "^(python|pip|conda)"
-    actions:
-      - type: output
-        message: "💡 Pythonの代わりに`uv`を使用することをお勧めします"
-        exit_status: 0
-
-  # Match prompts ending with question mark
   - conditions:
       - type: prompt_regex
         value: "\\?$"
     actions:
       - type: output
-        message: "📚 質問を検知しました。ドキュメントを確認することをお勧めします"
-        exit_status: 0
+        message: "❓ ユーザーが質問しています。コードの変更などはせず、質問の回答だけに専念しましょう"
 ```
 
 ## Configuration Reference
@@ -439,6 +409,9 @@ All conditions return proper error messages for unknown condition types, ensurin
   - Match command prefix
 - `url_starts_with`
   - Match URL prefix (WebFetch tool)
+- `git_tracked_file_operation`
+  - Check if command (rm, mv, etc.) operates on Git-tracked files
+  - Value specifies commands to check (e.g., `"rm"`, `"mv"`, `"rm|mv"`)
 
 #### UserPromptSubmit
 - All common conditions, plus:
@@ -456,16 +429,21 @@ All conditions return proper error messages for unknown condition types, ensurin
 - `command`
   - Execute shell command
 - `output`
-  - Print message (default `exit_status`: 2 for `PreToolUse`, 0 for others)
+  - Print message
+  - Default `exit_status`:
+    - 0 for SessionStart, UserPromptSubmit (non-blocking events)
+    - 2 for PreToolUse, PostToolUse, Stop, SubagentStop, Notification, PreCompact
 
 ### Exit Status Control
 
 - 0
-  - Allow execution, output to stdout
+  - Success, allow execution, output to stdout
 - 2
-  - Block execution (PreToolUse only), output to stderr
-- Other
-  - Exit with specified code
+  - Block execution (PreToolUse), output to stderr
+  - Claude will process the stderr message
+- Other (1, 3, etc.)
+  - Non-blocking error, stderr shown to user
+  - Execution continues normally
 
 ### Template Syntax
 
@@ -520,7 +498,6 @@ PostToolUse:
         command: "go vet {.tool_input.file_path}"
       - type: output
         message: "✅ Go file formatted and vetted: {.tool_input.file_path}"
-        exit_status: 0
 ```
 
 ### Complex Notifications
