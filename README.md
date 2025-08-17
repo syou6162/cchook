@@ -273,6 +273,45 @@ PreToolUse:
         message: "📝 Python project detected with pyproject.toml"
 ```
 
+### Working Directory Based Hooks
+
+Enable specific hooks based on the current working directory:
+
+```yaml
+# Use special settings for a specific project
+PreToolUse:
+  - matcher: "Write|Edit"
+    conditions:
+      - type: cwd_contains
+        value: "/work/important-project"
+    actions:
+      - type: command
+        command: "echo '⚠️ Important project - all changes are being logged' >> /tmp/audit.log"
+
+# Prevent operations in system directories
+PreToolUse:
+  - matcher: "Bash"
+    conditions:
+      - type: cwd_is
+        value: "/"
+    actions:
+      - type: output
+        message: "🚫 Operations in root directory are not allowed!"
+        exit_status: 1
+
+# Use different formatters for different repositories
+PostToolUse:
+  - matcher: "Write|Edit"
+    conditions:
+      - type: cwd_contains
+        value: "github.com/golang"
+      - type: file_extension
+        value: ".go"
+    actions:
+      - type: command
+        command: "gofmt -w {.tool_input.file_path}"
+```
+
 ### Command Safety
 
 Block dangerous commands:
@@ -409,6 +448,14 @@ All conditions return proper error messages for unknown condition types, ensurin
   - Check if specified file exists
 - `file_exists_recursive`
   - Check if file exists recursively in directory tree
+- `cwd_is`
+  - Check if current working directory exactly matches the specified path
+- `cwd_is_not`
+  - Check if current working directory does not match the specified path
+- `cwd_contains`
+  - Check if current working directory contains the specified substring
+- `cwd_not_contains`
+  - Check if current working directory does not contain the specified substring
 
 #### PreToolUse & PostToolUse
 - All common conditions, plus:
