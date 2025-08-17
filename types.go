@@ -226,6 +226,7 @@ var (
 	ConditionPromptContains   = ConditionType{"prompt_contains"}
 	ConditionPromptStartsWith = ConditionType{"prompt_starts_with"}
 	ConditionPromptEndsWith   = ConditionType{"prompt_ends_with"}
+	ConditionPromptMatches    = ConditionType{"prompt_matches"}
 )
 
 // UnmarshalYAML implements yaml.Unmarshaler for ConditionType
@@ -254,6 +255,8 @@ func (c *ConditionType) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		*c = ConditionPromptStartsWith
 	case "prompt_ends_with":
 		*c = ConditionPromptEndsWith
+	case "prompt_matches":
+		*c = ConditionPromptMatches
 	default:
 		return fmt.Errorf("invalid condition type: %s", s)
 	}

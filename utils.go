@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -204,6 +205,13 @@ func checkPromptCondition(condition Condition, prompt string) (bool, error) {
 	case ConditionPromptEndsWith:
 		// プロンプトが指定文字列で終わる
 		return strings.HasSuffix(prompt, condition.Value), nil
+	case ConditionPromptMatches:
+		// プロンプトが正規表現パターンにマッチする（OR条件など複雑なパターンに対応）
+		re, err := regexp.Compile(condition.Value)
+		if err != nil {
+			return false, fmt.Errorf("invalid regex pattern: %w", err)
+		}
+		return re.MatchString(prompt), nil
 	default:
 		// この関数ではプロンプト関連条件のみをチェック
 		return false, ErrConditionNotHandled

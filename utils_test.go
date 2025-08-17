@@ -493,6 +493,86 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "prompt_matches with OR pattern matches first",
+			condition: Condition{
+				Type:  ConditionPromptMatches,
+				Value: "help|助けて|サポート",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test123",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "I need help with this",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "prompt_matches with OR pattern matches second",
+			condition: Condition{
+				Type:  ConditionPromptMatches,
+				Value: "error|エラー|問題",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test123",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "エラーが発生しています",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "prompt_matches with complex regex pattern",
+			condition: Condition{
+				Type:  ConditionPromptMatches,
+				Value: "^(DEBUG|INFO|WARN|ERROR):",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test123",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "ERROR: Connection failed",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "prompt_matches doesn't match",
+			condition: Condition{
+				Type:  ConditionPromptMatches,
+				Value: "^(fix|修正|修理)",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test123",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "Show me the current status",
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "prompt_matches with invalid regex pattern",
+			condition: Condition{
+				Type:  ConditionPromptMatches,
+				Value: "[invalid(regex",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test123",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "test prompt",
+			},
+			want:    false,
+			wantErr: true,
+		},
+		{
 			name: "unknown condition type - error",
 			condition: Condition{
 				Type:  ConditionType{"not_supported"},
