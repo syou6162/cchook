@@ -605,7 +605,39 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 }
 
 func TestCheckGitTrackedFileOperation(t *testing.T) {
-	// 実際のGitリポジトリでテストするために、このプロジェクト自体のファイルを使用
+	// テスト用の一時的なGitリポジトリを作成
+	tmpDir := t.TempDir()
+
+	// Git リポジトリを初期化
+	if err := runCommand("cd " + tmpDir + " && git init"); err != nil {
+		t.Fatalf("Failed to init git repo: %v", err)
+	}
+
+	// Git設定（コミット用）
+	if err := runCommand("cd " + tmpDir + " && git config user.email 'test@example.com' && git config user.name 'Test User'"); err != nil {
+		t.Fatalf("Failed to configure git: %v", err)
+	}
+
+	// テスト用のファイルを作成してGitに追加
+	testFile := filepath.Join(tmpDir, "tracked.txt")
+	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+	if err := runCommand("cd " + tmpDir + " && git add tracked.txt && git commit -m 'test'"); err != nil {
+		t.Fatalf("Failed to add file to git: %v", err)
+	}
+
+	// Git管理外のファイルも作成
+	untrackedFile := filepath.Join(tmpDir, "untracked.txt")
+	if err := os.WriteFile(untrackedFile, []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create untracked file: %v", err)
+	}
+
+	// 元のディレクトリを保存して、テスト後に戻す
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tmpDir)
+
 	tests := []struct {
 		name      string
 		condition Condition
@@ -614,28 +646,28 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 		wantErr   bool
 	}{
 		{
-			name: "rm command with git tracked file - go.mod",
+			name: "rm command with git tracked file",
 			condition: Condition{
 				Type:  ConditionGitTrackedFileOperation,
 				Value: "rm",
 			},
 			input: &PreToolUseInput{
 				ToolInput: ToolInput{
-					Command: "rm go.mod",
+					Command: "rm tracked.txt",
 				},
 			},
 			want:    true,
 			wantErr: false,
 		},
 		{
-			name: "rm command with non-existent file",
+			name: "rm command with untracked file",
 			condition: Condition{
 				Type:  ConditionGitTrackedFileOperation,
 				Value: "rm",
 			},
 			input: &PreToolUseInput{
 				ToolInput: ToolInput{
-					Command: "rm /tmp/nonexistent-file-12345.txt",
+					Command: "rm untracked.txt",
 				},
 			},
 			want:    false,
@@ -649,7 +681,7 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 			},
 			input: &PreToolUseInput{
 				ToolInput: ToolInput{
-					Command: "mv utils.go utils_backup.go",
+					Command: "mv tracked.txt tracked_backup.txt",
 				},
 			},
 			want:    true,
@@ -663,7 +695,7 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 			},
 			input: &PreToolUseInput{
 				ToolInput: ToolInput{
-					Command: "rm -rf /tmp/test.txt main.go",
+					Command: "rm -rf untracked.txt tracked.txt",
 				},
 			},
 			want:    true,
@@ -677,7 +709,7 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 			},
 			input: &PreToolUseInput{
 				ToolInput: ToolInput{
-					Command: `rm -f "types.go"`,
+					Command: `rm -f "tracked.txt"`,
 				},
 			},
 			want:    true,
@@ -691,7 +723,7 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 			},
 			input: &PreToolUseInput{
 				ToolInput: ToolInput{
-					Command: "mv -t /tmp main.go",
+					Command: "mv -t /tmp tracked.txt",
 				},
 			},
 			want:    true,
@@ -705,7 +737,7 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 			},
 			input: &PreToolUseInput{
 				ToolInput: ToolInput{
-					Command: "ls -la main.go",
+					Command: "ls -la tracked.txt",
 				},
 			},
 			want:    false,
