@@ -201,7 +201,7 @@ func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON i
 		if !shouldExecute {
 			continue
 		}
-		
+
 		executed = true
 		fmt.Printf("[Hook %d] Would execute:\n", i+1)
 		for _, action := range hook.Actions {
@@ -248,7 +248,7 @@ func dryRunStopHooks(config *Config, input *StopInput, rawJSON interface{}) erro
 		if !shouldExecute {
 			continue
 		}
-		
+
 		executed = true
 		fmt.Printf("[Hook %d] Would execute:\n", i+1)
 		for _, action := range hook.Actions {
@@ -295,7 +295,7 @@ func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON i
 		if !shouldExecute {
 			continue
 		}
-		
+
 		executed = true
 		fmt.Printf("[Hook %d] Would execute:\n", i+1)
 		for _, action := range hook.Actions {
@@ -342,7 +342,7 @@ func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON inter
 		if !shouldExecute {
 			continue
 		}
-		
+
 		executed = true
 		fmt.Printf("[Hook %d] Would execute:\n", i+1)
 		for _, action := range hook.Actions {
@@ -376,7 +376,7 @@ func dryRunSessionStartHooks(config *Config, input *SessionStartInput, rawJSON i
 		if hook.Matcher != "" && hook.Matcher != input.Source {
 			continue
 		}
-		
+
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
@@ -394,7 +394,7 @@ func dryRunSessionStartHooks(config *Config, input *SessionStartInput, rawJSON i
 		if !shouldExecute {
 			continue
 		}
-		
+
 		executed = true
 		fmt.Printf("[Hook %d] Matcher: %s, Source: %s\n", i+1, hook.Matcher, input.Source)
 		for _, action := range hook.Actions {
@@ -514,7 +514,7 @@ func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON 
 		if !shouldExecute {
 			continue
 		}
-		
+
 		for _, action := range hook.Actions {
 			if err := executeNotificationAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "Notification hook %d failed: %v\n", i, err)
@@ -543,7 +543,7 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) err
 		if !shouldExecute {
 			continue
 		}
-		
+
 		for _, action := range hook.Actions {
 			if err := executeStopAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "Stop hook %d failed: %v\n", i, err)
@@ -572,7 +572,7 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 		if !shouldExecute {
 			continue
 		}
-		
+
 		for _, action := range hook.Actions {
 			if err := executeSubagentStopAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "SubagentStop hook %d failed: %v\n", i, err)
@@ -601,7 +601,7 @@ func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON inte
 		if !shouldExecute {
 			continue
 		}
-		
+
 		for _, action := range hook.Actions {
 			if err := executePreCompactAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "PreCompact hook %d failed: %v\n", i, err)
@@ -617,7 +617,7 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 		if hook.Matcher != "" && hook.Matcher != input.Source {
 			continue
 		}
-		
+
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
@@ -635,7 +635,7 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 		if !shouldExecute {
 			continue
 		}
-		
+
 		for _, action := range hook.Actions {
 			if err := executeSessionStartAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "SessionStart hook %d failed: %v\n", i, err)
