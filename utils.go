@@ -132,6 +132,25 @@ func checkUserPromptSubmitCondition(condition Condition, input *UserPromptSubmit
 		return false, err // 本当のエラー
 	}
 
+	// every_n_prompts条件をチェック
+	if condition.Type == ConditionEveryNPrompts {
+		count, err := countUserPromptsFromTranscript(input.TranscriptPath, input.SessionID)
+		if err != nil {
+			return false, fmt.Errorf("failed to count prompts: %w", err)
+		}
+
+		n, err := strconv.Atoi(condition.Value)
+		if err != nil {
+			return false, fmt.Errorf("invalid value for every_n_prompts: %w", err)
+		}
+		if n <= 0 {
+			return false, fmt.Errorf("every_n_prompts value must be positive: %d", n)
+		}
+
+		// n回ごとにtrue（1回目、n+1回目、2n+1回目...）
+		return count%n == 0, nil
+	}
+
 	// どの関数も処理しなかった場合はエラー
 	return false, fmt.Errorf("unknown condition type: %s", condition.Type)
 }
