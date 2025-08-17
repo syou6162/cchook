@@ -12,17 +12,19 @@ cchook is a CLI tool that simplifies Claude Code hook configuration by providing
 # Build the project
 go build -o cchook
 
+# Install dependencies
+go mod download
+go mod tidy
+
 # Run all tests
 go test ./...
 
 # Run tests with verbose output
 go test -v ./...
 
-# Run specific test file
-go test -v ./hooks_test.go
-
-# Run specific test function
-go test -v -run TestExecutePreToolUseHooks ./hooks_test.go
+# Run specific test function (more practical than test file)
+go test -v -run TestCheckGitTrackedFileOperation ./...
+go test -v -run TestExecutePreToolUseHooks ./...
 
 # Run with coverage
 go test -cover ./...
