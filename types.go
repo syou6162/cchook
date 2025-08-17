@@ -223,9 +223,7 @@ var (
 	ConditionURLStartsWith     = ConditionType{"url_starts_with"}
 
 	// Prompt-related conditions (UserPromptSubmit)
-	ConditionPromptContains   = ConditionType{"prompt_contains"}
-	ConditionPromptStartsWith = ConditionType{"prompt_starts_with"}
-	ConditionPromptEndsWith   = ConditionType{"prompt_ends_with"}
+	ConditionPromptRegex = ConditionType{"prompt_regex"}
 )
 
 // UnmarshalYAML implements yaml.Unmarshaler for ConditionType
@@ -248,12 +246,8 @@ func (c *ConditionType) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		*c = ConditionCommandStartsWith
 	case "url_starts_with":
 		*c = ConditionURLStartsWith
-	case "prompt_contains":
-		*c = ConditionPromptContains
-	case "prompt_starts_with":
-		*c = ConditionPromptStartsWith
-	case "prompt_ends_with":
-		*c = ConditionPromptEndsWith
+	case "prompt_regex":
+		*c = ConditionPromptRegex
 	default:
 		return fmt.Errorf("invalid condition type: %s", s)
 	}
