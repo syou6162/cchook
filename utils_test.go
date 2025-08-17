@@ -771,6 +771,48 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 			want:    false,
 			wantErr: false,
 		},
+		{
+			name: "git rm should NOT be blocked",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm|mv",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "git rm tracked.txt",
+				},
+			},
+			want:    false, // git rmはブロック対象ではない
+			wantErr: false,
+		},
+		{
+			name: "git mv should NOT be blocked",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm|mv",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "git mv tracked.txt renamed.txt",
+				},
+			},
+			want:    false, // git mvはブロック対象ではない
+			wantErr: false,
+		},
+		{
+			name: "git rm with options should NOT be blocked",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "git rm --cached tracked.txt",
+				},
+			},
+			want:    false, // git rmはブロック対象ではない
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
