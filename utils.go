@@ -69,7 +69,7 @@ func fileExists(path string) bool {
 
 func checkPreToolUseCondition(condition Condition, input *PreToolUseInput) (bool, error) {
 	// まず汎用条件をチェック
-	matched, err := checkCommonCondition(condition)
+	matched, err := checkCommonCondition(condition, &input.BaseInput)
 	if err == nil {
 		return matched, nil // 処理された
 	}
@@ -92,7 +92,7 @@ func checkPreToolUseCondition(condition Condition, input *PreToolUseInput) (bool
 
 func checkPostToolUseCondition(condition Condition, input *PostToolUseInput) (bool, error) {
 	// まず汎用条件をチェック
-	matched, err := checkCommonCondition(condition)
+	matched, err := checkCommonCondition(condition, &input.BaseInput)
 	if err == nil {
 		return matched, nil // 処理された
 	}
@@ -115,7 +115,7 @@ func checkPostToolUseCondition(condition Condition, input *PostToolUseInput) (bo
 
 func checkUserPromptSubmitCondition(condition Condition, input *UserPromptSubmitInput) (bool, error) {
 	// まず汎用条件をチェック
-	matched, err := checkCommonCondition(condition)
+	matched, err := checkCommonCondition(condition, &input.BaseInput)
 	if err == nil {
 		return matched, nil // 処理された
 	}
@@ -157,7 +157,7 @@ func checkUserPromptSubmitCondition(condition Condition, input *UserPromptSubmit
 
 func checkSessionStartCondition(condition Condition, input *SessionStartInput) (bool, error) {
 	// SessionStartは汎用条件のみ使用
-	matched, err := checkCommonCondition(condition)
+	matched, err := checkCommonCondition(condition, &input.BaseInput)
 	if err == nil {
 		return matched, nil // 処理された
 	}
@@ -170,7 +170,7 @@ func checkSessionStartCondition(condition Condition, input *SessionStartInput) (
 }
 
 // 汎用条件チェック関数
-func checkCommonCondition(condition Condition) (bool, error) {
+func checkCommonCondition(condition Condition, baseInput *BaseInput) (bool, error) {
 	switch condition.Type {
 	case ConditionFileExists:
 		// 指定ファイルが存在する
@@ -178,6 +178,18 @@ func checkCommonCondition(condition Condition) (bool, error) {
 	case ConditionFileExistsRecursive:
 		// ファイルが再帰的に存在するか
 		return fileExistsRecursive(condition.Value), nil
+	case ConditionCwdIs:
+		// cwdが完全一致
+		return baseInput.Cwd == condition.Value, nil
+	case ConditionCwdIsNot:
+		// cwdが完全一致しない
+		return baseInput.Cwd != condition.Value, nil
+	case ConditionCwdContains:
+		// cwdが特定の文字列を含む
+		return strings.Contains(baseInput.Cwd, condition.Value), nil
+	case ConditionCwdNotContains:
+		// cwdが特定の文字列を含まない
+		return !strings.Contains(baseInput.Cwd, condition.Value), nil
 	default:
 		// この関数では汎用条件のみをチェック
 		// 処理できない条件タイプの場合はErrConditionNotHandledを返す
@@ -421,7 +433,7 @@ func checkPromptCondition(condition Condition, prompt string) (bool, error) {
 // Notification用の条件チェック（汎用条件のみ）
 func checkNotificationCondition(condition Condition, input *NotificationInput) (bool, error) {
 	// Notificationは汎用条件のみ使用
-	matched, err := checkCommonCondition(condition)
+	matched, err := checkCommonCondition(condition, &input.BaseInput)
 	if err == nil {
 		return matched, nil // 処理された
 	}
@@ -436,7 +448,7 @@ func checkNotificationCondition(condition Condition, input *NotificationInput) (
 // Stop用の条件チェック（汎用条件のみ）
 func checkStopCondition(condition Condition, input *StopInput) (bool, error) {
 	// Stopは汎用条件のみ使用
-	matched, err := checkCommonCondition(condition)
+	matched, err := checkCommonCondition(condition, &input.BaseInput)
 	if err == nil {
 		return matched, nil // 処理された
 	}
@@ -451,7 +463,7 @@ func checkStopCondition(condition Condition, input *StopInput) (bool, error) {
 // SubagentStop用の条件チェック（汎用条件のみ）
 func checkSubagentStopCondition(condition Condition, input *SubagentStopInput) (bool, error) {
 	// SubagentStopは汎用条件のみ使用
-	matched, err := checkCommonCondition(condition)
+	matched, err := checkCommonCondition(condition, &input.BaseInput)
 	if err == nil {
 		return matched, nil // 処理された
 	}
@@ -466,7 +478,7 @@ func checkSubagentStopCondition(condition Condition, input *SubagentStopInput) (
 // PreCompact用の条件チェック（汎用条件のみ）
 func checkPreCompactCondition(condition Condition, input *PreCompactInput) (bool, error) {
 	// PreCompactは汎用条件のみ使用
-	matched, err := checkCommonCondition(condition)
+	matched, err := checkCommonCondition(condition, &input.BaseInput)
 	if err == nil {
 		return matched, nil // 処理された
 	}

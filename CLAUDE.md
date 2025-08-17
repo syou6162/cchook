@@ -144,7 +144,7 @@ The tool uses YAML configuration with event-specific hook definitions. Each hook
 - `actions`: Command execution or output with optional exit_status
 
 Available condition types:
-- **Common**: `file_exists`, `file_exists_recursive`
+- **Common**: `file_exists`, `file_exists_recursive`, `cwd_is`, `cwd_is_not`, `cwd_contains`, `cwd_not_contains`
 - **Tool-specific** (PreToolUse/PostToolUse): `file_extension`, `command_contains`, `command_starts_with`, `url_starts_with`, `git_tracked_file_operation`
 - **Prompt-specific** (UserPromptSubmit):
   - `prompt_regex`: Supports regex patterns including OR conditions with `|`

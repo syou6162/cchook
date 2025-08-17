@@ -228,6 +228,10 @@ var (
 
 	// Git-related conditions (PreToolUse for Bash commands)
 	ConditionGitTrackedFileOperation = ConditionType{"git_tracked_file_operation"}
+	ConditionCwdIs                 = ConditionType{"cwd_is"}
+	ConditionCwdIsNot              = ConditionType{"cwd_is_not"}
+	ConditionCwdContains           = ConditionType{"cwd_contains"}
+	ConditionCwdNotContains        = ConditionType{"cwd_not_contains"}
 )
 
 // UnmarshalYAML implements yaml.Unmarshaler for ConditionType
