@@ -252,6 +252,8 @@ func (c *ConditionType) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		*c = ConditionURLStartsWith
 	case "prompt_regex":
 		*c = ConditionPromptRegex
+	case "every_n_prompts":
+		*c = ConditionEveryNPrompts
 	case "git_tracked_file_operation":
 		*c = ConditionGitTrackedFileOperation
 	default:
