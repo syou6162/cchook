@@ -271,7 +271,6 @@ PreToolUse:
     actions:
       - type: output
         message: "📝 Python project detected with pyproject.toml"
-        exit_status: 0
 ```
 
 ### Command Safety
@@ -287,7 +286,6 @@ PreToolUse:
     actions:
       - type: output
         message: "🚫 Dangerous command blocked!"
-        # exit_status: 2 (default - blocks execution)
 
   # Protect Git-tracked files from accidental deletion/move
   - matcher: "Bash"
@@ -300,26 +298,8 @@ PreToolUse:
           ⚠️  Error: Attempting to operate on Git-tracked files
           Use 'git rm' or 'git mv' instead for Git-tracked files
           Command attempted: {.tool_input.command}
-        exit_status: 2  # Block execution (exit code 2 blocks in PreToolUse)
 ```
 
-### API Monitoring
-
-Track external API usage:
-
-```yaml
-PreToolUse:
-  - matcher: "WebFetch"
-    conditions:
-      - type: url_starts_with
-        value: "https://api."
-    actions:
-      - type: output
-        message: "🌐 API access: {.tool_input.url}"
-        exit_status: 0
-      - type: command
-        command: 'echo "{.session_id}: {.tool_input.url}" >> ~/api_access.log'
-```
 
 ### Notifications
 
@@ -347,7 +327,6 @@ SessionStart:
         command: "echo 'Session {.session_id} started at $(date)' >> ~/claude-sessions.log"
       - type: output
         message: "🚀 Claude Code session initialized"
-        exit_status: 0
 
   # Project-specific initialization
   - matcher: "startup"
@@ -357,7 +336,6 @@ SessionStart:
     actions:
       - type: output
         message: "Go project detected - remember to run tests"
-        exit_status: 0
 
   - matcher: "startup"
     conditions:
@@ -366,7 +344,6 @@ SessionStart:
     actions:
       - type: output
         message: "Python project detected - using uv for package management"
-        exit_status: 0
 ```
 
 ### User Prompt Filtering
@@ -375,41 +352,12 @@ Guide users based on their prompts using regex patterns:
 
 ```yaml
 UserPromptSubmit:
-  # Add context/warnings (exit_status: 0 - adds to context)
-  - conditions:
-      - type: prompt_regex
-        value: "delete|削除|remove"
-    actions:
-      - type: output
-        message: "⚠️ 削除操作を実行する前に、必ずバックアップを取ってください"
-        exit_status: 0  # Adds message to context, prompt continues
-
-  # Block dangerous prompts (exit_status: 2 - blocks prompt)
-  - conditions:
-      - type: prompt_regex
-        value: "rm -rf /"
-    actions:
-      - type: output
-        message: "🚫 危険なコマンドが含まれています。このプロンプトはブロックされました。"
-        exit_status: 2  # Blocks prompt processing, shows message to user
-
-  # Add helpful context
-  - conditions:
-      - type: prompt_regex
-        value: "^(python|pip|conda)"
-    actions:
-      - type: output
-        message: "💡 Pythonの代わりに`uv`を使用することをお勧めします"
-        exit_status: 0
-
-  # Add context for questions
   - conditions:
       - type: prompt_regex
         value: "\\?$"
     actions:
       - type: output
-        message: "📚 質問を検知しました。ドキュメントを確認することをお勧めします"
-        exit_status: 0
+        message: "❓ ユーザーが質問しています。コードの変更などはせず、質問の回答だけに専念しましょう"
 ```
 
 ## Configuration Reference
@@ -550,7 +498,6 @@ PostToolUse:
         command: "go vet {.tool_input.file_path}"
       - type: output
         message: "✅ Go file formatted and vetted: {.tool_input.file_path}"
-        exit_status: 0
 ```
 
 ### Complex Notifications
