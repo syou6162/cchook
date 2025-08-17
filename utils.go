@@ -1,12 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
@@ -348,6 +351,43 @@ func checkToolCondition(condition Condition, toolInput *ToolInput) (bool, error)
 }
 
 // プロンプト関連の条件チェック関数
+// countUserPromptsFromTranscript はtranscriptファイルから指定セッションのユーザープロンプトをカウントする
+func countUserPromptsFromTranscript(transcriptPath, sessionID string) (int, error) {
+	file, err := os.Open(transcriptPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open transcript: %w", err)
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	count := 0
+
+	for {
+		var entry map[string]interface{}
+		if err := decoder.Decode(&entry); err != nil {
+			if err == io.EOF {
+				break
+			}
+			// JSONのパースエラーは継続（壊れた行をスキップ）
+			continue
+		}
+
+		// type: "user" かつ同じセッションIDのメッセージをカウント
+		if entryType, ok := entry["type"].(string); ok && entryType == "user" {
+			if sid, ok := entry["sessionId"].(string); ok && sid == sessionID {
+				// isMetaがtrueの場合は除外（コマンド実行など）
+				if isMeta, exists := entry["isMeta"].(bool); exists && isMeta {
+					continue
+				}
+				count++
+			}
+		}
+	}
+
+	// 現在の発話を含める
+	return count + 1, nil
+}
+
 func checkPromptCondition(condition Condition, prompt string) (bool, error) {
 	switch condition.Type {
 	case ConditionPromptRegex:
