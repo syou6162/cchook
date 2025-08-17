@@ -358,6 +358,17 @@ UserPromptSubmit:
     actions:
       - type: output
         message: "❓ ユーザーが質問しています。コードの変更などはせず、質問の回答だけに専念しましょう"
+
+  # Periodic reminders to use efficient tools
+  - conditions:
+      - type: every_n_prompts
+        value: "10"  # Every 10 prompts
+    actions:
+      - type: output
+        message: |
+          💡 Tip: Consider using specialized tools for better efficiency:
+          - Use serena MCP for code search and modification
+          - Use ripgrep (rg) instead of grep for faster searching
 ```
 
 ## Configuration Reference
@@ -420,6 +431,10 @@ All conditions return proper error messages for unknown condition types, ensurin
   - Supports OR conditions: `"help|助けて|サポート"`
   - Supports anchors: `"^prefix"` (starts with), `"suffix$"` (ends with)
   - Supports complex patterns: `"^(DEBUG|INFO|WARN|ERROR):"`
+- `every_n_prompts`
+  - Trigger action every N user prompts in the session
+  - Counts user messages from transcript file
+  - Example: `value: "10"` triggers on 10th, 20th, 30th... prompts
 
 #### Other Events (SessionStart, Stop, Notification, SubagentStop, PreCompact)
 - Support common conditions only (`file_exists`, `file_exists_recursive`)
