@@ -369,7 +369,6 @@ func checkToolCondition(condition Condition, toolInput *ToolInput) (bool, error)
 	}
 }
 
-// プロンプト関連の条件チェック関数
 // countUserPromptsFromTranscript はtranscriptファイルから指定セッションのユーザープロンプトをカウントする
 func countUserPromptsFromTranscript(transcriptPath, sessionID string) (int, error) {
 	file, err := os.Open(transcriptPath)
@@ -394,10 +393,6 @@ func countUserPromptsFromTranscript(transcriptPath, sessionID string) (int, erro
 		// type: "user" かつ同じセッションIDのメッセージをカウント
 		if entryType, ok := entry["type"].(string); ok && entryType == "user" {
 			if sid, ok := entry["sessionId"].(string); ok && sid == sessionID {
-				// isMetaがtrueの場合は除外（コマンド実行など）
-				if isMeta, exists := entry["isMeta"].(bool); exists && isMeta {
-					continue
-				}
 				count++
 			}
 		}
