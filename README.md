@@ -288,6 +288,19 @@ PreToolUse:
       - type: output
         message: "🚫 Dangerous command blocked!"
         # exit_status: 2 (default - blocks execution)
+
+  # Protect Git-tracked files from accidental deletion/move
+  - matcher: "Bash"
+    conditions:
+      - type: git_tracked_file_operation
+        value: "rm|mv"  # Check both rm and mv commands
+    actions:
+      - type: output
+        message: |
+          ⚠️  Error: Attempting to operate on Git-tracked files
+          Use 'git rm' or 'git mv' instead for Git-tracked files
+          Command attempted: {.tool_input.command}
+        exit_status: 1  # Block with exit code 1
 ```
 
 ### API Monitoring
@@ -439,6 +452,9 @@ All conditions return proper error messages for unknown condition types, ensurin
   - Match command prefix
 - `url_starts_with`
   - Match URL prefix (WebFetch tool)
+- `git_tracked_file_operation`
+  - Check if command (rm, mv, etc.) operates on Git-tracked files
+  - Value specifies commands to check (e.g., `"rm"`, `"mv"`, `"rm|mv"`)
 
 #### UserPromptSubmit
 - All common conditions, plus:
