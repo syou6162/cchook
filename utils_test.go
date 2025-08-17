@@ -397,9 +397,9 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 		wantErr   bool
 	}{
 		{
-			name: "prompt_contains matches",
+			name: "prompt_regex contains pattern",
 			condition: Condition{
-				Type:  ConditionPromptContains,
+				Type:  ConditionPromptRegex,
 				Value: "secret",
 			},
 			input: &UserPromptSubmitInput{
@@ -413,9 +413,9 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "prompt_contains doesn't match",
+			name: "prompt_regex doesn't match",
 			condition: Condition{
-				Type:  ConditionPromptContains,
+				Type:  ConditionPromptRegex,
 				Value: "password",
 			},
 			input: &UserPromptSubmitInput{
@@ -429,10 +429,10 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "prompt_starts_with matches",
+			name: "prompt_regex starts with pattern",
 			condition: Condition{
-				Type:  ConditionPromptStartsWith,
-				Value: "DEBUG:",
+				Type:  ConditionPromptRegex,
+				Value: "^DEBUG:",
 			},
 			input: &UserPromptSubmitInput{
 				BaseInput: BaseInput{
@@ -445,10 +445,10 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "prompt_starts_with doesn't match",
+			name: "prompt_regex starts with doesn't match",
 			condition: Condition{
-				Type:  ConditionPromptStartsWith,
-				Value: "ERROR:",
+				Type:  ConditionPromptRegex,
+				Value: "^ERROR:",
 			},
 			input: &UserPromptSubmitInput{
 				BaseInput: BaseInput{
@@ -461,10 +461,10 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "prompt_ends_with matches",
+			name: "prompt_regex ends with pattern",
 			condition: Condition{
-				Type:  ConditionPromptEndsWith,
-				Value: "?",
+				Type:  ConditionPromptRegex,
+				Value: "\\?$",
 			},
 			input: &UserPromptSubmitInput{
 				BaseInput: BaseInput{
@@ -477,10 +477,10 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "prompt_ends_with doesn't match",
+			name: "prompt_regex ends with doesn't match",
 			condition: Condition{
-				Type:  ConditionPromptEndsWith,
-				Value: "!",
+				Type:  ConditionPromptRegex,
+				Value: "!$",
 			},
 			input: &UserPromptSubmitInput{
 				BaseInput: BaseInput{
@@ -493,9 +493,9 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "prompt_matches with OR pattern matches first",
+			name: "prompt_regex with OR pattern matches first",
 			condition: Condition{
-				Type:  ConditionPromptMatches,
+				Type:  ConditionPromptRegex,
 				Value: "help|助けて|サポート",
 			},
 			input: &UserPromptSubmitInput{
@@ -509,9 +509,9 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "prompt_matches with OR pattern matches second",
+			name: "prompt_regex with OR pattern matches second",
 			condition: Condition{
-				Type:  ConditionPromptMatches,
+				Type:  ConditionPromptRegex,
 				Value: "error|エラー|問題",
 			},
 			input: &UserPromptSubmitInput{
@@ -525,9 +525,9 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "prompt_matches with complex regex pattern",
+			name: "prompt_regex with complex regex pattern",
 			condition: Condition{
-				Type:  ConditionPromptMatches,
+				Type:  ConditionPromptRegex,
 				Value: "^(DEBUG|INFO|WARN|ERROR):",
 			},
 			input: &UserPromptSubmitInput{
@@ -541,9 +541,9 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "prompt_matches doesn't match",
+			name: "prompt_regex doesn't match",
 			condition: Condition{
-				Type:  ConditionPromptMatches,
+				Type:  ConditionPromptRegex,
 				Value: "^(fix|修正|修理)",
 			},
 			input: &UserPromptSubmitInput{
@@ -557,9 +557,9 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "prompt_matches with invalid regex pattern",
+			name: "prompt_regex with invalid regex pattern",
 			condition: Condition{
-				Type:  ConditionPromptMatches,
+				Type:  ConditionPromptRegex,
 				Value: "[invalid(regex",
 			},
 			input: &UserPromptSubmitInput{

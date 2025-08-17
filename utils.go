@@ -196,17 +196,9 @@ func checkToolCondition(condition Condition, toolInput *ToolInput) (bool, error)
 // プロンプト関連の条件チェック関数
 func checkPromptCondition(condition Condition, prompt string) (bool, error) {
 	switch condition.Type {
-	case ConditionPromptContains:
-		// プロンプトに指定文字列が含まれる
-		return strings.Contains(prompt, condition.Value), nil
-	case ConditionPromptStartsWith:
-		// プロンプトが指定文字列で始まる
-		return strings.HasPrefix(prompt, condition.Value), nil
-	case ConditionPromptEndsWith:
-		// プロンプトが指定文字列で終わる
-		return strings.HasSuffix(prompt, condition.Value), nil
-	case ConditionPromptMatches:
-		// プロンプトが正規表現パターンにマッチする（OR条件など複雑なパターンに対応）
+	case ConditionPromptRegex:
+		// プロンプトが正規表現パターンにマッチする
+		// 例: "keyword" (部分一致), "^prefix" (前方一致), "suffix$" (後方一致), "a|b|c" (OR条件)
 		re, err := regexp.Compile(condition.Value)
 		if err != nil {
 			return false, fmt.Errorf("invalid regex pattern: %w", err)

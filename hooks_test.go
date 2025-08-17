@@ -356,7 +356,7 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 		UserPromptSubmit: []UserPromptSubmitHook{
 			{
 				Conditions: []Condition{
-					{Type: ConditionPromptContains, Value: "block"},
+					{Type: ConditionPromptRegex, Value: "block"},
 				},
 				Actions: []UserPromptSubmitAction{
 					{
