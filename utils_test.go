@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -389,6 +391,71 @@ func TestRunCommand_CommandFails(t *testing.T) {
 	}
 }
 
+// createTestTranscript creates a temporary transcript file for testing
+func createTestTranscript(t *testing.T, sessionID string, userPromptCount int) string {
+	t.Helper()
+
+	// Create a temporary file
+	tmpFile, err := os.CreateTemp("", "transcript-*.jsonl")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+
+	// Write test data
+	for i := 0; i < userPromptCount; i++ {
+		entry := map[string]interface{}{
+			"type":      "user",
+			"sessionId": sessionID,
+			"message": map[string]interface{}{
+				"content": fmt.Sprintf("Test prompt %d", i+1),
+			},
+		}
+
+		// Add one entry with isMeta: true (but don't skip counting - it's still a user prompt)
+		// Note: In the test, we're testing that isMeta entries are excluded from count,
+		// but here we're generating userPromptCount regular user prompts
+		// We won't add isMeta to keep the count predictable
+
+		data, err := json.Marshal(entry)
+		if err != nil {
+			t.Fatalf("Failed to marshal JSON: %v", err)
+		}
+
+		if _, err := tmpFile.Write(data); err != nil {
+			t.Fatalf("Failed to write to temp file: %v", err)
+		}
+		if _, err := tmpFile.WriteString("\n"); err != nil {
+			t.Fatalf("Failed to write newline: %v", err)
+		}
+	}
+
+	// Add some assistant messages
+	for i := 0; i < 3; i++ {
+		entry := map[string]interface{}{
+			"type":      "assistant",
+			"sessionId": sessionID,
+			"message": map[string]interface{}{
+				"content": fmt.Sprintf("Response %d", i+1),
+			},
+		}
+
+		data, err := json.Marshal(entry)
+		if err != nil {
+			t.Fatalf("Failed to marshal JSON: %v", err)
+		}
+
+		if _, err := tmpFile.Write(data); err != nil {
+			t.Fatalf("Failed to write to temp file: %v", err)
+		}
+		if _, err := tmpFile.WriteString("\n"); err != nil {
+			t.Fatalf("Failed to write newline: %v", err)
+		}
+	}
+
+	tmpFile.Close()
+	return tmpFile.Name()
+}
+
 func TestCheckUserPromptSubmitCondition(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -585,6 +652,159 @@ func TestCheckUserPromptSubmitCondition(t *testing.T) {
 					HookEventName: UserPromptSubmit,
 				},
 				Prompt: "test",
+			},
+			want:    false,
+			wantErr: true,
+		},
+		{
+			name: "every_n_prompts - 5th prompt should match",
+			condition: Condition{
+				Type:  ConditionEveryNPrompts,
+				Value: "5",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					TranscriptPath: createTestTranscript(t, "test-session", 4), // 4 previous prompts
+					HookEventName:  UserPromptSubmit,
+				},
+				Prompt: "This is the 5th prompt",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "every_n_prompts - 4th prompt should not match",
+			condition: Condition{
+				Type:  ConditionEveryNPrompts,
+				Value: "5",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					TranscriptPath: createTestTranscript(t, "test-session", 3), // 3 previous prompts
+					HookEventName:  UserPromptSubmit,
+				},
+				Prompt: "This is the 4th prompt",
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "every_n_prompts - 10th prompt should match",
+			condition: Condition{
+				Type:  ConditionEveryNPrompts,
+				Value: "10",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					TranscriptPath: createTestTranscript(t, "test-session", 9), // 9 previous prompts
+					HookEventName:  UserPromptSubmit,
+				},
+				Prompt: "This is the 10th prompt",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "every_n_prompts - 15th prompt should match (every 5)",
+			condition: Condition{
+				Type:  ConditionEveryNPrompts,
+				Value: "5",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					TranscriptPath: createTestTranscript(t, "test-session", 14), // 14 previous prompts
+					HookEventName:  UserPromptSubmit,
+				},
+				Prompt: "This is the 15th prompt",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "every_n_prompts - different session ID should not count",
+			condition: Condition{
+				Type:  ConditionEveryNPrompts,
+				Value: "5",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:      "different-session",
+					TranscriptPath: createTestTranscript(t, "test-session", 10), // Different session in transcript
+					HookEventName:  UserPromptSubmit,
+				},
+				Prompt: "First prompt in different session",
+			},
+			want:    false, // Should be 1st prompt for this session
+			wantErr: false,
+		},
+		{
+			name: "every_n_prompts - invalid value",
+			condition: Condition{
+				Type:  ConditionEveryNPrompts,
+				Value: "invalid",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					TranscriptPath: createTestTranscript(t, "test-session", 5),
+					HookEventName:  UserPromptSubmit,
+				},
+				Prompt: "Test prompt",
+			},
+			want:    false,
+			wantErr: true,
+		},
+		{
+			name: "every_n_prompts - negative value",
+			condition: Condition{
+				Type:  ConditionEveryNPrompts,
+				Value: "-5",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					TranscriptPath: createTestTranscript(t, "test-session", 5),
+					HookEventName:  UserPromptSubmit,
+				},
+				Prompt: "Test prompt",
+			},
+			want:    false,
+			wantErr: true,
+		},
+		{
+			name: "every_n_prompts - zero value",
+			condition: Condition{
+				Type:  ConditionEveryNPrompts,
+				Value: "0",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					TranscriptPath: createTestTranscript(t, "test-session", 5),
+					HookEventName:  UserPromptSubmit,
+				},
+				Prompt: "Test prompt",
+			},
+			want:    false,
+			wantErr: true,
+		},
+		{
+			name: "every_n_prompts - nonexistent transcript file",
+			condition: Condition{
+				Type:  ConditionEveryNPrompts,
+				Value: "5",
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					TranscriptPath: "/nonexistent/transcript.jsonl",
+					HookEventName:  UserPromptSubmit,
+				},
+				Prompt: "Test prompt",
 			},
 			want:    false,
 			wantErr: true,

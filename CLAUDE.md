@@ -25,6 +25,7 @@ go test -v ./...
 # Run specific test function (more practical than test file)
 go test -v -run TestCheckGitTrackedFileOperation ./...
 go test -v -run TestExecutePreToolUseHooks ./...
+go test -v -run TestCheckUserPromptSubmitCondition ./...
 
 # Run with coverage
 go test -cover ./...
@@ -100,6 +101,7 @@ The application follows a modular architecture with clear separation of concerns
 - Command execution wrapper
 - File existence, extension, and URL pattern matching
 - Prompt regex matching for UserPromptSubmit events
+- Transcript file parsing for `every_n_prompts` condition using json.Decoder
 
 ### Data Flow
 
@@ -116,7 +118,7 @@ The application follows a modular architecture with clear separation of concerns
 
 **Template System**: Consistent `{.field}` syntax across all actions, powered by gojq for complex queries
 
-**Condition System**: Event-specific condition types with common patterns (file_extension, command_contains, etc.). UserPromptSubmit uses `prompt_regex` for flexible pattern matching.
+**Condition System**: Event-specific condition types with common patterns (file_extension, command_contains, etc.). UserPromptSubmit uses `prompt_regex` for flexible pattern matching and `every_n_prompts` for periodic triggers based on transcript history.
 
 **Error Handling**:
 - Custom ExitError type for precise control over exit codes and stderr/stdout routing
@@ -132,6 +134,7 @@ Tests are organized by component with comprehensive coverage:
 - Template processing tests with real-world examples
 - Dry-run functionality testing
 - Error condition coverage including unknown condition types
+- Transcript parsing tests for `every_n_prompts` condition
 
 ## Configuration Format
 
@@ -142,8 +145,10 @@ The tool uses YAML configuration with event-specific hook definitions. Each hook
 
 Available condition types:
 - **Common**: `file_exists`, `file_exists_recursive`
-- **Tool-specific** (PreToolUse/PostToolUse): `file_extension`, `command_contains`, `command_starts_with`, `url_starts_with`
-- **Prompt-specific** (UserPromptSubmit): `prompt_regex` (supports regex patterns including OR conditions with `|`)
+- **Tool-specific** (PreToolUse/PostToolUse): `file_extension`, `command_contains`, `command_starts_with`, `url_starts_with`, `git_tracked_file_operation`
+- **Prompt-specific** (UserPromptSubmit):
+  - `prompt_regex`: Supports regex patterns including OR conditions with `|`
+  - `every_n_prompts`: Triggers every N prompts based on transcript file parsing (counts `type: "user"` entries)
 
 Template variables are available based on the event type and include fields from BaseInput, tool-specific data, and full jq query support.
 
