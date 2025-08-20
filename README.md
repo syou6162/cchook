@@ -410,6 +410,57 @@ UserPromptSubmit:
           - Use ripgrep (rg) instead of grep for faster searching
 ```
 
+### Directory and File Guards
+
+Prevent operations when certain files or directories exist or don't exist:
+
+```yaml
+PreToolUse:
+  # Prevent building when build directory already exists
+  - matcher: "Bash"
+    conditions:
+      - type: dir_exists
+        value: "build"
+      - type: command_starts_with
+        value: "make"
+    actions:
+      - type: output
+        message: "Build directory already exists. Run 'make clean' first."
+        exit_status: 1
+
+  # Warn when package-lock.json doesn't exist
+  - matcher: "Bash"
+    conditions:
+      - type: file_not_exists
+        value: "package-lock.json"
+      - type: command_starts_with
+        value: "npm install"
+    actions:
+      - type: output
+        message: "⚠️ Warning: package-lock.json not found. This may cause dependency issues."
+
+  # Create backup directory if it doesn't exist
+  - matcher: "Write|Edit"
+    conditions:
+      - type: dir_not_exists
+        value: "backups"
+    actions:
+      - type: command
+        command: "mkdir -p backups && echo 'Created backup directory'"
+
+PostToolUse:
+  # Check for missing test files
+  - matcher: "Write"
+    conditions:
+      - type: file_extension
+        value: ".go"
+      - type: file_not_exists_recursive
+        value: "main_test.go"
+    actions:
+      - type: output
+        message: "Consider adding tests for {.tool_input.file_path}"
+```
+
 ## Configuration Reference
 
 ### Event Types
