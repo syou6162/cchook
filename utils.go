@@ -67,6 +67,41 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
+// dirExists は指定されたパスにディレクトリが存在するかをチェックする
+func dirExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return info.IsDir()
+}
+
+// dirExistsRecursive は指定されたディレクトリ名がディレクトリツリー内に存在するかを再帰的に検索する
+func dirExistsRecursive(dirname string) bool {
+	if dirname == "" {
+		return false
+	}
+
+	found := false
+	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // エラーがあっても続ける
+		}
+		if info.IsDir() && filepath.Base(path) == dirname {
+			found = true
+			return filepath.SkipAll // 見つかったら探索を終了
+		}
+		return nil
+	})
+	if err != nil {
+		return false
+	}
+	return found
+}
+
 func checkPreToolUseCondition(condition Condition, input *PreToolUseInput) (bool, error) {
 	// まず汎用条件をチェック
 	matched, err := checkCommonCondition(condition, &input.BaseInput)
@@ -178,6 +213,24 @@ func checkCommonCondition(condition Condition, baseInput *BaseInput) (bool, erro
 	case ConditionFileExistsRecursive:
 		// ファイルが再帰的に存在するか
 		return fileExistsRecursive(condition.Value), nil
+	case ConditionFileNotExists:
+		// 指定ファイルが存在しない
+		return !fileExists(condition.Value), nil
+	case ConditionFileNotExistsRecursive:
+		// ファイルが再帰的に存在しない
+		return !fileExistsRecursive(condition.Value), nil
+	case ConditionDirExists:
+		// 指定ディレクトリが存在する
+		return dirExists(condition.Value), nil
+	case ConditionDirExistsRecursive:
+		// ディレクトリが再帰的に存在するか
+		return dirExistsRecursive(condition.Value), nil
+	case ConditionDirNotExists:
+		// 指定ディレクトリが存在しない
+		return !dirExists(condition.Value), nil
+	case ConditionDirNotExistsRecursive:
+		// ディレクトリが再帰的に存在しない
+		return !dirExistsRecursive(condition.Value), nil
 	case ConditionCwdIs:
 		// cwdが完全一致
 		return baseInput.Cwd == condition.Value, nil

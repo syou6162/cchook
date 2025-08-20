@@ -213,8 +213,14 @@ func (c ConditionType) String() string {
 // Predefined valid condition types (singletons)
 var (
 	// Common conditions (all events)
-	ConditionFileExists          = ConditionType{"file_exists"}
-	ConditionFileExistsRecursive = ConditionType{"file_exists_recursive"}
+	ConditionFileExists             = ConditionType{"file_exists"}
+	ConditionFileExistsRecursive    = ConditionType{"file_exists_recursive"}
+	ConditionFileNotExists          = ConditionType{"file_not_exists"}
+	ConditionFileNotExistsRecursive = ConditionType{"file_not_exists_recursive"}
+	ConditionDirExists              = ConditionType{"dir_exists"}
+	ConditionDirExistsRecursive     = ConditionType{"dir_exists_recursive"}
+	ConditionDirNotExists           = ConditionType{"dir_not_exists"}
+	ConditionDirNotExistsRecursive  = ConditionType{"dir_not_exists_recursive"}
 
 	// Tool-related conditions (PreToolUse/PostToolUse)
 	ConditionFileExtension     = ConditionType{"file_extension"}
@@ -223,15 +229,15 @@ var (
 	ConditionURLStartsWith     = ConditionType{"url_starts_with"}
 
 	// Prompt-related conditions (UserPromptSubmit)
-	ConditionPromptRegex = ConditionType{"prompt_regex"}
+	ConditionPromptRegex   = ConditionType{"prompt_regex"}
 	ConditionEveryNPrompts = ConditionType{"every_n_prompts"}
 
 	// Git-related conditions (PreToolUse for Bash commands)
 	ConditionGitTrackedFileOperation = ConditionType{"git_tracked_file_operation"}
-	ConditionCwdIs                 = ConditionType{"cwd_is"}
-	ConditionCwdIsNot              = ConditionType{"cwd_is_not"}
-	ConditionCwdContains           = ConditionType{"cwd_contains"}
-	ConditionCwdNotContains        = ConditionType{"cwd_not_contains"}
+	ConditionCwdIs                   = ConditionType{"cwd_is"}
+	ConditionCwdIsNot                = ConditionType{"cwd_is_not"}
+	ConditionCwdContains             = ConditionType{"cwd_contains"}
+	ConditionCwdNotContains          = ConditionType{"cwd_not_contains"}
 )
 
 // UnmarshalYAML implements yaml.Unmarshaler for ConditionType
@@ -246,6 +252,18 @@ func (c *ConditionType) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		*c = ConditionFileExists
 	case "file_exists_recursive":
 		*c = ConditionFileExistsRecursive
+	case "file_not_exists":
+		*c = ConditionFileNotExists
+	case "file_not_exists_recursive":
+		*c = ConditionFileNotExistsRecursive
+	case "dir_exists":
+		*c = ConditionDirExists
+	case "dir_exists_recursive":
+		*c = ConditionDirExistsRecursive
+	case "dir_not_exists":
+		*c = ConditionDirNotExists
+	case "dir_not_exists_recursive":
+		*c = ConditionDirNotExistsRecursive
 	case "file_extension":
 		*c = ConditionFileExtension
 	case "command_contains":
