@@ -495,10 +495,28 @@ PostToolUse:
 All conditions return proper error messages for unknown condition types, ensuring clear feedback when misconfigured.
 
 #### Common Conditions (All Events)
+
+**File Operations:**
 - `file_exists`
   - Check if specified file exists
 - `file_exists_recursive`
   - Check if file exists recursively in directory tree
+- `file_not_exists`
+  - Check if specified file does not exist
+- `file_not_exists_recursive`
+  - Check if file does not exist anywhere in directory tree
+
+**Directory Operations:**
+- `dir_exists`
+  - Check if specified directory exists
+- `dir_exists_recursive`
+  - Check if directory exists recursively in directory tree
+- `dir_not_exists`
+  - Check if specified directory does not exist
+- `dir_not_exists_recursive`
+  - Check if directory does not exist anywhere in directory tree
+
+**Working Directory:**
 - `cwd_is`
   - Check if current working directory exactly matches the specified path
 - `cwd_is_not`
@@ -535,7 +553,7 @@ All conditions return proper error messages for unknown condition types, ensurin
   - Example: `value: "10"` triggers on 10th, 20th, 30th... prompts
 
 #### Other Events (SessionStart, Stop, Notification, SubagentStop, PreCompact)
-- Support common conditions only (`file_exists`, `file_exists_recursive`)
+- Support all common conditions (file, directory, and working directory operations)
 
 ### Actions
 
