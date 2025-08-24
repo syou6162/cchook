@@ -6,6 +6,57 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 cchook is a CLI tool that simplifies Claude Code hook configuration by providing YAML-based configuration and template syntax instead of complex JSON one-liners. It processes JSON input from Claude Code hooks via stdin and executes configured actions based on matching conditions.
 
+## Example Configuration
+
+```yaml
+# Prevent building when build directory already exists
+PreToolUse:
+  - matcher: "Bash"
+    conditions:
+      - type: dir_exists
+        value: "build"
+      - type: command_starts_with
+        value: "make"
+    actions:
+      - type: output
+        message: "Build directory already exists. Run 'make clean' first."
+        exit_status: 1
+
+# Warn when package-lock.json doesn't exist
+PreToolUse:
+  - matcher: "Bash"
+    conditions:
+      - type: file_not_exists
+        value: "package-lock.json"
+      - type: command_starts_with
+        value: "npm install"
+    actions:
+      - type: output
+        message: "Warning: package-lock.json not found. This may cause dependency issues."
+
+# Create backup directory if it doesn't exist
+PreToolUse:
+  - matcher: "Write|Edit"
+    conditions:
+      - type: dir_not_exists
+        value: "backups"
+    actions:
+      - type: command
+        command: "mkdir -p backups && echo 'Created backup directory'"
+
+# Check for missing test files
+PostToolUse:
+  - matcher: "Write"
+    conditions:
+      - type: file_extension
+        value: ".go"
+      - type: file_not_exists_recursive
+        value: "main_test.go"
+    actions:
+      - type: output
+        message: "Consider adding tests for {.tool_input.file_path}"
+```
+
 ## Development Commands
 
 ```bash
@@ -144,7 +195,10 @@ The tool uses YAML configuration with event-specific hook definitions. Each hook
 - `actions`: Command execution or output with optional exit_status
 
 Available condition types:
-- **Common**: `file_exists`, `file_exists_recursive`, `cwd_is`, `cwd_is_not`, `cwd_contains`, `cwd_not_contains`
+- **Common**:
+  - File operations: `file_exists`, `file_exists_recursive`, `file_not_exists`, `file_not_exists_recursive`
+  - Directory operations: `dir_exists`, `dir_exists_recursive`, `dir_not_exists`, `dir_not_exists_recursive`
+  - Working directory: `cwd_is`, `cwd_is_not`, `cwd_contains`, `cwd_not_contains`
 - **Tool-specific** (PreToolUse/PostToolUse): `file_extension`, `command_contains`, `command_starts_with`, `url_starts_with`, `git_tracked_file_operation`
 - **Prompt-specific** (UserPromptSubmit):
   - `prompt_regex`: Supports regex patterns including OR conditions with `|`
