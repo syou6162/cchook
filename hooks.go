@@ -547,6 +547,8 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) err
 		for _, action := range hook.Actions {
 			if err := executeStopAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "Stop hook %d failed: %v\n", i, err)
+				// Stopフックはブロッキング可能なのでエラーを返す
+				return err
 			}
 		}
 	}
@@ -576,6 +578,8 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 		for _, action := range hook.Actions {
 			if err := executeSubagentStopAction(action, input, rawJSON); err != nil {
 				fmt.Fprintf(os.Stderr, "SubagentStop hook %d failed: %v\n", i, err)
+				// SubagentStopフックもブロッキング可能なのでエラーを返す
+				return err
 			}
 		}
 	}
