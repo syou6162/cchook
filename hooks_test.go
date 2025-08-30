@@ -564,6 +564,150 @@ func TestExecutePreToolUseHook_FailingCommand(t *testing.T) {
 	}
 }
 
+func TestExecutePreToolUseHook_FailingCommandReturnsExit2(t *testing.T) {
+	hook := PreToolUseHook{
+		Actions: []PreToolUseAction{
+			{Type: "command", Command: "false"}, // 失敗するコマンド
+		},
+	}
+
+	input := &PreToolUseInput{ToolName: "Write"}
+
+	err := executePreToolUseHook(hook, input, nil)
+	
+	// エラーが返されることを確認
+	if err == nil {
+		t.Fatal("Expected error for failing command, got nil")
+	}
+
+	// ExitError型であることを確認
+	exitErr, ok := err.(*ExitError)
+	if !ok {
+		t.Fatalf("Expected ExitError, got %T", err)
+	}
+
+	// exit code 2であることを確認
+	if exitErr.Code != 2 {
+		t.Errorf("Expected exit code 2, got %d", exitErr.Code)
+	}
+
+	// stderrに出力されることを確認
+	if !exitErr.Stderr {
+		t.Error("Expected stderr to be true")
+	}
+
+	// エラーメッセージにCommand failedが含まれることを確認
+	if !strings.Contains(exitErr.Message, "Command failed") {
+		t.Errorf("Expected message to contain 'Command failed', got: %s", exitErr.Message)
+	}
+}
+
+func TestExecuteUserPromptSubmitHook_FailingCommandReturnsExit2(t *testing.T) {
+	config := &Config{
+		UserPromptSubmit: []UserPromptSubmitHook{
+			{
+				Actions: []UserPromptSubmitAction{
+					{Type: "command", Command: "false"}, // 失敗するコマンド
+				},
+			},
+		},
+	}
+
+	input := &UserPromptSubmitInput{
+		BaseInput: BaseInput{
+			SessionID:     "test123",
+			HookEventName: UserPromptSubmit,
+		},
+		Prompt: "test prompt",
+	}
+
+	err := executeUserPromptSubmitHooks(config, input, nil)
+	
+	// ExitError型でexit code 2であることを確認
+	if err == nil {
+		t.Fatal("Expected error for failing command, got nil")
+	}
+	
+	exitErr, ok := err.(*ExitError)
+	if !ok {
+		t.Fatalf("Expected ExitError, got %T", err)
+	}
+	
+	if exitErr.Code != 2 {
+		t.Errorf("Expected exit code 2, got %d", exitErr.Code)
+	}
+}
+
+func TestExecuteStopHook_FailingCommandReturnsExit2(t *testing.T) {
+	config := &Config{
+		Stop: []StopHook{
+			{
+				Actions: []StopAction{
+					{Type: "command", Command: "false"}, // 失敗するコマンド
+				},
+			},
+		},
+	}
+
+	input := &StopInput{
+		BaseInput: BaseInput{
+			SessionID:     "test123",
+			HookEventName: Stop,
+		},
+	}
+
+	err := executeStopHooks(config, input, nil)
+	
+	// ExitError型でexit code 2であることを確認
+	if err == nil {
+		t.Fatal("Expected error for failing command, got nil")
+	}
+	
+	exitErr, ok := err.(*ExitError)
+	if !ok {
+		t.Fatalf("Expected ExitError, got %T", err)
+	}
+	
+	if exitErr.Code != 2 {
+		t.Errorf("Expected exit code 2, got %d", exitErr.Code)
+	}
+}
+
+func TestExecuteSubagentStopHook_FailingCommandReturnsExit2(t *testing.T) {
+	config := &Config{
+		SubagentStop: []SubagentStopHook{
+			{
+				Actions: []SubagentStopAction{
+					{Type: "command", Command: "false"}, // 失敗するコマンド
+				},
+			},
+		},
+	}
+
+	input := &SubagentStopInput{
+		BaseInput: BaseInput{
+			SessionID:     "test123",
+			HookEventName: SubagentStop,
+		},
+	}
+
+	err := executeSubagentStopHooks(config, input, nil)
+	
+	// ExitError型でexit code 2であることを確認
+	if err == nil {
+		t.Fatal("Expected error for failing command, got nil")
+	}
+	
+	exitErr, ok := err.(*ExitError)
+	if !ok {
+		t.Fatalf("Expected ExitError, got %T", err)
+	}
+	
+	if exitErr.Code != 2 {
+		t.Errorf("Expected exit code 2, got %d", exitErr.Code)
+	}
+}
+
 func TestExecutePostToolUseHook_Success(t *testing.T) {
 	exitStatus := 0
 	hook := PostToolUseHook{
