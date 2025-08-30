@@ -35,7 +35,8 @@ func executeStopAction(action StopAction, input *StopInput, rawJSON interface{})
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
 		if err := runCommand(cmd); err != nil {
-			return err
+			// Stopでコマンドが失敗した場合はexit 2で停止をブロック
+			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
 		}
 	case "output":
 		return handleOutput(action.Message, action.ExitStatus, rawJSON)
@@ -48,7 +49,8 @@ func executeSubagentStopAction(action SubagentStopAction, input *SubagentStopInp
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
 		if err := runCommand(cmd); err != nil {
-			return err
+			// SubagentStopでコマンドが失敗した場合はexit 2でサブエージェント停止をブロック
+			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
 		}
 	case "output":
 		return handleOutput(action.Message, action.ExitStatus, rawJSON)
@@ -93,7 +95,8 @@ func executeUserPromptSubmitAction(action UserPromptSubmitAction, input *UserPro
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
 		if err := runCommand(cmd); err != nil {
-			return err
+			// UserPromptSubmitでコマンドが失敗した場合はexit 2でプロンプト処理をブロック
+			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
 		}
 	case "output":
 		// UserPromptSubmitはデフォルトでブロックする必要がないので、exitStatusが指定されていない場合は通常出力
@@ -112,7 +115,8 @@ func executePreToolUseAction(action PreToolUseAction, input *PreToolUseInput, ra
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
 		if err := runCommand(cmd); err != nil {
-			return err
+			// PreToolUseでコマンドが失敗した場合はexit 2でツール実行をブロック
+			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
 		}
 	case "output":
 		return handleOutput(action.Message, action.ExitStatus, rawJSON)
