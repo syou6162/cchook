@@ -231,6 +231,8 @@ var (
 	// Prompt-related conditions (UserPromptSubmit)
 	ConditionPromptRegex   = ConditionType{"prompt_regex"}
 	ConditionEveryNPrompts = ConditionType{"every_n_prompts"}
+	ConditionIsPrimeTurn   = ConditionType{"is_prime_turn"}
+	ConditionRandomChance  = ConditionType{"random_chance"}
 
 	// Git-related conditions (PreToolUse for Bash commands)
 	ConditionGitTrackedFileOperation = ConditionType{"git_tracked_file_operation"}
