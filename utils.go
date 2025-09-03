@@ -187,6 +187,25 @@ func checkUserPromptSubmitCondition(condition Condition, input *UserPromptSubmit
 		return count%n == 0, nil
 	}
 
+	// is_prime_turn条件をチェック
+	if condition.Type == ConditionIsPrimeTurn {
+		count, err := countUserPromptsFromTranscript(input.TranscriptPath, input.SessionID)
+		if err != nil {
+			return false, fmt.Errorf("failed to count prompts: %w", err)
+		}
+
+		// value が "true" の場合は素数ターンでマッチ、"false" の場合は非素数ターンでマッチ
+		expectPrime := condition.Value != "false"
+		isPrimeTurn := isPrime(count)
+
+		return isPrimeTurn == expectPrime, nil
+	}
+
+	// random_chance条件をチェック
+	if condition.Type == ConditionRandomChance {
+		return checkRandomChance(condition.Value)
+	}
+
 	// どの関数も処理しなかった場合はエラー
 	return false, fmt.Errorf("unknown condition type: %s", condition.Type)
 }
@@ -466,6 +485,48 @@ func countUserPromptsFromTranscript(transcriptPath, sessionID string) (int, erro
 
 	// 現在の発話を含める
 	return count + 1, nil
+}
+
+// isPrime checks if a number is prime
+func isPrime(n int) bool {
+	if n <= 1 {
+		return false
+	}
+	if n == 2 {
+		return true
+	}
+	if n%2 == 0 {
+		return false
+	}
+	for i := 3; i*i <= n; i += 2 {
+		if n%i == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// checkRandomChance checks if a random chance condition is met
+func checkRandomChance(value string) (bool, error) {
+	probability, err := strconv.Atoi(value)
+	if err != nil {
+		return false, fmt.Errorf("invalid random_chance value: %s (must be integer)", value)
+	}
+
+	if probability < 0 || probability > 100 {
+		return false, fmt.Errorf("invalid random_chance value: %d (must be 0-100)", probability)
+	}
+
+	if probability == 0 {
+		return false, nil
+	}
+	if probability == 100 {
+		return true, nil
+	}
+
+	// 0-99の乱数を生成し、probability未満なら条件成立
+	randomValue := rand.Intn(100)
+	return randomValue < probability, nil
 }
 
 func checkPromptCondition(condition Condition, prompt string) (bool, error) {
