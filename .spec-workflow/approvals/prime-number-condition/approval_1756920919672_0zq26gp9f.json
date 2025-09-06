@@ -1,0 +1,39 @@
+{
+  "id": "approval_1756920919672_0zq26gp9f",
+  "title": "素数判定Condition - 設計書",
+  "filePath": ".spec-workflow/specs/prime-number-condition/design.md",
+  "type": "document",
+  "status": "needs-revision",
+  "createdAt": "2025-09-03T17:35:19.672Z",
+  "category": "spec",
+  "categoryName": "prime-number-condition",
+  "response": "Feedback Summary (2 comments):\n\nSpecific Text Comments:\n1. \"- **Opaque Struct Pattern**: `ConditionType`の定義に従い...\": これなに? このパターン、どういうのか知らない\n2. \"- **countUserPromptsFromTranscript**: ターン数カウントのための...\": これはいいですね!\n",
+  "annotations": "{\n  \"decision\": \"needs-revision\",\n  \"comments\": [\n    {\n      \"type\": \"selection\",\n      \"comment\": \"これなに? このパターン、どういうのか知らない\",\n      \"timestamp\": \"2025-09-03T17:37:01.386Z\",\n      \"selectedText\": \"- **Opaque Struct Pattern**: `ConditionType`の定義に従い、新しい条件タイプを追加\",\n      \"highlightColor\": {\n        \"bg\": \"rgba(255, 235, 59, 0.3)\",\n        \"border\": \"#FFEB3B\",\n        \"name\": \"#ffeb3b\"\n      },\n      \"id\": \"comment_1756921021386_vv30aiozx\"\n    },\n    {\n      \"type\": \"selection\",\n      \"comment\": \"これはいいですね!\",\n      \"timestamp\": \"2025-09-03T17:37:35.790Z\",\n      \"selectedText\": \"- **countUserPromptsFromTranscript**: ターン数カウントのための既存関数を完全再利用\",\n      \"highlightColor\": {\n        \"bg\": \"rgba(255, 235, 59, 0.3)\",\n        \"border\": \"#FFEB3B\",\n        \"name\": \"#ffeb3b\"\n      },\n      \"id\": \"comment_1756921055790_jye3mxczw\"\n    }\n  ],\n  \"summary\": \"Feedback Summary (2 comments):\\n\\nSpecific Text Comments:\\n1. \\\"- **Opaque Struct Pattern**: `ConditionType`の定義に従い...\\\": これなに? このパターン、どういうのか知らない\\n2. \\\"- **countUserPromptsFromTranscript**: ターン数カウントのための...\\\": これはいいですね!\\n\",\n  \"timestamp\": \"2025-09-03T17:38:52.186Z\"\n}",
+  "respondedAt": "2025-09-03T17:38:52.194Z",
+  "comments": [
+    {
+      "type": "selection",
+      "comment": "これなに? このパターン、どういうのか知らない",
+      "timestamp": "2025-09-03T17:37:01.386Z",
+      "selectedText": "- **Opaque Struct Pattern**: `ConditionType`の定義に従い、新しい条件タイプを追加",
+      "highlightColor": {
+        "bg": "rgba(255, 235, 59, 0.3)",
+        "border": "#FFEB3B",
+        "name": "#ffeb3b"
+      },
+      "id": "comment_1756921021386_vv30aiozx"
+    },
+    {
+      "type": "selection",
+      "comment": "これはいいですね!",
+      "timestamp": "2025-09-03T17:37:35.790Z",
+      "selectedText": "- **countUserPromptsFromTranscript**: ターン数カウントのための既存関数を完全再利用",
+      "highlightColor": {
+        "bg": "rgba(255, 235, 59, 0.3)",
+        "border": "#FFEB3B",
+        "name": "#ffeb3b"
+      },
+      "id": "comment_1756921055790_jye3mxczw"
+    }
+  ]
+}

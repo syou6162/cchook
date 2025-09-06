@@ -3,10 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
+	"time"
 )
 
 func main() {
+	// 乱数シードの初期化
+	rand.Seed(time.Now().UnixNano())
+
 	configPath := flag.String("config", "", "Path to config file")
 	command := flag.String("command", "run", "Command to execute (run, dry-run)")
 	eventType := flag.String("event", "", "Event type for run/dry-run command")

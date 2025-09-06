@@ -408,6 +408,30 @@ UserPromptSubmit:
           💡 Tip: Consider using specialized tools for better efficiency:
           - Use serena MCP for code search and modification
           - Use ripgrep (rg) instead of grep for faster searching
+
+  # Fun mathematical fact on prime turns
+  - conditions:
+      - type: is_prime_turn
+        value: "true"  # Triggers on turns 2, 3, 5, 7, 11, 13, 17, 19, 23, 29...
+    actions:
+      - type: output
+        message: "🔢 Fun fact: This is turn #{.turn_number}, which is a prime number!"
+
+  # Random encouragement (10% chance)
+  - conditions:
+      - type: random_chance
+        value: "10"  # 10% chance on each prompt
+    actions:
+      - type: output
+        message: "🎲 Lucky! You triggered a 10% random event. Keep up the great work!"
+
+  # Rare celebration (1% chance)
+  - conditions:
+      - type: random_chance
+        value: "1"  # 1% chance - very rare!
+    actions:
+      - type: output
+        message: "🎉 JACKPOT! You hit the 1% chance! Today is your lucky day!"
 ```
 
 ### Directory and File Guards
@@ -551,6 +575,16 @@ All conditions return proper error messages for unknown condition types, ensurin
   - Trigger action every N user prompts in the session
   - Counts user messages from transcript file
   - Example: `value: "10"` triggers on 10th, 20th, 30th... prompts
+- `is_prime_turn`
+  - Trigger action when the turn number (prompt count) is a prime number
+  - Uses same transcript counting logic as `every_n_prompts`
+  - `value: "true"` (default) - triggers on prime turns (2, 3, 5, 7, 11, 13, 17, 19, 23, 29...)
+  - `value: "false"` - triggers on non-prime turns (1, 4, 6, 8, 9, 10, 12, 14, 15, 16...)
+- `random_chance`
+  - Trigger action based on random probability
+  - `value: "0"` to `"100"` - percentage chance of triggering (0% never, 100% always)
+  - Each prompt evaluation is independent
+  - Example: `value: "10"` triggers approximately 10% of the time
 
 #### Other Events (SessionStart, Stop, Notification, SubagentStop, PreCompact)
 - Support all common conditions (file, directory, and working directory operations)

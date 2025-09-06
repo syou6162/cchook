@@ -231,6 +231,8 @@ var (
 	// Prompt-related conditions (UserPromptSubmit)
 	ConditionPromptRegex   = ConditionType{"prompt_regex"}
 	ConditionEveryNPrompts = ConditionType{"every_n_prompts"}
+	ConditionIsPrimeTurn   = ConditionType{"is_prime_turn"}
+	ConditionRandomChance  = ConditionType{"random_chance"}
 
 	// Git-related conditions (PreToolUse for Bash commands)
 	ConditionGitTrackedFileOperation = ConditionType{"git_tracked_file_operation"}
@@ -276,6 +278,10 @@ func (c *ConditionType) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		*c = ConditionPromptRegex
 	case "every_n_prompts":
 		*c = ConditionEveryNPrompts
+	case "is_prime_turn":
+		*c = ConditionIsPrimeTurn
+	case "random_chance":
+		*c = ConditionRandomChance
 	case "git_tracked_file_operation":
 		*c = ConditionGitTrackedFileOperation
 	case "cwd_is":
