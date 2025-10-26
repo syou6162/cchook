@@ -16,13 +16,14 @@ const (
 	SubagentStop     HookEventType = "SubagentStop"
 	PreCompact       HookEventType = "PreCompact"
 	SessionStart     HookEventType = "SessionStart"
+	SessionEnd       HookEventType = "SessionEnd"
 	UserPromptSubmit HookEventType = "UserPromptSubmit"
 )
 
 // イベントタイプの妥当性検証
 func (e HookEventType) IsValid() bool {
 	switch e {
-	case PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact, SessionStart, UserPromptSubmit:
+	case PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact, SessionStart, SessionEnd, UserPromptSubmit:
 		return true
 	default:
 		return false
@@ -144,6 +145,16 @@ func (u *UserPromptSubmitInput) GetToolName() string {
 	return ""
 }
 
+// SessionEnd用
+type SessionEndInput struct {
+	BaseInput
+	Reason string `json:"reason"` // "clear", "logout", "prompt_input_exit", or "other"
+}
+
+func (s *SessionEndInput) GetToolName() string {
+	return ""
+}
+
 // Hook共通インターフェース
 type Hook interface {
 	GetMatcher() string
@@ -200,6 +211,11 @@ type SessionStartHook struct {
 type UserPromptSubmitHook struct {
 	Conditions []Condition              `yaml:"conditions,omitempty"`
 	Actions    []UserPromptSubmitAction `yaml:"actions"`
+}
+
+type SessionEndHook struct {
+	Conditions []Condition        `yaml:"conditions,omitempty"`
+	Actions    []SessionEndAction `yaml:"actions"`
 }
 
 // 共通の条件構造体
@@ -360,6 +376,13 @@ type UserPromptSubmitAction struct {
 	ExitStatus *int   `yaml:"exit_status,omitempty"`
 }
 
+type SessionEndAction struct {
+	Type       string `yaml:"type"`
+	Command    string `yaml:"command,omitempty"`
+	Message    string `yaml:"message,omitempty"`
+	ExitStatus *int   `yaml:"exit_status,omitempty"`
+}
+
 // 設定ファイル構造
 type Config struct {
 	PreToolUse       []PreToolUseHook       `yaml:"PreToolUse,omitempty"`
@@ -369,5 +392,6 @@ type Config struct {
 	SubagentStop     []SubagentStopHook     `yaml:"SubagentStop,omitempty"`
 	PreCompact       []PreCompactHook       `yaml:"PreCompact,omitempty"`
 	SessionStart     []SessionStartHook     `yaml:"SessionStart,omitempty"`
+	SessionEnd       []SessionEndHook       `yaml:"SessionEnd,omitempty"`
 	UserPromptSubmit []UserPromptSubmitHook `yaml:"UserPromptSubmit,omitempty"`
 }
