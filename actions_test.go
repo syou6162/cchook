@@ -267,3 +267,30 @@ func TestNewExitError(t *testing.T) {
 		t.Errorf("Expected Error() to return 'test message', got '%s'", err.Error())
 	}
 }
+
+func TestExecuteSessionEndAction_WithExitError(t *testing.T) {
+	action := SessionEndAction{
+		Type:       "output",
+		Message:    "SessionEnd error message",
+		ExitStatus: intPtr(2),
+	}
+
+	err := executeSessionEndAction(action, &SessionEndInput{}, map[string]interface{}{})
+
+	if err == nil {
+		t.Fatal("Expected ExitError, got nil")
+	}
+
+	exitErr, ok := err.(*ExitError)
+	if !ok {
+		t.Fatalf("Expected *ExitError, got %T", err)
+	}
+
+	if exitErr.Code != 2 {
+		t.Errorf("Expected exit code 2, got %d", exitErr.Code)
+	}
+
+	if !exitErr.Stderr {
+		t.Error("Expected stderr output")
+	}
+}
