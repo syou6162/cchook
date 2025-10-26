@@ -917,3 +917,13 @@ func TestDryRunPreToolUseHooks_WithMatch(t *testing.T) {
 		}
 	}
 }
+
+func TestExecuteSessionEndHooks(t *testing.T) {
+	config := &Config{}
+	input := &SessionEndInput{}
+
+	err := executeSessionEndHooks(config, input, nil)
+	if err != nil {
+		t.Errorf("executeSessionEndHooks() error = %v, expected nil", err)
+	}
+}
