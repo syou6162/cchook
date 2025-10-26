@@ -303,3 +303,103 @@ func TestUserPromptSubmitParsing(t *testing.T) {
 		})
 	}
 }
+
+func TestSessionEndParsing(t *testing.T) {
+	tests := []struct {
+		name      string
+		jsonInput string
+		want      SessionEndInput
+	}{
+		{
+			name: "Clear event",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/transcript.json",
+				"hook_event_name": "SessionEnd",
+				"reason": "clear"
+			}`,
+			want: SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:      "abc123",
+					TranscriptPath: "/tmp/transcript.json",
+					HookEventName:  SessionEnd,
+				},
+				Reason: "clear",
+			},
+		},
+		{
+			name: "Logout event",
+			jsonInput: `{
+				"session_id": "def456",
+				"transcript_path": "/tmp/transcript2.json",
+				"hook_event_name": "SessionEnd",
+				"reason": "logout"
+			}`,
+			want: SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:      "def456",
+					TranscriptPath: "/tmp/transcript2.json",
+					HookEventName:  SessionEnd,
+				},
+				Reason: "logout",
+			},
+		},
+		{
+			name: "Prompt input exit event",
+			jsonInput: `{
+				"session_id": "ghi789",
+				"transcript_path": "/tmp/transcript3.json",
+				"hook_event_name": "SessionEnd",
+				"reason": "prompt_input_exit"
+			}`,
+			want: SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:      "ghi789",
+					TranscriptPath: "/tmp/transcript3.json",
+					HookEventName:  SessionEnd,
+				},
+				Reason: "prompt_input_exit",
+			},
+		},
+		{
+			name: "Other event",
+			jsonInput: `{
+				"session_id": "jkl012",
+				"transcript_path": "/tmp/transcript4.json",
+				"hook_event_name": "SessionEnd",
+				"reason": "other"
+			}`,
+			want: SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:      "jkl012",
+					TranscriptPath: "/tmp/transcript4.json",
+					HookEventName:  SessionEnd,
+				},
+				Reason: "other",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var input SessionEndInput
+			err := json.Unmarshal([]byte(tt.jsonInput), &input)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal JSON: %v", err)
+			}
+
+			if input.SessionID != tt.want.SessionID {
+				t.Errorf("SessionID: expected %s, got %s", tt.want.SessionID, input.SessionID)
+			}
+			if input.TranscriptPath != tt.want.TranscriptPath {
+				t.Errorf("TranscriptPath: expected %s, got %s", tt.want.TranscriptPath, input.TranscriptPath)
+			}
+			if input.HookEventName != tt.want.HookEventName {
+				t.Errorf("HookEventName: expected %s, got %s", tt.want.HookEventName, input.HookEventName)
+			}
+			if input.Reason != tt.want.Reason {
+				t.Errorf("Reason: expected %s, got %s", tt.want.Reason, input.Reason)
+			}
+		})
+	}
+}
