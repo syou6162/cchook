@@ -21,7 +21,7 @@ func main() {
 	if *command == "run" || *command == "dry-run" {
 		eventType := HookEventType(*eventType)
 		if !eventType.IsValid() {
-			fmt.Fprintf(os.Stderr, "Error: invalid event type '%s'. Valid types: PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact, SessionStart, UserPromptSubmit\n", string(eventType))
+			fmt.Fprintf(os.Stderr, "Error: invalid event type '%s'. Valid types: PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact, SessionStart, SessionEnd, UserPromptSubmit\n", string(eventType))
 			os.Exit(1)
 		}
 	}
