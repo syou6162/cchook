@@ -148,3 +148,16 @@ func getExitStatus(exitStatus *int, actionType string) int {
 	}
 	return 0
 }
+
+func executeSessionEndAction(action SessionEndAction, input *SessionEndInput, rawJSON interface{}) error {
+	switch action.Type {
+	case "command":
+		cmd := unifiedTemplateReplace(action.Command, rawJSON)
+		if err := runCommand(cmd); err != nil {
+			return err
+		}
+	case "output":
+		return handleOutput(action.Message, action.ExitStatus, rawJSON)
+	}
+	return nil
+}
