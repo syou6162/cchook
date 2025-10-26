@@ -127,7 +127,7 @@ func (p *PreCompactInput) GetToolName() string {
 // SessionStart用
 type SessionStartInput struct {
 	BaseInput
-	Source string `json:"source"` // "startup", "resume", or "clear"
+	Source string `json:"source"` // "startup", "resume", "clear", or "compact"
 }
 
 func (s *SessionStartInput) GetToolName() string {
