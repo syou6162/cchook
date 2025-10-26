@@ -168,6 +168,25 @@ func TestSessionStartParsing(t *testing.T) {
 				Source: "resume",
 			},
 		},
+		{
+			name: "With permission_mode",
+			jsonInput: `{
+				"session_id": "xyz789",
+				"transcript_path": "/tmp/transcript3.json",
+				"hook_event_name": "SessionStart",
+				"permission_mode": "plan",
+				"source": "startup"
+			}`,
+			want: SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "xyz789",
+					TranscriptPath: "/tmp/transcript3.json",
+					HookEventName:  SessionStart,
+					PermissionMode: "plan",
+				},
+				Source: "startup",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -186,6 +205,9 @@ func TestSessionStartParsing(t *testing.T) {
 			}
 			if input.HookEventName != tt.want.HookEventName {
 				t.Errorf("HookEventName: expected %s, got %s", tt.want.HookEventName, input.HookEventName)
+			}
+			if input.PermissionMode != tt.want.PermissionMode {
+				t.Errorf("PermissionMode: expected %s, got %s", tt.want.PermissionMode, input.PermissionMode)
 			}
 			if input.Source != tt.want.Source {
 				t.Errorf("Source: expected %s, got %s", tt.want.Source, input.Source)
