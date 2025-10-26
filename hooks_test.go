@@ -919,11 +919,161 @@ func TestDryRunPreToolUseHooks_WithMatch(t *testing.T) {
 }
 
 func TestExecuteSessionEndHooks(t *testing.T) {
-	config := &Config{}
-	input := &SessionEndInput{}
-
-	err := executeSessionEndHooks(config, input, nil)
+	// Create temporary test file for file_exists condition
+	tmpFile, err := os.CreateTemp("", "sessionend_test_*.txt")
 	if err != nil {
-		t.Errorf("executeSessionEndHooks() error = %v, expected nil", err)
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.Close()
+
+	config := &Config{
+		SessionEnd: []SessionEndHook{
+			{
+				Conditions: []Condition{
+					{
+						Type:  ConditionReasonIs,
+						Value: "clear",
+					},
+				},
+				Actions: []SessionEndAction{
+					{
+						Type:    "output",
+						Message: "Session cleared: {.session_id}",
+					},
+				},
+			},
+			{
+				Conditions: []Condition{
+					{
+						Type:  ConditionReasonIs,
+						Value: "logout",
+					},
+				},
+				Actions: []SessionEndAction{
+					{
+						Type:    "output",
+						Message: "Logged out from session",
+					},
+				},
+			},
+			{
+				Conditions: []Condition{
+					{
+						Type:  ConditionFileExists,
+						Value: tmpFile.Name(),
+					},
+				},
+				Actions: []SessionEndAction{
+					{
+						Type:    "output",
+						Message: "Cleanup: temp file exists",
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name           string
+		input          *SessionEndInput
+		expectedOutput string
+		shouldMatch    bool
+	}{
+		{
+			name: "Reason clear matches",
+			input: &SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session-123",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  SessionEnd,
+				},
+				Reason: "clear",
+			},
+			expectedOutput: "Session cleared: test-session-123",
+			shouldMatch:    true,
+		},
+		{
+			name: "Reason logout matches",
+			input: &SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session-456",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  SessionEnd,
+				},
+				Reason: "logout",
+			},
+			expectedOutput: "Logged out from session",
+			shouldMatch:    true,
+		},
+		{
+			name: "File exists condition matches",
+			input: &SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session-789",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  SessionEnd,
+				},
+				Reason: "other",
+			},
+			expectedOutput: "Cleanup: temp file exists",
+			shouldMatch:    true,
+		},
+		{
+			name: "Reason prompt_input_exit doesn't match",
+			input: &SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session-999",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  SessionEnd,
+				},
+				Reason: "prompt_input_exit",
+			},
+			expectedOutput: "Cleanup: temp file exists",
+			shouldMatch:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Capture stdout
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			// Create rawJSON
+			rawJSON := map[string]interface{}{
+				"session_id":      tt.input.SessionID,
+				"transcript_path": tt.input.TranscriptPath,
+				"hook_event_name": string(tt.input.HookEventName),
+				"reason":          tt.input.Reason,
+			}
+
+			// Execute hooks
+			err := executeSessionEndHooks(config, tt.input, rawJSON)
+
+			// Restore stdout and capture output
+			w.Close()
+			os.Stdout = oldStdout
+			var buf bytes.Buffer
+			io.Copy(&buf, r)
+			output := strings.TrimSpace(buf.String())
+
+			// Check error
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			// Check output
+			if tt.shouldMatch {
+				if !strings.Contains(output, tt.expectedOutput) {
+					t.Errorf("Expected output to contain %q, got %q", tt.expectedOutput, output)
+				}
+			} else {
+				if output != "" {
+					t.Errorf("Expected no output, got %q", output)
+				}
+			}
+		})
 	}
 }
