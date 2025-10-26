@@ -40,6 +40,7 @@ type BaseInput struct {
 	SessionID      string        `json:"session_id"`
 	TranscriptPath string        `json:"transcript_path"`
 	Cwd            string        `json:"cwd,omitempty"`
+	PermissionMode string        `json:"permission_mode,omitempty"`
 	HookEventName  HookEventType `json:"hook_event_name"`
 }
 
