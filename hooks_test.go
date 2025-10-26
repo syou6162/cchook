@@ -927,6 +927,7 @@ func TestExecuteSessionEndHooks(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 	tmpFile.Close()
 
+	// Config for tests that expect hooks to match
 	config := &Config{
 		SessionEnd: []SessionEndHook{
 			{
@@ -974,14 +975,36 @@ func TestExecuteSessionEndHooks(t *testing.T) {
 		},
 	}
 
+	// Config for tests that expect no hooks to match
+	noMatchConfig := &Config{
+		SessionEnd: []SessionEndHook{
+			{
+				Conditions: []Condition{
+					{
+						Type:  ConditionReasonIs,
+						Value: "clear",
+					},
+				},
+				Actions: []SessionEndAction{
+					{
+						Type:    "output",
+						Message: "This should not be printed",
+					},
+				},
+			},
+		},
+	}
+
 	tests := []struct {
 		name           string
+		config         *Config
 		input          *SessionEndInput
 		expectedOutput string
 		shouldMatch    bool
 	}{
 		{
-			name: "Reason clear matches",
+			name:   "Reason clear matches",
+			config: config,
 			input: &SessionEndInput{
 				BaseInput: BaseInput{
 					SessionID:      "test-session-123",
@@ -994,7 +1017,8 @@ func TestExecuteSessionEndHooks(t *testing.T) {
 			shouldMatch:    true,
 		},
 		{
-			name: "Reason logout matches",
+			name:   "Reason logout matches",
+			config: config,
 			input: &SessionEndInput{
 				BaseInput: BaseInput{
 					SessionID:      "test-session-456",
@@ -1007,7 +1031,8 @@ func TestExecuteSessionEndHooks(t *testing.T) {
 			shouldMatch:    true,
 		},
 		{
-			name: "File exists condition matches",
+			name:   "File exists condition matches",
+			config: config,
 			input: &SessionEndInput{
 				BaseInput: BaseInput{
 					SessionID:      "test-session-789",
@@ -1020,7 +1045,8 @@ func TestExecuteSessionEndHooks(t *testing.T) {
 			shouldMatch:    true,
 		},
 		{
-			name: "Reason prompt_input_exit doesn't match",
+			name:   "Reason prompt_input_exit doesn't match",
+			config: config,
 			input: &SessionEndInput{
 				BaseInput: BaseInput{
 					SessionID:      "test-session-999",
@@ -1031,6 +1057,20 @@ func TestExecuteSessionEndHooks(t *testing.T) {
 			},
 			expectedOutput: "Cleanup: temp file exists",
 			shouldMatch:    true,
+		},
+		{
+			name:   "No hooks match - reason mismatch",
+			config: noMatchConfig,
+			input: &SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session-000",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  SessionEnd,
+				},
+				Reason: "unknown_reason",
+			},
+			expectedOutput: "",
+			shouldMatch:    false,
 		},
 	}
 
@@ -1050,7 +1090,7 @@ func TestExecuteSessionEndHooks(t *testing.T) {
 			}
 
 			// Execute hooks
-			err := executeSessionEndHooks(config, tt.input, rawJSON)
+			err := executeSessionEndHooks(tt.config, tt.input, rawJSON)
 
 			// Restore stdout and capture output
 			w.Close()
@@ -1075,5 +1115,67 @@ func TestExecuteSessionEndHooks(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestExecuteSessionEndHooks_CommandAction(t *testing.T) {
+	// Create temporary test file for verification
+	tmpFile, err := os.CreateTemp("", "sessionend_cmd_test_*.txt")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+
+	config := &Config{
+		SessionEnd: []SessionEndHook{
+			{
+				Conditions: []Condition{
+					{
+						Type:  ConditionReasonIs,
+						Value: "clear",
+					},
+				},
+				Actions: []SessionEndAction{
+					{
+						Type:    "command",
+						Command: "echo 'Session cleared' > " + tmpFile.Name(),
+					},
+				},
+			},
+		},
+	}
+
+	input := &SessionEndInput{
+		BaseInput: BaseInput{
+			SessionID:      "test-cmd-session",
+			TranscriptPath: "/path/to/transcript",
+			HookEventName:  SessionEnd,
+		},
+		Reason: "clear",
+	}
+
+	rawJSON := map[string]interface{}{
+		"session_id":      input.SessionID,
+		"transcript_path": input.TranscriptPath,
+		"hook_event_name": string(input.HookEventName),
+		"reason":          input.Reason,
+	}
+
+	// Execute hooks
+	err = executeSessionEndHooks(config, input, rawJSON)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	// Verify command was executed
+	content, err := os.ReadFile(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("Failed to read temp file: %v", err)
+	}
+
+	expected := "Session cleared\n"
+	if string(content) != expected {
+		t.Errorf("Expected file content %q, got %q", expected, string(content))
 	}
 }
