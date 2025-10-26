@@ -294,3 +294,44 @@ func TestExecuteSessionEndAction_WithExitError(t *testing.T) {
 		t.Error("Expected stderr output")
 	}
 }
+
+func TestExecuteSessionEndAction_OutputWithDefaultExitStatus(t *testing.T) {
+	tests := []struct {
+		name       string
+		exitStatus *int
+		wantErr    bool
+	}{
+		{
+			name:       "nil ExitStatus should print without error",
+			exitStatus: nil,
+			wantErr:    false,
+		},
+		{
+			name:       "ExitStatus 0 should print without error",
+			exitStatus: intPtr(0),
+			wantErr:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			action := SessionEndAction{
+				Type:       "output",
+				Message:    "SessionEnd message",
+				ExitStatus: tt.exitStatus,
+			}
+
+			err := executeSessionEndAction(action, &SessionEndInput{}, map[string]interface{}{})
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got %v", err)
+				}
+			}
+		})
+	}
+}

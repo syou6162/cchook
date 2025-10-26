@@ -157,7 +157,13 @@ func executeSessionEndAction(action SessionEndAction, input *SessionEndInput, ra
 			return err
 		}
 	case "output":
-		return handleOutput(action.Message, action.ExitStatus, rawJSON)
+		// SessionEndはブロッキング不要なので、exitStatusが指定されていない場合は通常出力
+		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
+		if action.ExitStatus != nil && *action.ExitStatus != 0 {
+			stderr := *action.ExitStatus == 2
+			return NewExitError(*action.ExitStatus, processedMessage, stderr)
+		}
+		fmt.Println(processedMessage)
 	}
 	return nil
 }
