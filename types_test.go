@@ -187,6 +187,23 @@ func TestSessionStartParsing(t *testing.T) {
 				Source: "startup",
 			},
 		},
+		{
+			name: "Compact event",
+			jsonInput: `{
+				"session_id": "compact123",
+				"transcript_path": "/tmp/transcript4.json",
+				"hook_event_name": "SessionStart",
+				"source": "compact"
+			}`,
+			want: SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "compact123",
+					TranscriptPath: "/tmp/transcript4.json",
+					HookEventName:  SessionStart,
+				},
+				Source: "compact",
+			},
+		},
 	}
 
 	for _, tt := range tests {
