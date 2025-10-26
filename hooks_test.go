@@ -574,7 +574,7 @@ func TestExecutePreToolUseHook_FailingCommandReturnsExit2(t *testing.T) {
 	input := &PreToolUseInput{ToolName: "Write"}
 
 	err := executePreToolUseHook(hook, input, nil)
-	
+
 	// エラーが返されることを確認
 	if err == nil {
 		t.Fatal("Expected error for failing command, got nil")
@@ -622,17 +622,17 @@ func TestExecuteUserPromptSubmitHook_FailingCommandReturnsExit2(t *testing.T) {
 	}
 
 	err := executeUserPromptSubmitHooks(config, input, nil)
-	
+
 	// ExitError型でexit code 2であることを確認
 	if err == nil {
 		t.Fatal("Expected error for failing command, got nil")
 	}
-	
+
 	exitErr, ok := err.(*ExitError)
 	if !ok {
 		t.Fatalf("Expected ExitError, got %T", err)
 	}
-	
+
 	if exitErr.Code != 2 {
 		t.Errorf("Expected exit code 2, got %d", exitErr.Code)
 	}
@@ -657,17 +657,17 @@ func TestExecuteStopHook_FailingCommandReturnsExit2(t *testing.T) {
 	}
 
 	err := executeStopHooks(config, input, nil)
-	
+
 	// ExitError型でexit code 2であることを確認
 	if err == nil {
 		t.Fatal("Expected error for failing command, got nil")
 	}
-	
+
 	exitErr, ok := err.(*ExitError)
 	if !ok {
 		t.Fatalf("Expected ExitError, got %T", err)
 	}
-	
+
 	if exitErr.Code != 2 {
 		t.Errorf("Expected exit code 2, got %d", exitErr.Code)
 	}
@@ -692,17 +692,17 @@ func TestExecuteSubagentStopHook_FailingCommandReturnsExit2(t *testing.T) {
 	}
 
 	err := executeSubagentStopHooks(config, input, nil)
-	
+
 	// ExitError型でexit code 2であることを確認
 	if err == nil {
 		t.Fatal("Expected error for failing command, got nil")
 	}
-	
+
 	exitErr, ok := err.(*ExitError)
 	if !ok {
 		t.Fatalf("Expected ExitError, got %T", err)
 	}
-	
+
 	if exitErr.Code != 2 {
 		t.Errorf("Expected exit code 2, got %d", exitErr.Code)
 	}
