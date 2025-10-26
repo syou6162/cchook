@@ -249,6 +249,9 @@ var (
 	ConditionPromptRegex   = ConditionType{"prompt_regex"}
 	ConditionEveryNPrompts = ConditionType{"every_n_prompts"}
 
+	// Reason-related conditions (SessionEnd)
+	ConditionReasonIs = ConditionType{"reason_is"}
+
 	// Git-related conditions (PreToolUse for Bash commands)
 	ConditionGitTrackedFileOperation = ConditionType{"git_tracked_file_operation"}
 	ConditionCwdIs                   = ConditionType{"cwd_is"}
@@ -293,6 +296,8 @@ func (c *ConditionType) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		*c = ConditionPromptRegex
 	case "every_n_prompts":
 		*c = ConditionEveryNPrompts
+	case "reason_is":
+		*c = ConditionReasonIs
 	case "git_tracked_file_operation":
 		*c = ConditionGitTrackedFileOperation
 	case "cwd_is":
