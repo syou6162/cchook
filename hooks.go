@@ -781,11 +781,49 @@ func executeSessionEndHooks(config *Config, input *SessionEndInput, rawJSON inte
 }
 
 func dryRunSessionEndHooks(config *Config, input *SessionEndInput, rawJSON interface{}) error {
-	fmt.Println("=== Dry Run: SessionEnd Hooks ===")
+	fmt.Println("=== SessionEnd Hooks (Dry Run) ===")
+
+	if len(config.SessionEnd) == 0 {
+		fmt.Println("No SessionEnd hooks configured")
+		return nil
+	}
+
+	executed := false
 	for i, hook := range config.SessionEnd {
-		fmt.Printf("\n[Hook %d]\n", i)
-		fmt.Printf("Conditions: %d\n", len(hook.Conditions))
-		fmt.Printf("Actions: %d\n", len(hook.Actions))
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			matched, err := checkSessionEndCondition(condition, input)
+			if err != nil {
+				fmt.Printf("[Hook %d] Condition check error: %v\n", i+1, err)
+				shouldExecute = false
+				break
+			}
+			if !matched {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+
+		executed = true
+		fmt.Printf("[Hook %d] Reason: %s\n", i+1, input.Reason)
+		for _, action := range hook.Actions {
+			switch action.Type {
+			case "command":
+				cmd := unifiedTemplateReplace(action.Command, rawJSON)
+				fmt.Printf("  Command: %s\n", cmd)
+			case "output":
+				msg := unifiedTemplateReplace(action.Message, rawJSON)
+				fmt.Printf("  Message: %s\n", msg)
+			}
+		}
+	}
+
+	if !executed {
+		fmt.Println("No matching SessionEnd hooks found")
 	}
 	return nil
 }
