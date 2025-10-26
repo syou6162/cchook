@@ -528,9 +528,14 @@ func checkSubagentStopCondition(condition Condition, input *SubagentStopInput) (
 	return false, fmt.Errorf("unknown condition type for SubagentStop: %s", condition.Type)
 }
 
-// SessionEnd用の条件チェック（汎用条件のみ）
+// SessionEnd用の条件チェック（汎用条件 + reason_is）
 func checkSessionEndCondition(condition Condition, input *SessionEndInput) (bool, error) {
-	// SessionEndは汎用条件のみ使用
+	// reason_is condition
+	if condition.Type == ConditionReasonIs {
+		return input.Reason == condition.Value, nil
+	}
+
+	// SessionEndは汎用条件も使用
 	matched, err := checkCommonCondition(condition, &input.BaseInput)
 	if err == nil {
 		return matched, nil // 処理された

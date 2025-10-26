@@ -1266,6 +1266,54 @@ func TestCheckSessionEndCondition(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "reason_is match",
+			condition: Condition{
+				Type:  ConditionReasonIs,
+				Value: "clear",
+			},
+			input: &SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:     "test101",
+					HookEventName: SessionEnd,
+				},
+				Reason: "clear",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "reason_is not match",
+			condition: Condition{
+				Type:  ConditionReasonIs,
+				Value: "logout",
+			},
+			input: &SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:     "test102",
+					HookEventName: SessionEnd,
+				},
+				Reason: "clear",
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "reason_is match - prompt_input_exit",
+			condition: Condition{
+				Type:  ConditionReasonIs,
+				Value: "prompt_input_exit",
+			},
+			input: &SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:     "test103",
+					HookEventName: SessionEnd,
+				},
+				Reason: "prompt_input_exit",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
 			name: "unsupported condition type",
 			condition: Condition{
 				Type:  ConditionFileExtension,
