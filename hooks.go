@@ -55,6 +55,12 @@ func runHooks(config *Config, eventType HookEventType) error {
 			return err
 		}
 		return executeUserPromptSubmitHooks(config, input, rawJSON)
+	case SessionEnd:
+		input, rawJSON, err := parseInput[*SessionEndInput](eventType)
+		if err != nil {
+			return err
+		}
+		return executeSessionEndHooks(config, input, rawJSON)
 	default:
 		return fmt.Errorf("unsupported event type: %s", eventType)
 	}
@@ -110,6 +116,12 @@ func dryRunHooks(config *Config, eventType HookEventType) error {
 			return err
 		}
 		return dryRunUserPromptSubmitHooks(config, input, rawJSON)
+	case SessionEnd:
+		input, rawJSON, err := parseInput[*SessionEndInput](eventType)
+		if err != nil {
+			return err
+		}
+		return dryRunSessionEndHooks(config, input, rawJSON)
 	default:
 		return fmt.Errorf("unsupported event type: %s", eventType)
 	}
@@ -733,6 +745,85 @@ func executePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput, rawJS
 		if err := executePostToolUseAction(action, input, rawJSON); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func executeSessionEndHooks(config *Config, input *SessionEndInput, rawJSON interface{}) error {
+	for i, hook := range config.SessionEnd {
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			matched, err := checkSessionEndCondition(condition, input)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "SessionEnd hook %d condition check failed: %v\n", i, err)
+				shouldExecute = false
+				break
+			}
+			if !matched {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+
+		for _, action := range hook.Actions {
+			if err := executeSessionEndAction(action, input, rawJSON); err != nil {
+				fmt.Fprintf(os.Stderr, "SessionEnd hook %d failed: %v\n", i, err)
+				// SessionEndフックはブロッキング不可能なのでエラーを返さない
+				// （セッション終了時なので止める意味がない）
+			}
+		}
+	}
+	return nil
+}
+
+func dryRunSessionEndHooks(config *Config, input *SessionEndInput, rawJSON interface{}) error {
+	fmt.Println("=== SessionEnd Hooks (Dry Run) ===")
+
+	if len(config.SessionEnd) == 0 {
+		fmt.Println("No SessionEnd hooks configured")
+		return nil
+	}
+
+	executed := false
+	for i, hook := range config.SessionEnd {
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			matched, err := checkSessionEndCondition(condition, input)
+			if err != nil {
+				fmt.Printf("[Hook %d] Condition check error: %v\n", i+1, err)
+				shouldExecute = false
+				break
+			}
+			if !matched {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+
+		executed = true
+		fmt.Printf("[Hook %d] Reason: %s\n", i+1, input.Reason)
+		for _, action := range hook.Actions {
+			switch action.Type {
+			case "command":
+				cmd := unifiedTemplateReplace(action.Command, rawJSON)
+				fmt.Printf("  Command: %s\n", cmd)
+			case "output":
+				msg := unifiedTemplateReplace(action.Message, rawJSON)
+				fmt.Printf("  Message: %s\n", msg)
+			}
+		}
+	}
+
+	if !executed {
+		fmt.Println("No matching SessionEnd hooks found")
 	}
 	return nil
 }

@@ -148,3 +148,22 @@ func getExitStatus(exitStatus *int, actionType string) int {
 	}
 	return 0
 }
+
+func executeSessionEndAction(action SessionEndAction, input *SessionEndInput, rawJSON interface{}) error {
+	switch action.Type {
+	case "command":
+		cmd := unifiedTemplateReplace(action.Command, rawJSON)
+		if err := runCommand(cmd); err != nil {
+			return err
+		}
+	case "output":
+		// SessionEndはブロッキング不要なので、exitStatusが指定されていない場合は通常出力
+		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
+		if action.ExitStatus != nil && *action.ExitStatus != 0 {
+			stderr := *action.ExitStatus == 2
+			return NewExitError(*action.ExitStatus, processedMessage, stderr)
+		}
+		fmt.Println(processedMessage)
+	}
+	return nil
+}

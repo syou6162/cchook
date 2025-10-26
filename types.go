@@ -16,13 +16,14 @@ const (
 	SubagentStop     HookEventType = "SubagentStop"
 	PreCompact       HookEventType = "PreCompact"
 	SessionStart     HookEventType = "SessionStart"
+	SessionEnd       HookEventType = "SessionEnd"
 	UserPromptSubmit HookEventType = "UserPromptSubmit"
 )
 
 // イベントタイプの妥当性検証
 func (e HookEventType) IsValid() bool {
 	switch e {
-	case PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact, SessionStart, UserPromptSubmit:
+	case PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact, SessionStart, SessionEnd, UserPromptSubmit:
 		return true
 	default:
 		return false
@@ -40,6 +41,7 @@ type BaseInput struct {
 	SessionID      string        `json:"session_id"`
 	TranscriptPath string        `json:"transcript_path"`
 	Cwd            string        `json:"cwd,omitempty"`
+	PermissionMode string        `json:"permission_mode,omitempty"`
 	HookEventName  HookEventType `json:"hook_event_name"`
 }
 
@@ -126,7 +128,7 @@ func (p *PreCompactInput) GetToolName() string {
 // SessionStart用
 type SessionStartInput struct {
 	BaseInput
-	Source string `json:"source"` // "startup", "resume", or "clear"
+	Source string `json:"source"` // "startup", "resume", "clear", or "compact"
 }
 
 func (s *SessionStartInput) GetToolName() string {
@@ -140,6 +142,16 @@ type UserPromptSubmitInput struct {
 }
 
 func (u *UserPromptSubmitInput) GetToolName() string {
+	return ""
+}
+
+// SessionEnd用
+type SessionEndInput struct {
+	BaseInput
+	Reason string `json:"reason"` // "clear", "logout", "prompt_input_exit", or "other"
+}
+
+func (s *SessionEndInput) GetToolName() string {
 	return ""
 }
 
@@ -201,6 +213,11 @@ type UserPromptSubmitHook struct {
 	Actions    []UserPromptSubmitAction `yaml:"actions"`
 }
 
+type SessionEndHook struct {
+	Conditions []Condition        `yaml:"conditions,omitempty"`
+	Actions    []SessionEndAction `yaml:"actions"`
+}
+
 // 共通の条件構造体
 // ConditionType represents the type of condition to check (opaque struct)
 type ConditionType struct{ v string }
@@ -231,6 +248,9 @@ var (
 	// Prompt-related conditions (UserPromptSubmit)
 	ConditionPromptRegex   = ConditionType{"prompt_regex"}
 	ConditionEveryNPrompts = ConditionType{"every_n_prompts"}
+
+	// Reason-related conditions (SessionEnd)
+	ConditionReasonIs = ConditionType{"reason_is"}
 
 	// Git-related conditions (PreToolUse for Bash commands)
 	ConditionGitTrackedFileOperation = ConditionType{"git_tracked_file_operation"}
@@ -276,6 +296,8 @@ func (c *ConditionType) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		*c = ConditionPromptRegex
 	case "every_n_prompts":
 		*c = ConditionEveryNPrompts
+	case "reason_is":
+		*c = ConditionReasonIs
 	case "git_tracked_file_operation":
 		*c = ConditionGitTrackedFileOperation
 	case "cwd_is":
@@ -359,6 +381,13 @@ type UserPromptSubmitAction struct {
 	ExitStatus *int   `yaml:"exit_status,omitempty"`
 }
 
+type SessionEndAction struct {
+	Type       string `yaml:"type"`
+	Command    string `yaml:"command,omitempty"`
+	Message    string `yaml:"message,omitempty"`
+	ExitStatus *int   `yaml:"exit_status,omitempty"`
+}
+
 // 設定ファイル構造
 type Config struct {
 	PreToolUse       []PreToolUseHook       `yaml:"PreToolUse,omitempty"`
@@ -368,5 +397,6 @@ type Config struct {
 	SubagentStop     []SubagentStopHook     `yaml:"SubagentStop,omitempty"`
 	PreCompact       []PreCompactHook       `yaml:"PreCompact,omitempty"`
 	SessionStart     []SessionStartHook     `yaml:"SessionStart,omitempty"`
+	SessionEnd       []SessionEndHook       `yaml:"SessionEnd,omitempty"`
 	UserPromptSubmit []UserPromptSubmitHook `yaml:"UserPromptSubmit,omitempty"`
 }
