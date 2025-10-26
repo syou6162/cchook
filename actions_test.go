@@ -267,3 +267,71 @@ func TestNewExitError(t *testing.T) {
 		t.Errorf("Expected Error() to return 'test message', got '%s'", err.Error())
 	}
 }
+
+func TestExecuteSessionEndAction_WithExitError(t *testing.T) {
+	action := SessionEndAction{
+		Type:       "output",
+		Message:    "SessionEnd error message",
+		ExitStatus: intPtr(2),
+	}
+
+	err := executeSessionEndAction(action, &SessionEndInput{}, map[string]interface{}{})
+
+	if err == nil {
+		t.Fatal("Expected ExitError, got nil")
+	}
+
+	exitErr, ok := err.(*ExitError)
+	if !ok {
+		t.Fatalf("Expected *ExitError, got %T", err)
+	}
+
+	if exitErr.Code != 2 {
+		t.Errorf("Expected exit code 2, got %d", exitErr.Code)
+	}
+
+	if !exitErr.Stderr {
+		t.Error("Expected stderr output")
+	}
+}
+
+func TestExecuteSessionEndAction_OutputWithDefaultExitStatus(t *testing.T) {
+	tests := []struct {
+		name       string
+		exitStatus *int
+		wantErr    bool
+	}{
+		{
+			name:       "nil ExitStatus should print without error",
+			exitStatus: nil,
+			wantErr:    false,
+		},
+		{
+			name:       "ExitStatus 0 should print without error",
+			exitStatus: intPtr(0),
+			wantErr:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			action := SessionEndAction{
+				Type:       "output",
+				Message:    "SessionEnd message",
+				ExitStatus: tt.exitStatus,
+			}
+
+			err := executeSessionEndAction(action, &SessionEndInput{}, map[string]interface{}{})
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got %v", err)
+				}
+			}
+		})
+	}
+}

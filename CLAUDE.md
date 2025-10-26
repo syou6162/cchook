@@ -113,7 +113,7 @@ The application follows a modular architecture with clear separation of concerns
 - Handles ExitError for proper exit codes and output routing
 
 **Type System** (`types.go`)
-- Defines all event types: PreToolUse, PostToolUse, Stop, SubagentStop, Notification, PreCompact, SessionStart, UserPromptSubmit
+- Defines all event types: PreToolUse, PostToolUse, Stop, SubagentStop, Notification, PreCompact, SessionStart, SessionEnd, UserPromptSubmit
 - Event-specific input structures with embedded BaseInput
 - Hook and Action interfaces for polymorphic behavior
 - Separate condition and action types for each event
@@ -169,7 +169,7 @@ The application follows a modular architecture with clear separation of concerns
 
 **Template System**: Consistent `{.field}` syntax across all actions, powered by gojq for complex queries
 
-**Condition System**: Event-specific condition types with common patterns (file_extension, command_contains, etc.). UserPromptSubmit uses `prompt_regex` for flexible pattern matching and `every_n_prompts` for periodic triggers based on transcript history.
+**Condition System**: Event-specific condition types with common patterns (file_extension, command_contains, etc.). UserPromptSubmit uses `prompt_regex` for flexible pattern matching and `every_n_prompts` for periodic triggers based on transcript history. SessionEnd uses `reason_is` to match session end reasons ("clear", "logout", "prompt_input_exit", "other").
 
 **Error Handling**:
 - Custom ExitError type for precise control over exit codes and stderr/stdout routing
@@ -203,6 +203,8 @@ Available condition types:
 - **Prompt-specific** (UserPromptSubmit):
   - `prompt_regex`: Supports regex patterns including OR conditions with `|`
   - `every_n_prompts`: Triggers every N prompts based on transcript file parsing (counts `type: "user"` entries)
+- **Session-specific** (SessionEnd):
+  - `reason_is`: Matches session end reason ("clear", "logout", "prompt_input_exit", "other")
 
 Template variables are available based on the event type and include fields from BaseInput, tool-specific data, and full jq query support.
 

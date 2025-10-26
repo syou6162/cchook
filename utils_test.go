@@ -1224,3 +1224,123 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckSessionEndCondition(t *testing.T) {
+	tests := []struct {
+		name      string
+		condition Condition
+		input     *SessionEndInput
+		want      bool
+		wantErr   bool
+	}{
+		{
+			name: "file_exists match",
+			condition: Condition{
+				Type:  ConditionFileExists,
+				Value: "go.mod",
+			},
+			input: &SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:     "test123",
+					HookEventName: SessionEnd,
+				},
+				Reason: "clear",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "file_not_exists match",
+			condition: Condition{
+				Type:  ConditionFileNotExists,
+				Value: "nonexistent.file",
+			},
+			input: &SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:     "test456",
+					HookEventName: SessionEnd,
+				},
+				Reason: "logout",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "reason_is match",
+			condition: Condition{
+				Type:  ConditionReasonIs,
+				Value: "clear",
+			},
+			input: &SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:     "test101",
+					HookEventName: SessionEnd,
+				},
+				Reason: "clear",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "reason_is not match",
+			condition: Condition{
+				Type:  ConditionReasonIs,
+				Value: "logout",
+			},
+			input: &SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:     "test102",
+					HookEventName: SessionEnd,
+				},
+				Reason: "clear",
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "reason_is match - prompt_input_exit",
+			condition: Condition{
+				Type:  ConditionReasonIs,
+				Value: "prompt_input_exit",
+			},
+			input: &SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:     "test103",
+					HookEventName: SessionEnd,
+				},
+				Reason: "prompt_input_exit",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "unsupported condition type",
+			condition: Condition{
+				Type:  ConditionFileExtension,
+				Value: ".go",
+			},
+			input: &SessionEndInput{
+				BaseInput: BaseInput{
+					SessionID:     "test789",
+					HookEventName: SessionEnd,
+				},
+				Reason: "other",
+			},
+			want:    false,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := checkSessionEndCondition(tt.condition, tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkSessionEndCondition() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("checkSessionEndCondition() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

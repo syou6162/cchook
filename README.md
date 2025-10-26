@@ -166,7 +166,7 @@ PreToolUse:
 
 ### Flags
 
-- `-event` (required): Specify the event type (PreToolUse, PostToolUse, SessionStart, etc.)
+- `-event` (required): Specify the event type (PreToolUse, PostToolUse, SessionStart, SessionEnd, etc.)
 - `-config`: Path to configuration file (default: `~/.config/cchook/config.yaml`)
 - `-command`: Override configuration with a single command (useful for dry-run testing)
 
@@ -552,6 +552,13 @@ All conditions return proper error messages for unknown condition types, ensurin
   - Counts user messages from transcript file
   - Example: `value: "10"` triggers on 10th, 20th, 30th... prompts
 
+#### SessionEnd Event
+- `reason_is`
+  - Match the session end reason
+  - Values: `"clear"`, `"logout"`, `"prompt_input_exit"`, `"other"`
+  - Example: `value: "clear"` matches when session is cleared
+- Support all common conditions (file, directory, and working directory operations)
+
 #### Other Events (SessionStart, Stop, Notification, SubagentStop, PreCompact)
 - Support all common conditions (file, directory, and working directory operations)
 
@@ -562,7 +569,7 @@ All conditions return proper error messages for unknown condition types, ensurin
 - `output`
   - Print message
   - Default `exit_status`:
-    - 0 for SessionStart, UserPromptSubmit (non-blocking events)
+    - 0 for SessionStart, SessionEnd, UserPromptSubmit (non-blocking events)
     - 2 for PreToolUse, PostToolUse, Stop, SubagentStop, Notification, PreCompact
 
 ### Exit Status Control
