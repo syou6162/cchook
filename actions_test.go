@@ -59,11 +59,9 @@ func TestGetExitStatus(t *testing.T) {
 func TestActionStructsWithExitStatus(t *testing.T) {
 	t.Run("PreToolUseAction with ExitStatus", func(t *testing.T) {
 		action := PreToolUseAction{
-			Action{
 				Type:       "output",
 				Message:    "test message",
 				ExitStatus: intPtr(1),
-			},
 		}
 
 		if action.ExitStatus == nil {
@@ -76,11 +74,9 @@ func TestActionStructsWithExitStatus(t *testing.T) {
 
 	t.Run("PostToolUseAction with ExitStatus", func(t *testing.T) {
 		action := PostToolUseAction{
-			Action{
 				Type:       "output",
 				Message:    "test message",
 				ExitStatus: intPtr(2),
-			},
 		}
 
 		if action.ExitStatus == nil {
@@ -93,11 +89,9 @@ func TestActionStructsWithExitStatus(t *testing.T) {
 
 	t.Run("NotificationAction with ExitStatus", func(t *testing.T) {
 		action := NotificationAction{
-			Action{
 				Type:       "output",
 				Message:    "test message",
 				ExitStatus: intPtr(0),
-			},
 		}
 
 		if action.ExitStatus == nil {
@@ -110,11 +104,9 @@ func TestActionStructsWithExitStatus(t *testing.T) {
 
 	t.Run("StopAction with ExitStatus", func(t *testing.T) {
 		action := StopAction{
-			Action{
 				Type:       "output",
 				Message:    "test message",
 				ExitStatus: intPtr(2),
-			},
 		}
 
 		if action.ExitStatus == nil {
@@ -127,11 +119,9 @@ func TestActionStructsWithExitStatus(t *testing.T) {
 
 	t.Run("SubagentStopAction with ExitStatus", func(t *testing.T) {
 		action := SubagentStopAction{
-			Action{
 				Type:       "output",
 				Message:    "test message",
 				ExitStatus: intPtr(1),
-			},
 		}
 
 		if action.ExitStatus == nil {
@@ -144,11 +134,9 @@ func TestActionStructsWithExitStatus(t *testing.T) {
 
 	t.Run("PreCompactAction with ExitStatus", func(t *testing.T) {
 		action := PreCompactAction{
-			Action{
 				Type:       "output",
 				Message:    "test message",
 				ExitStatus: intPtr(2),
-			},
 		}
 
 		if action.ExitStatus == nil {
@@ -239,11 +227,9 @@ func TestHandleOutput(t *testing.T) {
 
 func TestExecuteNotificationAction_WithExitError(t *testing.T) {
 	action := NotificationAction{
-		Action{
 			Type:       "output",
 			Message:    "Notification error message",
 			ExitStatus: intPtr(2),
-		},
 	}
 
 	err := executeNotificationAction(action, &NotificationInput{}, map[string]interface{}{})
@@ -288,11 +274,9 @@ func TestNewExitError(t *testing.T) {
 
 func TestExecuteSessionEndAction_WithExitError(t *testing.T) {
 	action := SessionEndAction{
-		Action{
 			Type:       "output",
 			Message:    "SessionEnd error message",
 			ExitStatus: intPtr(2),
-		},
 	}
 
 	err := executeSessionEndAction(action, &SessionEndInput{}, map[string]interface{}{})
@@ -336,11 +320,9 @@ func TestExecuteSessionEndAction_OutputWithDefaultExitStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			action := SessionEndAction{
-				Action{
 					Type:       "output",
 					Message:    "SessionEnd message",
 					ExitStatus: tt.exitStatus,
-				},
 			}
 
 			err := executeSessionEndAction(action, &SessionEndInput{}, map[string]interface{}{})
@@ -369,11 +351,9 @@ func TestExecutePreToolUseAction_WithUseStdin(t *testing.T) {
 		{
 			name: "use_stdin=true passes rawJSON to command stdin",
 			action: PreToolUseAction{
-				Action{
 					Type:     "command",
 					Command:  "cat",
 					UseStdin: true,
-				},
 			},
 			input: &PreToolUseInput{
 				BaseInput: BaseInput{
@@ -410,11 +390,9 @@ func TestExecutePreToolUseAction_WithUseStdin(t *testing.T) {
 		{
 			name: "use_stdin=false does not pass rawJSON to stdin",
 			action: PreToolUseAction{
-				Action{
 					Type:     "command",
 					Command:  "echo 'no stdin'",
 					UseStdin: false,
-				},
 			},
 			input: &PreToolUseInput{
 				BaseInput: BaseInput{
@@ -462,11 +440,9 @@ func TestExecutePreToolUseAction_WithUseStdin(t *testing.T) {
 
 func TestExecutePostToolUseAction_WithUseStdin(t *testing.T) {
 	action := PostToolUseAction{
-		Action{
 			Type:     "command",
 			Command:  "jq -r .tool_name",
 			UseStdin: true,
-		},
 	}
 
 	input := &PostToolUseInput{

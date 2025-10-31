@@ -326,43 +326,17 @@ type Action struct {
 	ExitStatus *int   `yaml:"exit_status,omitempty"`
 }
 
-// イベントタイプ毎のアクション構造体
-// 全てActionを埋め込むだけだが、型として区別することで可読性を維持
-type PreToolUseAction struct {
-	Action `yaml:",inline"`
-}
-
-type PostToolUseAction struct {
-	Action `yaml:",inline"`
-}
-
-type NotificationAction struct {
-	Action `yaml:",inline"`
-}
-
-type StopAction struct {
-	Action `yaml:",inline"`
-}
-
-type SubagentStopAction struct {
-	Action `yaml:",inline"`
-}
-
-type PreCompactAction struct {
-	Action `yaml:",inline"`
-}
-
-type SessionStartAction struct {
-	Action `yaml:",inline"`
-}
-
-type UserPromptSubmitAction struct {
-	Action `yaml:",inline"`
-}
-
-type SessionEndAction struct {
-	Action `yaml:",inline"`
-}
+// イベントタイプ毎のアクション型エイリアス
+// 実体は同一だが、型名を保持することで可読性を維持
+type PreToolUseAction = Action
+type PostToolUseAction = Action
+type NotificationAction = Action
+type StopAction = Action
+type SubagentStopAction = Action
+type PreCompactAction = Action
+type SessionStartAction = Action
+type UserPromptSubmitAction = Action
+type SessionEndAction = Action
 
 // 設定ファイル構造
 type Config struct {
