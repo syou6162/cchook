@@ -513,7 +513,7 @@ message: "Test message"
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var action PreToolUseAction
+			var action Action
 			err := yaml.Unmarshal([]byte(tt.yamlContent), &action)
 			if err != nil {
 				t.Fatalf("Failed to unmarshal YAML: %v", err)

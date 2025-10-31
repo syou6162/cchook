@@ -166,49 +166,49 @@ type Hook interface {
 type PreToolUseHook struct {
 	Matcher    string             `yaml:"matcher"`
 	Conditions []Condition        `yaml:"conditions,omitempty"`
-	Actions    []PreToolUseAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 type PostToolUseHook struct {
 	Matcher    string              `yaml:"matcher"`
 	Conditions []Condition         `yaml:"conditions,omitempty"`
-	Actions    []PostToolUseAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 type NotificationHook struct {
 	Conditions []Condition          `yaml:"conditions,omitempty"`
-	Actions    []NotificationAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 type StopHook struct {
 	Conditions []Condition  `yaml:"conditions,omitempty"`
-	Actions    []StopAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 type SubagentStopHook struct {
 	Conditions []Condition          `yaml:"conditions,omitempty"`
-	Actions    []SubagentStopAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 type PreCompactHook struct {
 	Conditions []Condition        `yaml:"conditions,omitempty"`
-	Actions    []PreCompactAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 type SessionStartHook struct {
 	Matcher    string               `yaml:"matcher"` // "startup", "resume", or "clear"
 	Conditions []Condition          `yaml:"conditions,omitempty"`
-	Actions    []SessionStartAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 type UserPromptSubmitHook struct {
 	Conditions []Condition              `yaml:"conditions,omitempty"`
-	Actions    []UserPromptSubmitAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 type SessionEndHook struct {
 	Conditions []Condition        `yaml:"conditions,omitempty"`
-	Actions    []SessionEndAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 // 共通の条件構造体
@@ -325,18 +325,6 @@ type Action struct {
 	UseStdin   bool   `yaml:"use_stdin,omitempty"`
 	ExitStatus *int   `yaml:"exit_status,omitempty"`
 }
-
-// イベントタイプ毎のアクション型エイリアス
-// 実体は同一だが、型名を保持することで可読性を維持
-type PreToolUseAction = Action
-type PostToolUseAction = Action
-type NotificationAction = Action
-type StopAction = Action
-type SubagentStopAction = Action
-type PreCompactAction = Action
-type SessionStartAction = Action
-type UserPromptSubmitAction = Action
-type SessionEndAction = Action
 
 // 設定ファイル構造
 type Config struct {

@@ -85,7 +85,7 @@ func TestRunHooks_PreToolUse_Success(t *testing.T) {
 		PreToolUse: []PreToolUseHook{
 			{
 				Matcher: "Write",
-				Actions: []PreToolUseAction{
+				Actions: []Action{
 					{Type: "output", Message: "Test message", ExitStatus: &[]int{0}[0]},
 				},
 			},
@@ -125,7 +125,7 @@ func TestRunHooks_PostToolUse_Success(t *testing.T) {
 		PostToolUse: []PostToolUseHook{
 			{
 				Matcher: "Edit",
-				Actions: []PostToolUseAction{
+				Actions: []Action{
 					{Type: "command", Command: "echo test"},
 				},
 			},
@@ -169,7 +169,7 @@ func TestDryRunHooks_Success(t *testing.T) {
 		PreToolUse: []PreToolUseHook{
 			{
 				Matcher: "Write",
-				Actions: []PreToolUseAction{
+				Actions: []Action{
 					{Type: "command", Command: "echo {.tool_input.file_path}"},
 				},
 			},
