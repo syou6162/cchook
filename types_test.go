@@ -406,7 +406,7 @@ func TestSessionEndParsing(t *testing.T) {
 	}
 }
 
-func TestBaseAction_UnmarshalYAML(t *testing.T) {
+func TestAction_UnmarshalYAML(t *testing.T) {
 	tests := []struct {
 		name         string
 		yamlContent  string
@@ -461,7 +461,7 @@ use_stdin: true
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var action BaseAction
+			var action Action
 			err := yaml.Unmarshal([]byte(tt.yamlContent), &action)
 			if err != nil {
 				t.Fatalf("Failed to unmarshal YAML: %v", err)
@@ -480,7 +480,7 @@ use_stdin: true
 	}
 }
 
-func TestPreToolUseAction_UnmarshalYAML_WithBaseAction(t *testing.T) {
+func TestPreToolUseAction_UnmarshalYAML_WithAction(t *testing.T) {
 	tests := []struct {
 		name         string
 		yamlContent  string

@@ -162,13 +162,6 @@ type Hook interface {
 	GetEventType() HookEventType
 }
 
-// Action共通インターフェース
-type Action interface {
-	GetType() string
-	GetCommand() string
-	GetMessage() string
-}
-
 // イベントタイプ毎の設定構造体
 type PreToolUseHook struct {
 	Matcher    string             `yaml:"matcher"`
@@ -324,8 +317,8 @@ type Condition struct {
 	Value string        `yaml:"value"`
 }
 
-// BaseAction - 全てのActionタイプで共通のフィールド
-type BaseAction struct {
+// Action - 全てのイベントタイプで共通のアクション構造体
+type Action struct {
 	Type       string `yaml:"type"`
 	Command    string `yaml:"command,omitempty"`
 	Message    string `yaml:"message,omitempty"`
@@ -334,40 +327,41 @@ type BaseAction struct {
 }
 
 // イベントタイプ毎のアクション構造体
+// 全てActionを埋め込むだけだが、型として区別することで可読性を維持
 type PreToolUseAction struct {
-	BaseAction `yaml:",inline"`
+	Action `yaml:",inline"`
 }
 
 type PostToolUseAction struct {
-	BaseAction `yaml:",inline"`
+	Action `yaml:",inline"`
 }
 
 type NotificationAction struct {
-	BaseAction `yaml:",inline"`
+	Action `yaml:",inline"`
 }
 
 type StopAction struct {
-	BaseAction `yaml:",inline"`
+	Action `yaml:",inline"`
 }
 
 type SubagentStopAction struct {
-	BaseAction `yaml:",inline"`
+	Action `yaml:",inline"`
 }
 
 type PreCompactAction struct {
-	BaseAction `yaml:",inline"`
+	Action `yaml:",inline"`
 }
 
 type SessionStartAction struct {
-	BaseAction `yaml:",inline"`
+	Action `yaml:",inline"`
 }
 
 type UserPromptSubmitAction struct {
-	BaseAction `yaml:",inline"`
+	Action `yaml:",inline"`
 }
 
 type SessionEndAction struct {
-	BaseAction `yaml:",inline"`
+	Action `yaml:",inline"`
 }
 
 // 設定ファイル構造
