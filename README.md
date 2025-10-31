@@ -273,6 +273,34 @@ PreToolUse:
         message: "📝 Python project detected with pyproject.toml"
 ```
 
+### Complex Data Handling with use_stdin
+
+Pass full JSON input to external commands via stdin for safe handling of special characters:
+
+```yaml
+PreToolUse:
+  - matcher: "Write|Edit"
+    conditions:
+      - type: file_extension
+        value: ".sql"
+    actions:
+      - type: command
+        command: "python validate_sql.py"
+        use_stdin: true
+
+  - matcher: "mcp__codex__codex"
+    actions:
+      - type: command
+        command: "jq -r .tool_input.prompt | python analyze_prompt.py"
+        use_stdin: true
+```
+
+Benefits of `use_stdin: true`:
+- Safely handles newlines, quotes, backslashes, and other special characters
+- Avoids shell escaping issues with complex data
+- Works with multi-line SQL queries, code snippets, and markdown content
+- Passes entire JSON to command for flexible processing with jq, python, etc.
+
 ### Working Directory Based Hooks
 
 Enable specific hooks based on the current working directory:
@@ -566,6 +594,11 @@ All conditions return proper error messages for unknown condition types, ensurin
 
 - `command`
   - Execute shell command
+  - `use_stdin: true` (optional)
+    - Pass full JSON input to command's stdin instead of using shell interpolation
+    - Solves issues with special characters (quotes, backslashes, newlines) in data
+    - Safer than shell string interpolation for complex data
+    - Example: `jq -r .tool_input.content` to extract content from JSON via stdin
 - `output`
   - Print message
   - Default `exit_status`:
