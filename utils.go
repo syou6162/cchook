@@ -564,7 +564,7 @@ func checkPreCompactCondition(condition Condition, input *PreCompactInput) (bool
 	return false, fmt.Errorf("unknown condition type for PreCompact: %s", condition.Type)
 }
 
-func runCommand(command string) error {
+func runCommand(command string, useStdin bool, data interface{}) error {
 	if strings.TrimSpace(command) == "" {
 		return fmt.Errorf("empty command")
 	}
@@ -573,5 +573,15 @@ func runCommand(command string) error {
 	cmd := exec.Command("sh", "-c", command)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+
+	// useStdinがtrueの場合、dataをJSON形式でstdinに渡す
+	if useStdin && data != nil {
+		jsonData, err := json.Marshal(data)
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON for stdin: %w", err)
+		}
+		cmd.Stdin = bytes.NewReader(jsonData)
+	}
+
 	return cmd.Run()
 }
