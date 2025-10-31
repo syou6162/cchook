@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestHookEventType_IsValid(t *testing.T) {
@@ -399,6 +401,132 @@ func TestSessionEndParsing(t *testing.T) {
 			}
 			if input.Reason != tt.want.Reason {
 				t.Errorf("Reason: expected %s, got %s", tt.want.Reason, input.Reason)
+			}
+		})
+	}
+}
+
+func TestBaseAction_UnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		name         string
+		yamlContent  string
+		wantUseStdin bool
+		wantType     string
+		wantCommand  string
+	}{
+		{
+			name: "use_stdin: true",
+			yamlContent: `
+type: command
+command: "python process.py"
+use_stdin: true
+`,
+			wantUseStdin: true,
+			wantType:     "command",
+			wantCommand:  "python process.py",
+		},
+		{
+			name: "use_stdin: false",
+			yamlContent: `
+type: command
+command: "echo 'test'"
+use_stdin: false
+`,
+			wantUseStdin: false,
+			wantType:     "command",
+			wantCommand:  "echo 'test'",
+		},
+		{
+			name: "use_stdin omitted (default false)",
+			yamlContent: `
+type: command
+command: "ls -la"
+`,
+			wantUseStdin: false,
+			wantType:     "command",
+			wantCommand:  "ls -la",
+		},
+		{
+			name: "use_stdin: true with type: output",
+			yamlContent: `
+type: output
+message: "Warning message"
+use_stdin: true
+`,
+			wantUseStdin: true,
+			wantType:     "output",
+			wantCommand:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var action BaseAction
+			err := yaml.Unmarshal([]byte(tt.yamlContent), &action)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal YAML: %v", err)
+			}
+
+			if action.UseStdin != tt.wantUseStdin {
+				t.Errorf("UseStdin: expected %v, got %v", tt.wantUseStdin, action.UseStdin)
+			}
+			if action.Type != tt.wantType {
+				t.Errorf("Type: expected %s, got %s", tt.wantType, action.Type)
+			}
+			if action.Command != tt.wantCommand {
+				t.Errorf("Command: expected %s, got %s", tt.wantCommand, action.Command)
+			}
+		})
+	}
+}
+
+func TestPreToolUseAction_UnmarshalYAML_WithBaseAction(t *testing.T) {
+	tests := []struct {
+		name         string
+		yamlContent  string
+		wantUseStdin bool
+		wantType     string
+		wantCommand  string
+	}{
+		{
+			name: "PreToolUseAction with use_stdin: true",
+			yamlContent: `
+type: command
+command: "python validate.py"
+use_stdin: true
+`,
+			wantUseStdin: true,
+			wantType:     "command",
+			wantCommand:  "python validate.py",
+		},
+		{
+			name: "PreToolUseAction with use_stdin omitted",
+			yamlContent: `
+type: output
+message: "Test message"
+`,
+			wantUseStdin: false,
+			wantType:     "output",
+			wantCommand:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var action PreToolUseAction
+			err := yaml.Unmarshal([]byte(tt.yamlContent), &action)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal YAML: %v", err)
+			}
+
+			if action.UseStdin != tt.wantUseStdin {
+				t.Errorf("UseStdin: expected %v, got %v", tt.wantUseStdin, action.UseStdin)
+			}
+			if action.Type != tt.wantType {
+				t.Errorf("Type: expected %s, got %s", tt.wantType, action.Type)
+			}
+			if action.Command != tt.wantCommand {
+				t.Errorf("Command: expected %s, got %s", tt.wantCommand, action.Command)
 			}
 		})
 	}

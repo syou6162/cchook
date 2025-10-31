@@ -55,9 +55,11 @@ func TestGetExitStatus(t *testing.T) {
 func TestActionStructsWithExitStatus(t *testing.T) {
 	t.Run("PreToolUseAction with ExitStatus", func(t *testing.T) {
 		action := PreToolUseAction{
-			Type:       "output",
-			Message:    "test message",
-			ExitStatus: intPtr(1),
+			BaseAction: BaseAction{
+				Type:       "output",
+				Message:    "test message",
+				ExitStatus: intPtr(1),
+			},
 		}
 
 		if action.ExitStatus == nil {
@@ -70,9 +72,11 @@ func TestActionStructsWithExitStatus(t *testing.T) {
 
 	t.Run("PostToolUseAction with ExitStatus", func(t *testing.T) {
 		action := PostToolUseAction{
-			Type:       "output",
-			Message:    "test message",
-			ExitStatus: intPtr(2),
+			BaseAction: BaseAction{
+				Type:       "output",
+				Message:    "test message",
+				ExitStatus: intPtr(2),
+			},
 		}
 
 		if action.ExitStatus == nil {
@@ -85,9 +89,11 @@ func TestActionStructsWithExitStatus(t *testing.T) {
 
 	t.Run("NotificationAction with ExitStatus", func(t *testing.T) {
 		action := NotificationAction{
-			Type:       "output",
-			Message:    "test message",
-			ExitStatus: intPtr(0),
+			BaseAction: BaseAction{
+				Type:       "output",
+				Message:    "test message",
+				ExitStatus: intPtr(0),
+			},
 		}
 
 		if action.ExitStatus == nil {
@@ -100,9 +106,11 @@ func TestActionStructsWithExitStatus(t *testing.T) {
 
 	t.Run("StopAction with ExitStatus", func(t *testing.T) {
 		action := StopAction{
-			Type:       "output",
-			Message:    "test message",
-			ExitStatus: intPtr(2),
+			BaseAction: BaseAction{
+				Type:       "output",
+				Message:    "test message",
+				ExitStatus: intPtr(2),
+			},
 		}
 
 		if action.ExitStatus == nil {
@@ -115,9 +123,11 @@ func TestActionStructsWithExitStatus(t *testing.T) {
 
 	t.Run("SubagentStopAction with ExitStatus", func(t *testing.T) {
 		action := SubagentStopAction{
-			Type:       "output",
-			Message:    "test message",
-			ExitStatus: intPtr(1),
+			BaseAction: BaseAction{
+				Type:       "output",
+				Message:    "test message",
+				ExitStatus: intPtr(1),
+			},
 		}
 
 		if action.ExitStatus == nil {
@@ -130,9 +140,11 @@ func TestActionStructsWithExitStatus(t *testing.T) {
 
 	t.Run("PreCompactAction with ExitStatus", func(t *testing.T) {
 		action := PreCompactAction{
-			Type:       "output",
-			Message:    "test message",
-			ExitStatus: intPtr(2),
+			BaseAction: BaseAction{
+				Type:       "output",
+				Message:    "test message",
+				ExitStatus: intPtr(2),
+			},
 		}
 
 		if action.ExitStatus == nil {
@@ -223,9 +235,11 @@ func TestHandleOutput(t *testing.T) {
 
 func TestExecuteNotificationAction_WithExitError(t *testing.T) {
 	action := NotificationAction{
-		Type:       "output",
-		Message:    "Notification error message",
-		ExitStatus: intPtr(2),
+		BaseAction: BaseAction{
+			Type:       "output",
+			Message:    "Notification error message",
+			ExitStatus: intPtr(2),
+		},
 	}
 
 	err := executeNotificationAction(action, &NotificationInput{}, map[string]interface{}{})
@@ -270,9 +284,11 @@ func TestNewExitError(t *testing.T) {
 
 func TestExecuteSessionEndAction_WithExitError(t *testing.T) {
 	action := SessionEndAction{
-		Type:       "output",
-		Message:    "SessionEnd error message",
-		ExitStatus: intPtr(2),
+		BaseAction: BaseAction{
+			Type:       "output",
+			Message:    "SessionEnd error message",
+			ExitStatus: intPtr(2),
+		},
 	}
 
 	err := executeSessionEndAction(action, &SessionEndInput{}, map[string]interface{}{})
@@ -316,9 +332,11 @@ func TestExecuteSessionEndAction_OutputWithDefaultExitStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			action := SessionEndAction{
-				Type:       "output",
-				Message:    "SessionEnd message",
-				ExitStatus: tt.exitStatus,
+				BaseAction: BaseAction{
+					Type:       "output",
+					Message:    "SessionEnd message",
+					ExitStatus: tt.exitStatus,
+				},
 			}
 
 			err := executeSessionEndAction(action, &SessionEndInput{}, map[string]interface{}{})
