@@ -17,7 +17,7 @@ func handleOutput(message string, exitStatus *int, rawJSON interface{}) error {
 	return nil
 }
 
-func executeNotificationAction(action NotificationAction, input *NotificationInput, rawJSON interface{}) error {
+func executeNotificationAction(action Action, input *NotificationInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -30,7 +30,7 @@ func executeNotificationAction(action NotificationAction, input *NotificationInp
 	return nil
 }
 
-func executeStopAction(action StopAction, input *StopInput, rawJSON interface{}) error {
+func executeStopAction(action Action, input *StopInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -44,7 +44,7 @@ func executeStopAction(action StopAction, input *StopInput, rawJSON interface{})
 	return nil
 }
 
-func executeSubagentStopAction(action SubagentStopAction, input *SubagentStopInput, rawJSON interface{}) error {
+func executeSubagentStopAction(action Action, input *SubagentStopInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -58,7 +58,7 @@ func executeSubagentStopAction(action SubagentStopAction, input *SubagentStopInp
 	return nil
 }
 
-func executePreCompactAction(action PreCompactAction, input *PreCompactInput, rawJSON interface{}) error {
+func executePreCompactAction(action Action, input *PreCompactInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -71,7 +71,7 @@ func executePreCompactAction(action PreCompactAction, input *PreCompactInput, ra
 	return nil
 }
 
-func executeSessionStartAction(action SessionStartAction, input *SessionStartInput, rawJSON interface{}) error {
+func executeSessionStartAction(action Action, input *SessionStartInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -90,7 +90,7 @@ func executeSessionStartAction(action SessionStartAction, input *SessionStartInp
 	return nil
 }
 
-func executeUserPromptSubmitAction(action UserPromptSubmitAction, input *UserPromptSubmitInput, rawJSON interface{}) error {
+func executeUserPromptSubmitAction(action Action, input *UserPromptSubmitInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -110,7 +110,7 @@ func executeUserPromptSubmitAction(action UserPromptSubmitAction, input *UserPro
 	return nil
 }
 
-func executePreToolUseAction(action PreToolUseAction, input *PreToolUseInput, rawJSON interface{}) error {
+func executePreToolUseAction(action Action, input *PreToolUseInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -124,7 +124,7 @@ func executePreToolUseAction(action PreToolUseAction, input *PreToolUseInput, ra
 	return nil
 }
 
-func executePostToolUseAction(action PostToolUseAction, input *PostToolUseInput, rawJSON interface{}) error {
+func executePostToolUseAction(action Action, input *PostToolUseInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -149,7 +149,7 @@ func getExitStatus(exitStatus *int, actionType string) int {
 	return 0
 }
 
-func executeSessionEndAction(action SessionEndAction, input *SessionEndInput, rawJSON interface{}) error {
+func executeSessionEndAction(action Action, input *SessionEndInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
