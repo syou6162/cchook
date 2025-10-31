@@ -1344,3 +1344,94 @@ func TestCheckSessionEndCondition(t *testing.T) {
 		})
 	}
 }
+
+func TestRunCommand_WithStdin(t *testing.T) {
+	tests := []struct {
+		name        string
+		command     string
+		useStdin    bool
+		data        interface{}
+		wantErr     bool
+		wantErrMsg  string
+		validateOut func(t *testing.T) // Optional validation function
+	}{
+		{
+			name:     "useStdin=false, simple command",
+			command:  "echo 'test'",
+			useStdin: false,
+			data:     nil,
+			wantErr:  false,
+		},
+		{
+			name:     "useStdin=true, simple data",
+			command:  "cat",
+			useStdin: true,
+			data: map[string]interface{}{
+				"tool_name": "Write",
+				"file_path": "test.go",
+			},
+			wantErr: false,
+		},
+		{
+			name:     "useStdin=true, complex nested data",
+			command:  "cat > /dev/null",
+			useStdin: true,
+			data: map[string]interface{}{
+				"session_id": "test123",
+				"tool_input": map[string]interface{}{
+					"file_path": "main.go",
+					"content":   "package main\n\nfunc main() {}",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:       "useStdin=true, unmarshalable data (channel)",
+			command:    "cat",
+			useStdin:   true,
+			data:       make(chan int), // channels cannot be marshaled to JSON
+			wantErr:    true,
+			wantErrMsg: "failed to marshal JSON for stdin",
+		},
+		{
+			name:       "empty command",
+			command:    "",
+			useStdin:   false,
+			data:       nil,
+			wantErr:    true,
+			wantErrMsg: "empty command",
+		},
+		{
+			name:       "empty command with useStdin",
+			command:    "   ",
+			useStdin:   true,
+			data:       map[string]string{"key": "value"},
+			wantErr:    true,
+			wantErrMsg: "empty command",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := runCommand(tt.command, tt.useStdin, tt.data)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("runCommand() expected error containing %q, got nil", tt.wantErrMsg)
+					return
+				}
+				if !strings.Contains(err.Error(), tt.wantErrMsg) {
+					t.Errorf("runCommand() error = %v, want error containing %q", err, tt.wantErrMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("runCommand() unexpected error = %v", err)
+				}
+			}
+
+			if tt.validateOut != nil {
+				tt.validateOut(t)
+			}
+		})
+	}
+}
