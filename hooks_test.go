@@ -134,23 +134,19 @@ func TestExecuteSessionStartHooks(t *testing.T) {
 		SessionStart: []SessionStartHook{
 			{
 				Matcher: "startup",
-				Actions: []SessionStartAction{
+				Actions: []Action{
 					{
-						BaseAction: BaseAction{
-							Type:    "output",
-							Message: "Session started: {.session_id}",
-						},
+						Type:    "output",
+						Message: "Session started: {.session_id}",
 					},
 				},
 			},
 			{
 				Matcher: "resume",
-				Actions: []SessionStartAction{
+				Actions: []Action{
 					{
-						BaseAction: BaseAction{
-							Type:    "output",
-							Message: "Session resumed",
-						},
+						Type:    "output",
+						Message: "Session resumed",
 					},
 				},
 			},
@@ -257,12 +253,10 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 				Conditions: []Condition{
 					{Type: ConditionFileExists, Value: "go.mod"},
 				},
-				Actions: []SessionStartAction{
+				Actions: []Action{
 					{
-						BaseAction: BaseAction{
-							Type:    "output",
-							Message: "Go project detected",
-						},
+						Type:    "output",
+						Message: "Go project detected",
 					},
 				},
 			},
@@ -271,12 +265,10 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 				Conditions: []Condition{
 					{Type: ConditionFileExists, Value: "nonexistent.file"},
 				},
-				Actions: []SessionStartAction{
+				Actions: []Action{
 					{
-						BaseAction: BaseAction{
-							Type:    "output",
-							Message: "This should not appear",
-						},
+						Type:    "output",
+						Message: "This should not appear",
 					},
 				},
 			},
@@ -285,12 +277,10 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 				Conditions: []Condition{
 					{Type: ConditionFileExistsRecursive, Value: "hooks_test.go"},
 				},
-				Actions: []SessionStartAction{
+				Actions: []Action{
 					{
-						BaseAction: BaseAction{
-							Type:    "output",
-							Message: "Test file found recursively",
-						},
+						Type:    "output",
+						Message: "Test file found recursively",
 					},
 				},
 			},
@@ -368,13 +358,11 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 				Conditions: []Condition{
 					{Type: ConditionPromptRegex, Value: "block"},
 				},
-				Actions: []UserPromptSubmitAction{
+				Actions: []Action{
 					{
-						BaseAction: BaseAction{
-							Type:       "output",
-							Message:    "Blocked prompt",
-							ExitStatus: intPtr(2),
-						},
+						Type:       "output",
+						Message:    "Blocked prompt",
+						ExitStatus: intPtr(2),
 					},
 				},
 			},
@@ -493,9 +481,8 @@ func TestExecutePreToolUseHook_OutputAction(t *testing.T) {
 
 	exitStatus := 0
 	hook := PreToolUseHook{
-		Actions: []PreToolUseAction{
-			{BaseAction: BaseAction{Type: "output", Message: "Test message", ExitStatus: &exitStatus}},
-		},
+		Actions: []Action{
+			{Type: "output", Message: "Test message", ExitStatus: &exitStatus}},
 	}
 
 	input := &PreToolUseInput{ToolName: "Write"}
@@ -522,9 +509,8 @@ func TestExecutePreToolUseHook_OutputAction(t *testing.T) {
 
 func TestExecutePreToolUseHook_CommandAction(t *testing.T) {
 	hook := PreToolUseHook{
-		Actions: []PreToolUseAction{
-			{BaseAction: BaseAction{Type: "command", Command: "echo test"}},
-		},
+		Actions: []Action{
+			{Type: "command", Command: "echo test"}},
 	}
 
 	input := &PreToolUseInput{ToolName: "Write"}
@@ -537,9 +523,8 @@ func TestExecutePreToolUseHook_CommandAction(t *testing.T) {
 
 func TestExecutePreToolUseHook_CommandWithVariables(t *testing.T) {
 	hook := PreToolUseHook{
-		Actions: []PreToolUseAction{
-			{BaseAction: BaseAction{Type: "command", Command: "echo {.tool_input.file_path}"}},
-		},
+		Actions: []Action{
+			{Type: "command", Command: "echo {.tool_input.file_path}"}},
 	}
 
 	input := &PreToolUseInput{
@@ -563,8 +548,8 @@ func TestExecutePreToolUseHook_CommandWithVariables(t *testing.T) {
 
 func TestExecutePreToolUseHook_FailingCommand(t *testing.T) {
 	hook := PreToolUseHook{
-		Actions: []PreToolUseAction{
-			{BaseAction: BaseAction{Type: "command", Command: "false"}}, // 常に失敗するコマンド
+		Actions: []Action{
+			{Type: "command", Command: "false"}, // 常に失敗するコマンド
 		},
 	}
 
@@ -578,8 +563,8 @@ func TestExecutePreToolUseHook_FailingCommand(t *testing.T) {
 
 func TestExecutePreToolUseHook_FailingCommandReturnsExit2(t *testing.T) {
 	hook := PreToolUseHook{
-		Actions: []PreToolUseAction{
-			{BaseAction: BaseAction{Type: "command", Command: "false"}}, // 失敗するコマンド
+		Actions: []Action{
+			{Type: "command", Command: "false"}, // 失敗するコマンド
 		},
 	}
 
@@ -618,8 +603,8 @@ func TestExecuteUserPromptSubmitHook_FailingCommandReturnsExit2(t *testing.T) {
 	config := &Config{
 		UserPromptSubmit: []UserPromptSubmitHook{
 			{
-				Actions: []UserPromptSubmitAction{
-					{BaseAction: BaseAction{Type: "command", Command: "false"}}, // 失敗するコマンド
+				Actions: []Action{
+					{Type: "command", Command: "false"}, // 失敗するコマンド
 				},
 			},
 		},
@@ -654,8 +639,8 @@ func TestExecuteStopHook_FailingCommandReturnsExit2(t *testing.T) {
 	config := &Config{
 		Stop: []StopHook{
 			{
-				Actions: []StopAction{
-					{BaseAction: BaseAction{Type: "command", Command: "false"}}, // 失敗するコマンド
+				Actions: []Action{
+					{Type: "command", Command: "false"}, // 失敗するコマンド
 				},
 			},
 		},
@@ -689,8 +674,8 @@ func TestExecuteSubagentStopHook_FailingCommandReturnsExit2(t *testing.T) {
 	config := &Config{
 		SubagentStop: []SubagentStopHook{
 			{
-				Actions: []SubagentStopAction{
-					{BaseAction: BaseAction{Type: "command", Command: "false"}}, // 失敗するコマンド
+				Actions: []Action{
+					{Type: "command", Command: "false"}, // 失敗するコマンド
 				},
 			},
 		},
@@ -723,9 +708,8 @@ func TestExecuteSubagentStopHook_FailingCommandReturnsExit2(t *testing.T) {
 func TestExecutePostToolUseHook_Success(t *testing.T) {
 	exitStatus := 0
 	hook := PostToolUseHook{
-		Actions: []PostToolUseAction{
-			{BaseAction: BaseAction{Type: "output", Message: "Post-processing complete", ExitStatus: &exitStatus}},
-		},
+		Actions: []Action{
+			{Type: "output", Message: "Post-processing complete", ExitStatus: &exitStatus}},
 	}
 
 	input := &PostToolUseInput{ToolName: "Edit"}
@@ -746,8 +730,8 @@ func TestExecutePreToolUseHooks_Integration(t *testing.T) {
 		PreToolUse: []PreToolUseHook{
 			{
 				Matcher: "Write",
-				Actions: []PreToolUseAction{
-					{BaseAction: BaseAction{Type: "command", Command: "false"}}, // 失敗するコマンド
+				Actions: []Action{
+					{Type: "command", Command: "false"}, // 失敗するコマンド
 				},
 			},
 		},
@@ -781,8 +765,8 @@ func TestExecutePostToolUseHooks_Integration(t *testing.T) {
 		PostToolUse: []PostToolUseHook{
 			{
 				Matcher: "Edit",
-				Actions: []PostToolUseAction{
-					{BaseAction: BaseAction{Type: "output", Message: "File processed", ExitStatus: &[]int{0}[0]}},
+				Actions: []Action{
+					{Type: "output", Message: "File processed", ExitStatus: &[]int{0}[0]},
 				},
 			},
 		},
@@ -844,7 +828,7 @@ func TestDryRunPreToolUseHooks_NoMatch(t *testing.T) {
 
 	config := &Config{
 		PreToolUse: []PreToolUseHook{
-			{Matcher: "Edit", Actions: []PreToolUseAction{{BaseAction: BaseAction{Type: "output", Message: "test", ExitStatus: &[]int{0}[0]}}}},
+			{Matcher: "Edit", Actions: []Action{{Type: "output", Message: "test", ExitStatus: &[]int{0}[0]}}},
 		},
 	}
 
@@ -880,9 +864,9 @@ func TestDryRunPreToolUseHooks_WithMatch(t *testing.T) {
 		PreToolUse: []PreToolUseHook{
 			{
 				Matcher: "Write",
-				Actions: []PreToolUseAction{
-					{BaseAction: BaseAction{Type: "command", Command: "echo {.tool_input.file_path}"}},
-					{BaseAction: BaseAction{Type: "output", Message: "Processing...", ExitStatus: &[]int{0}[0]}},
+				Actions: []Action{
+					{Type: "command", Command: "echo {.tool_input.file_path}"},
+					{Type: "output", Message: "Processing...", ExitStatus: &[]int{0}[0]},
 				},
 			},
 		},
@@ -949,12 +933,10 @@ func TestExecuteSessionEndHooks(t *testing.T) {
 						Value: "clear",
 					},
 				},
-				Actions: []SessionEndAction{
+				Actions: []Action{
 					{
-						BaseAction: BaseAction{
-							Type:    "output",
-							Message: "Session cleared: {.session_id}",
-						},
+						Type:    "output",
+						Message: "Session cleared: {.session_id}",
 					},
 				},
 			},
@@ -965,12 +947,10 @@ func TestExecuteSessionEndHooks(t *testing.T) {
 						Value: "logout",
 					},
 				},
-				Actions: []SessionEndAction{
+				Actions: []Action{
 					{
-						BaseAction: BaseAction{
-							Type:    "output",
-							Message: "Logged out from session",
-						},
+						Type:    "output",
+						Message: "Logged out from session",
 					},
 				},
 			},
@@ -981,12 +961,10 @@ func TestExecuteSessionEndHooks(t *testing.T) {
 						Value: tmpFile.Name(),
 					},
 				},
-				Actions: []SessionEndAction{
+				Actions: []Action{
 					{
-						BaseAction: BaseAction{
-							Type:    "output",
-							Message: "Cleanup: temp file exists",
-						},
+						Type:    "output",
+						Message: "Cleanup: temp file exists",
 					},
 				},
 			},
@@ -1003,12 +981,10 @@ func TestExecuteSessionEndHooks(t *testing.T) {
 						Value: "clear",
 					},
 				},
-				Actions: []SessionEndAction{
+				Actions: []Action{
 					{
-						BaseAction: BaseAction{
-							Type:    "output",
-							Message: "This should not be printed",
-						},
+						Type:    "output",
+						Message: "This should not be printed",
 					},
 				},
 			},
@@ -1156,12 +1132,10 @@ func TestExecuteSessionEndHooks_CommandAction(t *testing.T) {
 						Value: "clear",
 					},
 				},
-				Actions: []SessionEndAction{
+				Actions: []Action{
 					{
-						BaseAction: BaseAction{
-							Type:    "command",
-							Command: "echo 'Session cleared' > " + tmpFile.Name(),
-						},
+						Type:    "command",
+						Command: "echo 'Session cleared' > " + tmpFile.Name(),
 					},
 				},
 			},
