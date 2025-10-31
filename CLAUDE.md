@@ -55,6 +55,19 @@ PostToolUse:
     actions:
       - type: output
         message: "Consider adding tests for {.tool_input.file_path}"
+
+# Pass complex JSON data to external commands via stdin
+PreToolUse:
+  - matcher: "Write|Edit"
+    conditions:
+      - type: file_extension
+        value: ".sql"
+    actions:
+      - type: command
+        # use_stdin: true safely handles special characters (newlines, quotes, etc.)
+        # without shell escaping issues
+        command: "python validate_sql.py"
+        use_stdin: true
 ```
 
 ## Development Commands
