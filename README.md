@@ -291,6 +291,8 @@ PreToolUse:
   - matcher: "mcp__codex__codex"
     actions:
       - type: command
+        # use_stdin: true is required here because tool_input.prompt may contain
+        # newlines, quotes, and special characters that would break shell escaping
         command: "jq -r .tool_input.prompt | python analyze_prompt.py"
         use_stdin: true
 ```
