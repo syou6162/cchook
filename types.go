@@ -159,49 +159,49 @@ func (s *SessionEndInput) GetToolName() string {
 type PreToolUseHook struct {
 	Matcher    string             `yaml:"matcher"`
 	Conditions []Condition        `yaml:"conditions,omitempty"`
-	Actions    []PreToolUseAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 type PostToolUseHook struct {
 	Matcher    string              `yaml:"matcher"`
 	Conditions []Condition         `yaml:"conditions,omitempty"`
-	Actions    []PostToolUseAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 type NotificationHook struct {
 	Conditions []Condition          `yaml:"conditions,omitempty"`
-	Actions    []NotificationAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 type StopHook struct {
 	Conditions []Condition  `yaml:"conditions,omitempty"`
-	Actions    []StopAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 type SubagentStopHook struct {
 	Conditions []Condition          `yaml:"conditions,omitempty"`
-	Actions    []SubagentStopAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 type PreCompactHook struct {
 	Conditions []Condition        `yaml:"conditions,omitempty"`
-	Actions    []PreCompactAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 type SessionStartHook struct {
 	Matcher    string               `yaml:"matcher"` // "startup", "resume", or "clear"
 	Conditions []Condition          `yaml:"conditions,omitempty"`
-	Actions    []SessionStartAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 type UserPromptSubmitHook struct {
 	Conditions []Condition              `yaml:"conditions,omitempty"`
-	Actions    []UserPromptSubmitAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 type SessionEndHook struct {
 	Conditions []Condition        `yaml:"conditions,omitempty"`
-	Actions    []SessionEndAction `yaml:"actions"`
+	Actions    []Action `yaml:"actions"`
 }
 
 // 共通の条件構造体
@@ -305,50 +305,13 @@ type Condition struct {
 	Value string        `yaml:"value"`
 }
 
-// BaseAction - 全てのActionタイプで共通のフィールド
-type BaseAction struct {
+// Action - 全てのイベントタイプで共通のアクション構造体
+type Action struct {
 	Type       string `yaml:"type"`
 	Command    string `yaml:"command,omitempty"`
 	Message    string `yaml:"message,omitempty"`
 	UseStdin   bool   `yaml:"use_stdin,omitempty"`
 	ExitStatus *int   `yaml:"exit_status,omitempty"`
-}
-
-// イベントタイプ毎のアクション構造体
-type PreToolUseAction struct {
-	BaseAction `yaml:",inline"`
-}
-
-type PostToolUseAction struct {
-	BaseAction `yaml:",inline"`
-}
-
-type NotificationAction struct {
-	BaseAction `yaml:",inline"`
-}
-
-type StopAction struct {
-	BaseAction `yaml:",inline"`
-}
-
-type SubagentStopAction struct {
-	BaseAction `yaml:",inline"`
-}
-
-type PreCompactAction struct {
-	BaseAction `yaml:",inline"`
-}
-
-type SessionStartAction struct {
-	BaseAction `yaml:",inline"`
-}
-
-type UserPromptSubmitAction struct {
-	BaseAction `yaml:",inline"`
-}
-
-type SessionEndAction struct {
-	BaseAction `yaml:",inline"`
 }
 
 // 設定ファイル構造
