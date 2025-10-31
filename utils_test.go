@@ -533,14 +533,14 @@ func TestParseInput_InvalidJSON(t *testing.T) {
 
 func TestRunCommand_Success(t *testing.T) {
 	// 成功するコマンドをテスト
-	err := runCommand("echo test")
+	err := runCommand("echo test", false, nil)
 	if err != nil {
 		t.Errorf("runCommand() error = %v, expected nil", err)
 	}
 }
 
 func TestRunCommand_EmptyCommand(t *testing.T) {
-	err := runCommand("")
+	err := runCommand("", false, nil)
 	if err == nil {
 		t.Error("Expected error for empty command, got nil")
 	}
@@ -552,7 +552,7 @@ func TestRunCommand_EmptyCommand(t *testing.T) {
 
 func TestRunCommand_CommandNotFound(t *testing.T) {
 	// 存在しないコマンドをテスト
-	err := runCommand("nonexistent-command-12345")
+	err := runCommand("nonexistent-command-12345", false, nil)
 	if err == nil {
 		t.Error("Expected error for non-existent command, got nil")
 	}
@@ -560,7 +560,7 @@ func TestRunCommand_CommandNotFound(t *testing.T) {
 
 func TestRunCommand_CommandFails(t *testing.T) {
 	// 失敗するコマンドをテスト（falseコマンドは常に終了コード1を返す）
-	err := runCommand("false")
+	err := runCommand("false", false, nil)
 	if err == nil {
 		t.Error("Expected error for failing command, got nil")
 	}
@@ -1005,12 +1005,12 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Git リポジトリを初期化
-	if err := runCommand("cd " + tmpDir + " && git init"); err != nil {
+	if err := runCommand("cd "+tmpDir+" && git init", false, nil); err != nil {
 		t.Fatalf("Failed to init git repo: %v", err)
 	}
 
 	// Git設定（コミット用）
-	if err := runCommand("cd " + tmpDir + " && git config user.email 'test@example.com' && git config user.name 'Test User'"); err != nil {
+	if err := runCommand("cd "+tmpDir+" && git config user.email 'test@example.com' && git config user.name 'Test User'", false, nil); err != nil {
 		t.Fatalf("Failed to configure git: %v", err)
 	}
 
@@ -1019,7 +1019,7 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	if err := runCommand("cd " + tmpDir + " && git add tracked.txt && git commit -m 'test'"); err != nil {
+	if err := runCommand("cd "+tmpDir+" && git add tracked.txt && git commit -m 'test'", false, nil); err != nil {
 		t.Fatalf("Failed to add file to git: %v", err)
 	}
 

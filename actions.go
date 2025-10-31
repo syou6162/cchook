@@ -21,7 +21,7 @@ func executeNotificationAction(action NotificationAction, input *NotificationInp
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd); err != nil {
+		if err := runCommand(cmd, false, nil); err != nil {
 			return err
 		}
 	case "output":
@@ -34,7 +34,7 @@ func executeStopAction(action StopAction, input *StopInput, rawJSON interface{})
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd); err != nil {
+		if err := runCommand(cmd, false, nil); err != nil {
 			// Stopでコマンドが失敗した場合はexit 2で停止をブロック
 			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
 		}
@@ -48,7 +48,7 @@ func executeSubagentStopAction(action SubagentStopAction, input *SubagentStopInp
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd); err != nil {
+		if err := runCommand(cmd, false, nil); err != nil {
 			// SubagentStopでコマンドが失敗した場合はexit 2でサブエージェント停止をブロック
 			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
 		}
@@ -62,7 +62,7 @@ func executePreCompactAction(action PreCompactAction, input *PreCompactInput, ra
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd); err != nil {
+		if err := runCommand(cmd, false, nil); err != nil {
 			return err
 		}
 	case "output":
@@ -75,7 +75,7 @@ func executeSessionStartAction(action SessionStartAction, input *SessionStartInp
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd); err != nil {
+		if err := runCommand(cmd, false, nil); err != nil {
 			return err
 		}
 	case "output":
@@ -94,7 +94,7 @@ func executeUserPromptSubmitAction(action UserPromptSubmitAction, input *UserPro
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd); err != nil {
+		if err := runCommand(cmd, false, nil); err != nil {
 			// UserPromptSubmitでコマンドが失敗した場合はexit 2でプロンプト処理をブロック
 			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
 		}
@@ -114,7 +114,7 @@ func executePreToolUseAction(action PreToolUseAction, input *PreToolUseInput, ra
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd); err != nil {
+		if err := runCommand(cmd, false, nil); err != nil {
 			// PreToolUseでコマンドが失敗した場合はexit 2でツール実行をブロック
 			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
 		}
@@ -128,7 +128,7 @@ func executePostToolUseAction(action PostToolUseAction, input *PostToolUseInput,
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd); err != nil {
+		if err := runCommand(cmd, false, nil); err != nil {
 			return err
 		}
 	case "output":
@@ -153,7 +153,7 @@ func executeSessionEndAction(action SessionEndAction, input *SessionEndInput, ra
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd); err != nil {
+		if err := runCommand(cmd, false, nil); err != nil {
 			return err
 		}
 	case "output":
