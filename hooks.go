@@ -145,6 +145,9 @@ func dryRunPreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inter
 				case "command":
 					cmd := unifiedTemplateReplace(action.Command, rawJSON)
 					fmt.Printf("  Command: %s\n", cmd)
+					if action.UseStdin {
+						fmt.Printf("  UseStdin: true\n")
+					}
 				case "output":
 					fmt.Printf("  Message: %s\n", action.Message)
 				}
@@ -174,6 +177,9 @@ func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON int
 				case "command":
 					cmd := unifiedTemplateReplace(action.Command, rawJSON)
 					fmt.Printf("  Command: %s\n", cmd)
+					if action.UseStdin {
+						fmt.Printf("  UseStdin: true\n")
+					}
 				case "output":
 					fmt.Printf("  Message: %s\n", action.Message)
 				}
@@ -221,6 +227,9 @@ func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON i
 			case "command":
 				cmd := unifiedTemplateReplace(action.Command, rawJSON)
 				fmt.Printf("  Command: %s\n", cmd)
+				if action.UseStdin {
+					fmt.Printf("  UseStdin: true\n")
+				}
 			case "output":
 				fmt.Printf("  Message: %s\n", action.Message)
 			}
@@ -268,6 +277,9 @@ func dryRunStopHooks(config *Config, input *StopInput, rawJSON interface{}) erro
 			case "command":
 				cmd := unifiedTemplateReplace(action.Command, rawJSON)
 				fmt.Printf("  Command: %s\n", cmd)
+				if action.UseStdin {
+					fmt.Printf("  UseStdin: true\n")
+				}
 			case "output":
 				fmt.Printf("  Message: %s\n", action.Message)
 			}
@@ -315,6 +327,9 @@ func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON i
 			case "command":
 				cmd := unifiedTemplateReplace(action.Command, rawJSON)
 				fmt.Printf("  Command: %s\n", cmd)
+				if action.UseStdin {
+					fmt.Printf("  UseStdin: true\n")
+				}
 			case "output":
 				fmt.Printf("  Message: %s\n", action.Message)
 			}
@@ -362,6 +377,9 @@ func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON inter
 			case "command":
 				cmd := unifiedTemplateReplace(action.Command, rawJSON)
 				fmt.Printf("  Command: %s\n", cmd)
+				if action.UseStdin {
+					fmt.Printf("  UseStdin: true\n")
+				}
 			case "output":
 				fmt.Printf("  Message: %s\n", action.Message)
 			}
@@ -414,6 +432,9 @@ func dryRunSessionStartHooks(config *Config, input *SessionStartInput, rawJSON i
 			case "command":
 				cmd := unifiedTemplateReplace(action.Command, rawJSON)
 				fmt.Printf("  Command: %s\n", cmd)
+				if action.UseStdin {
+					fmt.Printf("  UseStdin: true\n")
+				}
 			case "output":
 				fmt.Printf("  Message: %s\n", action.Message)
 			}
@@ -461,6 +482,9 @@ func dryRunUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, r
 			case "command":
 				cmd := unifiedTemplateReplace(action.Command, rawJSON)
 				fmt.Printf("  Command: %s\n", cmd)
+				if action.UseStdin {
+					fmt.Printf("  UseStdin: true\n")
+				}
 			case "output":
 				fmt.Printf("  Message: %s\n", action.Message)
 			}
@@ -815,6 +839,9 @@ func dryRunSessionEndHooks(config *Config, input *SessionEndInput, rawJSON inter
 			case "command":
 				cmd := unifiedTemplateReplace(action.Command, rawJSON)
 				fmt.Printf("  Command: %s\n", cmd)
+				if action.UseStdin {
+					fmt.Printf("  UseStdin: true\n")
+				}
 			case "output":
 				msg := unifiedTemplateReplace(action.Message, rawJSON)
 				fmt.Printf("  Message: %s\n", msg)
