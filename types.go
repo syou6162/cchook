@@ -324,68 +324,50 @@ type Condition struct {
 	Value string        `yaml:"value"`
 }
 
-// イベントタイプ毎のアクション構造体
-type PreToolUseAction struct {
+// BaseAction - 全てのActionタイプで共通のフィールド
+type BaseAction struct {
 	Type       string `yaml:"type"`
 	Command    string `yaml:"command,omitempty"`
 	Message    string `yaml:"message,omitempty"`
+	UseStdin   bool   `yaml:"use_stdin,omitempty"`
 	ExitStatus *int   `yaml:"exit_status,omitempty"`
+}
+
+// イベントタイプ毎のアクション構造体
+type PreToolUseAction struct {
+	BaseAction `yaml:",inline"`
 }
 
 type PostToolUseAction struct {
-	Type       string `yaml:"type"`
-	Command    string `yaml:"command,omitempty"`
-	Message    string `yaml:"message,omitempty"`
-	ExitStatus *int   `yaml:"exit_status,omitempty"`
+	BaseAction `yaml:",inline"`
 }
 
 type NotificationAction struct {
-	Type       string `yaml:"type"`
-	Command    string `yaml:"command,omitempty"`
-	Message    string `yaml:"message,omitempty"`
-	ExitStatus *int   `yaml:"exit_status,omitempty"`
+	BaseAction `yaml:",inline"`
 }
 
 type StopAction struct {
-	Type       string `yaml:"type"`
-	Command    string `yaml:"command,omitempty"`
-	Message    string `yaml:"message,omitempty"`
-	ExitStatus *int   `yaml:"exit_status,omitempty"`
+	BaseAction `yaml:",inline"`
 }
 
 type SubagentStopAction struct {
-	Type       string `yaml:"type"`
-	Command    string `yaml:"command,omitempty"`
-	Message    string `yaml:"message,omitempty"`
-	ExitStatus *int   `yaml:"exit_status,omitempty"`
+	BaseAction `yaml:",inline"`
 }
 
 type PreCompactAction struct {
-	Type       string `yaml:"type"`
-	Command    string `yaml:"command,omitempty"`
-	Message    string `yaml:"message,omitempty"`
-	ExitStatus *int   `yaml:"exit_status,omitempty"`
+	BaseAction `yaml:",inline"`
 }
 
 type SessionStartAction struct {
-	Type       string `yaml:"type"`
-	Command    string `yaml:"command,omitempty"`
-	Message    string `yaml:"message,omitempty"`
-	ExitStatus *int   `yaml:"exit_status,omitempty"`
+	BaseAction `yaml:",inline"`
 }
 
 type UserPromptSubmitAction struct {
-	Type       string `yaml:"type"`
-	Command    string `yaml:"command,omitempty"`
-	Message    string `yaml:"message,omitempty"`
-	ExitStatus *int   `yaml:"exit_status,omitempty"`
+	BaseAction `yaml:",inline"`
 }
 
 type SessionEndAction struct {
-	Type       string `yaml:"type"`
-	Command    string `yaml:"command,omitempty"`
-	Message    string `yaml:"message,omitempty"`
-	ExitStatus *int   `yaml:"exit_status,omitempty"`
+	BaseAction `yaml:",inline"`
 }
 
 // 設定ファイル構造

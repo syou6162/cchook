@@ -533,14 +533,14 @@ func TestParseInput_InvalidJSON(t *testing.T) {
 
 func TestRunCommand_Success(t *testing.T) {
 	// 成功するコマンドをテスト
-	err := runCommand("echo test")
+	err := runCommand("echo test", false, nil)
 	if err != nil {
 		t.Errorf("runCommand() error = %v, expected nil", err)
 	}
 }
 
 func TestRunCommand_EmptyCommand(t *testing.T) {
-	err := runCommand("")
+	err := runCommand("", false, nil)
 	if err == nil {
 		t.Error("Expected error for empty command, got nil")
 	}
@@ -552,7 +552,7 @@ func TestRunCommand_EmptyCommand(t *testing.T) {
 
 func TestRunCommand_CommandNotFound(t *testing.T) {
 	// 存在しないコマンドをテスト
-	err := runCommand("nonexistent-command-12345")
+	err := runCommand("nonexistent-command-12345", false, nil)
 	if err == nil {
 		t.Error("Expected error for non-existent command, got nil")
 	}
@@ -560,7 +560,7 @@ func TestRunCommand_CommandNotFound(t *testing.T) {
 
 func TestRunCommand_CommandFails(t *testing.T) {
 	// 失敗するコマンドをテスト（falseコマンドは常に終了コード1を返す）
-	err := runCommand("false")
+	err := runCommand("false", false, nil)
 	if err == nil {
 		t.Error("Expected error for failing command, got nil")
 	}
@@ -1005,12 +1005,12 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Git リポジトリを初期化
-	if err := runCommand("cd " + tmpDir + " && git init"); err != nil {
+	if err := runCommand("cd "+tmpDir+" && git init", false, nil); err != nil {
 		t.Fatalf("Failed to init git repo: %v", err)
 	}
 
 	// Git設定（コミット用）
-	if err := runCommand("cd " + tmpDir + " && git config user.email 'test@example.com' && git config user.name 'Test User'"); err != nil {
+	if err := runCommand("cd "+tmpDir+" && git config user.email 'test@example.com' && git config user.name 'Test User'", false, nil); err != nil {
 		t.Fatalf("Failed to configure git: %v", err)
 	}
 
@@ -1019,7 +1019,7 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	if err := runCommand("cd " + tmpDir + " && git add tracked.txt && git commit -m 'test'"); err != nil {
+	if err := runCommand("cd "+tmpDir+" && git add tracked.txt && git commit -m 'test'", false, nil); err != nil {
 		t.Fatalf("Failed to add file to git: %v", err)
 	}
 
@@ -1340,6 +1340,97 @@ func TestCheckSessionEndCondition(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("checkSessionEndCondition() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRunCommand_WithStdin(t *testing.T) {
+	tests := []struct {
+		name        string
+		command     string
+		useStdin    bool
+		data        interface{}
+		wantErr     bool
+		wantErrMsg  string
+		validateOut func(t *testing.T) // Optional validation function
+	}{
+		{
+			name:     "useStdin=false, simple command",
+			command:  "echo 'test'",
+			useStdin: false,
+			data:     nil,
+			wantErr:  false,
+		},
+		{
+			name:     "useStdin=true, simple data",
+			command:  "cat",
+			useStdin: true,
+			data: map[string]interface{}{
+				"tool_name": "Write",
+				"file_path": "test.go",
+			},
+			wantErr: false,
+		},
+		{
+			name:     "useStdin=true, complex nested data",
+			command:  "cat > /dev/null",
+			useStdin: true,
+			data: map[string]interface{}{
+				"session_id": "test123",
+				"tool_input": map[string]interface{}{
+					"file_path": "main.go",
+					"content":   "package main\n\nfunc main() {}",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:       "useStdin=true, unmarshalable data (channel)",
+			command:    "cat",
+			useStdin:   true,
+			data:       make(chan int), // channels cannot be marshaled to JSON
+			wantErr:    true,
+			wantErrMsg: "failed to marshal JSON for stdin",
+		},
+		{
+			name:       "empty command",
+			command:    "",
+			useStdin:   false,
+			data:       nil,
+			wantErr:    true,
+			wantErrMsg: "empty command",
+		},
+		{
+			name:       "empty command with useStdin",
+			command:    "   ",
+			useStdin:   true,
+			data:       map[string]string{"key": "value"},
+			wantErr:    true,
+			wantErrMsg: "empty command",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := runCommand(tt.command, tt.useStdin, tt.data)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("runCommand() expected error containing %q, got nil", tt.wantErrMsg)
+					return
+				}
+				if !strings.Contains(err.Error(), tt.wantErrMsg) {
+					t.Errorf("runCommand() error = %v, want error containing %q", err, tt.wantErrMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("runCommand() unexpected error = %v", err)
+				}
+			}
+
+			if tt.validateOut != nil {
+				tt.validateOut(t)
 			}
 		})
 	}
