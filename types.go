@@ -155,20 +155,6 @@ func (s *SessionEndInput) GetToolName() string {
 	return ""
 }
 
-// Hook共通インターフェース
-type Hook interface {
-	GetMatcher() string
-	HasConditions() bool
-	GetEventType() HookEventType
-}
-
-// Action共通インターフェース
-type Action interface {
-	GetType() string
-	GetCommand() string
-	GetMessage() string
-}
-
 // イベントタイプ毎の設定構造体
 type PreToolUseHook struct {
 	Matcher    string             `yaml:"matcher"`
@@ -312,11 +298,6 @@ func (c *ConditionType) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return fmt.Errorf("invalid condition type: %s", s)
 	}
 	return nil
-}
-
-// MarshalYAML implements yaml.Marshaler for ConditionType
-func (c ConditionType) MarshalYAML() (interface{}, error) {
-	return c.v, nil
 }
 
 type Condition struct {
