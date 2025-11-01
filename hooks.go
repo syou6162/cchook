@@ -5,6 +5,7 @@ import (
 	"os"
 )
 
+// runHooks parses input and executes hooks for the specified event type.
 func runHooks(config *Config, eventType HookEventType) error {
 	switch eventType {
 	case PreToolUse:
@@ -66,6 +67,7 @@ func runHooks(config *Config, eventType HookEventType) error {
 	}
 }
 
+// dryRunHooks parses input and performs a dry-run of hooks for the specified event type.
 func dryRunHooks(config *Config, eventType HookEventType) error {
 	switch eventType {
 	case PreToolUse:
@@ -127,7 +129,7 @@ func dryRunHooks(config *Config, eventType HookEventType) error {
 	}
 }
 
-// イベント別のdry-run関数
+// dryRunPreToolUseHooks performs a dry-run of PreToolUse hooks, showing what would be executed without actually running.
 func dryRunPreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON interface{}) error {
 	fmt.Println("=== PreToolUse Hooks (Dry Run) ===")
 	executed := false
@@ -160,6 +162,7 @@ func dryRunPreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inter
 	return nil
 }
 
+// dryRunPostToolUseHooks performs a dry-run of PostToolUse hooks, showing what would be executed without actually running.
 func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON interface{}) error {
 	fmt.Println("=== PostToolUse Hooks (Dry Run) ===")
 	executed := false
@@ -192,6 +195,7 @@ func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON int
 	return nil
 }
 
+// dryRunNotificationHooks performs a dry-run of Notification hooks, showing what would be executed without actually running.
 func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON interface{}) error {
 	fmt.Println("=== Notification Hooks (Dry Run) ===")
 
@@ -242,6 +246,7 @@ func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON i
 	return nil
 }
 
+// dryRunStopHooks performs a dry-run of Stop hooks, showing what would be executed without actually running.
 func dryRunStopHooks(config *Config, input *StopInput, rawJSON interface{}) error {
 	fmt.Println("=== Stop Hooks (Dry Run) ===")
 
@@ -292,6 +297,7 @@ func dryRunStopHooks(config *Config, input *StopInput, rawJSON interface{}) erro
 	return nil
 }
 
+// dryRunSubagentStopHooks performs a dry-run of SubagentStop hooks, showing what would be executed without actually running.
 func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON interface{}) error {
 	fmt.Println("=== SubagentStop Hooks (Dry Run) ===")
 
@@ -342,6 +348,7 @@ func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON i
 	return nil
 }
 
+// dryRunPreCompactHooks performs a dry-run of PreCompact hooks, showing what would be executed without actually running.
 func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON interface{}) error {
 	fmt.Println("=== PreCompact Hooks (Dry Run) ===")
 
@@ -392,6 +399,7 @@ func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON inter
 	return nil
 }
 
+// dryRunSessionStartHooks performs a dry-run of SessionStart hooks, showing what would be executed without actually running.
 func dryRunSessionStartHooks(config *Config, input *SessionStartInput, rawJSON interface{}) error {
 	fmt.Println("=== SessionStart Hooks (Dry Run) ===")
 
@@ -447,6 +455,7 @@ func dryRunSessionStartHooks(config *Config, input *SessionStartInput, rawJSON i
 	return nil
 }
 
+// dryRunUserPromptSubmitHooks performs a dry-run of UserPromptSubmit hooks, showing what would be executed without actually running.
 func dryRunUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, rawJSON interface{}) error {
 	fmt.Println("=== UserPromptSubmit Hooks (Dry Run) ===")
 
@@ -497,7 +506,7 @@ func dryRunUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, r
 	return nil
 }
 
-// イベント別のフック実行関数
+// executePreToolUseHooks executes all matching PreToolUse hooks based on matcher and condition checks.
 func executePreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON interface{}) error {
 	for i, hook := range config.PreToolUse {
 		shouldExecute, err := shouldExecutePreToolUseHook(hook, input)
@@ -515,6 +524,7 @@ func executePreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inte
 	return nil
 }
 
+// executePostToolUseHooks executes all matching PostToolUse hooks based on matcher and condition checks.
 func executePostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON interface{}) error {
 	for i, hook := range config.PostToolUse {
 		shouldExecute, err := shouldExecutePostToolUseHook(hook, input)
@@ -531,6 +541,7 @@ func executePostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON in
 	return nil
 }
 
+// executeNotificationHooks executes all matching Notification hooks based on condition checks.
 func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON interface{}) error {
 	for i, hook := range config.Notification {
 		// 条件チェック
@@ -560,6 +571,8 @@ func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON 
 	return nil
 }
 
+// executeStopHooks executes all matching Stop hooks based on condition checks.
+// Returns an error to block the stop operation if any hook fails.
 func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) error {
 	for i, hook := range config.Stop {
 		// 条件チェック
@@ -591,6 +604,8 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) err
 	return nil
 }
 
+// executeSubagentStopHooks executes all matching SubagentStop hooks based on condition checks.
+// Returns an error to block the subagent stop operation if any hook fails.
 func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON interface{}) error {
 	for i, hook := range config.SubagentStop {
 		// 条件チェック
@@ -622,6 +637,7 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 	return nil
 }
 
+// executePreCompactHooks executes all matching PreCompact hooks based on condition checks.
 func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON interface{}) error {
 	for i, hook := range config.PreCompact {
 		// 条件チェック
@@ -651,6 +667,7 @@ func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON inte
 	return nil
 }
 
+// executeSessionStartHooks executes all matching SessionStart hooks based on matcher and condition checks.
 func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON interface{}) error {
 	for i, hook := range config.SessionStart {
 		// マッチャーチェック (startup, resume, clear)
@@ -685,6 +702,8 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 	return nil
 }
 
+// executeUserPromptSubmitHooks executes all matching UserPromptSubmit hooks based on condition checks.
+// Returns an error to block prompt processing if any hook fails.
 func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, rawJSON interface{}) error {
 	for i, hook := range config.UserPromptSubmit {
 		// 条件チェック
@@ -715,6 +734,7 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 	return nil
 }
 
+// shouldExecutePreToolUseHook checks if a PreToolUse hook should be executed based on matcher and conditions.
 func shouldExecutePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput) (bool, error) {
 	// マッチャーチェック
 	if !checkMatcher(hook.Matcher, input.ToolName) {
@@ -735,6 +755,7 @@ func shouldExecutePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput) (b
 	return true, nil
 }
 
+// shouldExecutePostToolUseHook checks if a PostToolUse hook should be executed based on matcher and conditions.
 func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput) (bool, error) {
 	// マッチャーチェック
 	if !checkMatcher(hook.Matcher, input.ToolName) {
@@ -755,6 +776,7 @@ func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput)
 	return true, nil
 }
 
+// executePreToolUseHook executes all actions for a single PreToolUse hook.
 func executePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput, rawJSON interface{}) error {
 	for _, action := range hook.Actions {
 		if err := executePreToolUseAction(action, input, rawJSON); err != nil {
@@ -764,6 +786,7 @@ func executePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput, rawJSON 
 	return nil
 }
 
+// executePostToolUseHook executes all actions for a single PostToolUse hook.
 func executePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput, rawJSON interface{}) error {
 	for _, action := range hook.Actions {
 		if err := executePostToolUseAction(action, input, rawJSON); err != nil {
@@ -773,6 +796,8 @@ func executePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput, rawJS
 	return nil
 }
 
+// executeSessionEndHooks executes all matching SessionEnd hooks based on condition checks.
+// Does not return errors as blocking session end is not meaningful.
 func executeSessionEndHooks(config *Config, input *SessionEndInput, rawJSON interface{}) error {
 	for i, hook := range config.SessionEnd {
 		// 条件チェック
@@ -804,6 +829,7 @@ func executeSessionEndHooks(config *Config, input *SessionEndInput, rawJSON inte
 	return nil
 }
 
+// dryRunSessionEndHooks performs a dry-run of SessionEnd hooks, showing what would be executed without actually running.
 func dryRunSessionEndHooks(config *Config, input *SessionEndInput, rawJSON interface{}) error {
 	fmt.Println("=== SessionEnd Hooks (Dry Run) ===")
 

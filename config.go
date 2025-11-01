@@ -8,6 +8,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// loadConfig loads the configuration from the specified YAML file.
+// If configPath is empty, it uses the default configuration path.
 func loadConfig(configPath string) (*Config, error) {
 	if configPath == "" {
 		configPath = getDefaultConfigPath()
@@ -26,6 +28,9 @@ func loadConfig(configPath string) (*Config, error) {
 	return &config, nil
 }
 
+// getDefaultConfigPath returns the default configuration file path.
+// It uses $XDG_CONFIG_HOME/cchook/config.yaml if XDG_CONFIG_HOME is set,
+// otherwise it uses ~/.config/cchook/config.yaml.
 func getDefaultConfigPath() string {
 	configDir := os.Getenv("XDG_CONFIG_HOME")
 	if configDir == "" {
