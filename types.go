@@ -20,7 +20,7 @@ const (
 	UserPromptSubmit HookEventType = "UserPromptSubmit"
 )
 
-// イベントタイプの妥当性検証
+// IsValid validates whether the HookEventType is a recognized event type.
 func (e HookEventType) IsValid() bool {
 	switch e {
 	case PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact, SessionStart, SessionEnd, UserPromptSubmit:
@@ -45,6 +45,7 @@ type BaseInput struct {
 	HookEventName  HookEventType `json:"hook_event_name"`
 }
 
+// GetEventType returns the hook event type from the base input.
 func (b BaseInput) GetEventType() HookEventType {
 	return b.HookEventName
 }
@@ -65,6 +66,7 @@ type PreToolUseInput struct {
 	ToolInput ToolInput `json:"tool_input"`
 }
 
+// GetToolName returns the tool name from the PreToolUse input.
 func (p *PreToolUseInput) GetToolName() string {
 	return p.ToolName
 }
@@ -80,6 +82,7 @@ type PostToolUseInput struct {
 	ToolResponse ToolResponse `json:"tool_response"`
 }
 
+// GetToolName returns the tool name from the PostToolUse input.
 func (p *PostToolUseInput) GetToolName() string {
 	return p.ToolName
 }
@@ -90,6 +93,7 @@ type NotificationInput struct {
 	Message string `json:"message"`
 }
 
+// GetToolName returns an empty string as Notification events have no associated tool.
 func (n *NotificationInput) GetToolName() string {
 	return ""
 }
@@ -100,6 +104,7 @@ type StopInput struct {
 	StopHookActive bool `json:"stop_hook_active"`
 }
 
+// GetToolName returns an empty string as Stop events have no associated tool.
 func (s *StopInput) GetToolName() string {
 	return ""
 }
@@ -110,6 +115,7 @@ type SubagentStopInput struct {
 	StopHookActive bool `json:"stop_hook_active"`
 }
 
+// GetToolName returns an empty string as SubagentStop events have no associated tool.
 func (s *SubagentStopInput) GetToolName() string {
 	return ""
 }
@@ -121,6 +127,7 @@ type PreCompactInput struct {
 	CustomInstructions string `json:"custom_instructions"`
 }
 
+// GetToolName returns an empty string as PreCompact events have no associated tool.
 func (p *PreCompactInput) GetToolName() string {
 	return ""
 }
@@ -131,6 +138,7 @@ type SessionStartInput struct {
 	Source string `json:"source"` // "startup", "resume", "clear", or "compact"
 }
 
+// GetToolName returns an empty string as SessionStart events have no associated tool.
 func (s *SessionStartInput) GetToolName() string {
 	return ""
 }
@@ -141,6 +149,7 @@ type UserPromptSubmitInput struct {
 	Prompt string `json:"prompt"` // ユーザーが送信したプロンプト
 }
 
+// GetToolName returns an empty string as UserPromptSubmit events have no associated tool.
 func (u *UserPromptSubmitInput) GetToolName() string {
 	return ""
 }
@@ -151,6 +160,7 @@ type SessionEndInput struct {
 	Reason string `json:"reason"` // "clear", "logout", "prompt_input_exit", or "other"
 }
 
+// GetToolName returns an empty string as SessionEnd events have no associated tool.
 func (s *SessionEndInput) GetToolName() string {
 	return ""
 }
@@ -164,51 +174,51 @@ type Hook interface {
 
 // イベントタイプ毎の設定構造体
 type PreToolUseHook struct {
-	Matcher    string             `yaml:"matcher"`
-	Conditions []Condition        `yaml:"conditions,omitempty"`
-	Actions    []Action `yaml:"actions"`
+	Matcher    string      `yaml:"matcher"`
+	Conditions []Condition `yaml:"conditions,omitempty"`
+	Actions    []Action    `yaml:"actions"`
 }
 
 type PostToolUseHook struct {
-	Matcher    string              `yaml:"matcher"`
-	Conditions []Condition         `yaml:"conditions,omitempty"`
-	Actions    []Action `yaml:"actions"`
+	Matcher    string      `yaml:"matcher"`
+	Conditions []Condition `yaml:"conditions,omitempty"`
+	Actions    []Action    `yaml:"actions"`
 }
 
 type NotificationHook struct {
-	Conditions []Condition          `yaml:"conditions,omitempty"`
-	Actions    []Action `yaml:"actions"`
+	Conditions []Condition `yaml:"conditions,omitempty"`
+	Actions    []Action    `yaml:"actions"`
 }
 
 type StopHook struct {
-	Conditions []Condition  `yaml:"conditions,omitempty"`
-	Actions    []Action `yaml:"actions"`
+	Conditions []Condition `yaml:"conditions,omitempty"`
+	Actions    []Action    `yaml:"actions"`
 }
 
 type SubagentStopHook struct {
-	Conditions []Condition          `yaml:"conditions,omitempty"`
-	Actions    []Action `yaml:"actions"`
+	Conditions []Condition `yaml:"conditions,omitempty"`
+	Actions    []Action    `yaml:"actions"`
 }
 
 type PreCompactHook struct {
-	Conditions []Condition        `yaml:"conditions,omitempty"`
-	Actions    []Action `yaml:"actions"`
+	Conditions []Condition `yaml:"conditions,omitempty"`
+	Actions    []Action    `yaml:"actions"`
 }
 
 type SessionStartHook struct {
-	Matcher    string               `yaml:"matcher"` // "startup", "resume", or "clear"
-	Conditions []Condition          `yaml:"conditions,omitempty"`
-	Actions    []Action `yaml:"actions"`
+	Matcher    string      `yaml:"matcher"` // "startup", "resume", or "clear"
+	Conditions []Condition `yaml:"conditions,omitempty"`
+	Actions    []Action    `yaml:"actions"`
 }
 
 type UserPromptSubmitHook struct {
-	Conditions []Condition              `yaml:"conditions,omitempty"`
-	Actions    []Action `yaml:"actions"`
+	Conditions []Condition `yaml:"conditions,omitempty"`
+	Actions    []Action    `yaml:"actions"`
 }
 
 type SessionEndHook struct {
-	Conditions []Condition        `yaml:"conditions,omitempty"`
-	Actions    []Action `yaml:"actions"`
+	Conditions []Condition `yaml:"conditions,omitempty"`
+	Actions    []Action    `yaml:"actions"`
 }
 
 // 共通の条件構造体

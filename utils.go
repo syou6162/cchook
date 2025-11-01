@@ -19,10 +19,11 @@ import (
 
 // parseInput関数は parser.go に移動
 
-// ErrConditionNotHandled は、条件タイプがその関数では処理されないことを示す
+// ErrConditionNotHandled indicates that a condition type is not handled by the checking function.
 var ErrConditionNotHandled = errors.New("condition not handled by this function")
 
-// 共通マッチャーチェック関数
+// checkMatcher checks if the tool name matches the matcher pattern.
+// Supports pipe-separated patterns with partial matching.
 func checkMatcher(matcher string, toolName string) bool {
 	if matcher == "" {
 		return true
@@ -36,7 +37,6 @@ func checkMatcher(matcher string, toolName string) bool {
 	return false
 }
 
-// fileExistsRecursive は指定されたファイル名がディレクトリツリー内に存在するかを再帰的に検索する
 // existsRecursive recursively searches for a file or directory by name.
 // If isDir is true, it searches for directories; otherwise, it searches for files.
 func existsRecursive(name string, isDir bool) bool {
@@ -61,11 +61,12 @@ func existsRecursive(name string, isDir bool) bool {
 	return found
 }
 
+// fileExistsRecursive recursively searches for a file by name in the directory tree.
 func fileExistsRecursive(filename string) bool {
 	return existsRecursive(filename, false)
 }
 
-// fileExists は指定されたパスにファイルが存在するかをチェックする
+// fileExists checks if a file exists at the specified path.
 func fileExists(path string) bool {
 	if path == "" {
 		return false
@@ -74,7 +75,7 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-// dirExists は指定されたパスにディレクトリが存在するかをチェックする
+// dirExists checks if a directory exists at the specified path.
 func dirExists(path string) bool {
 	if path == "" {
 		return false
@@ -86,11 +87,13 @@ func dirExists(path string) bool {
 	return info.IsDir()
 }
 
-// dirExistsRecursive は指定されたディレクトリ名がディレクトリツリー内に存在するかを再帰的に検索する
+// dirExistsRecursive recursively searches for a directory by name in the directory tree.
 func dirExistsRecursive(dirname string) bool {
 	return existsRecursive(dirname, true)
 }
 
+// checkPreToolUseCondition checks if a condition matches for PreToolUse events.
+// Returns ErrConditionNotHandled if the condition type is not applicable to this event.
 func checkPreToolUseCondition(condition Condition, input *PreToolUseInput) (bool, error) {
 	// まず汎用条件をチェック
 	matched, err := checkCommonCondition(condition, &input.BaseInput)
@@ -114,6 +117,8 @@ func checkPreToolUseCondition(condition Condition, input *PreToolUseInput) (bool
 	return false, fmt.Errorf("unknown condition type: %s", condition.Type)
 }
 
+// checkPostToolUseCondition checks if a condition matches for PostToolUse events.
+// Returns ErrConditionNotHandled if the condition type is not applicable to this event.
 func checkPostToolUseCondition(condition Condition, input *PostToolUseInput) (bool, error) {
 	// まず汎用条件をチェック
 	matched, err := checkCommonCondition(condition, &input.BaseInput)
@@ -137,6 +142,8 @@ func checkPostToolUseCondition(condition Condition, input *PostToolUseInput) (bo
 	return false, fmt.Errorf("unknown condition type: %s", condition.Type)
 }
 
+// checkUserPromptSubmitCondition checks if a condition matches for UserPromptSubmit events.
+// Supports prompt_regex and every_n_prompts conditions in addition to common conditions.
 func checkUserPromptSubmitCondition(condition Condition, input *UserPromptSubmitInput) (bool, error) {
 	// まず汎用条件をチェック
 	matched, err := checkCommonCondition(condition, &input.BaseInput)
@@ -179,6 +186,8 @@ func checkUserPromptSubmitCondition(condition Condition, input *UserPromptSubmit
 	return false, fmt.Errorf("unknown condition type: %s", condition.Type)
 }
 
+// checkSessionStartCondition checks if a condition matches for SessionStart events.
+// Only supports common conditions.
 func checkSessionStartCondition(condition Condition, input *SessionStartInput) (bool, error) {
 	// SessionStartは汎用条件のみ使用
 	matched, err := checkCommonCondition(condition, &input.BaseInput)
@@ -193,7 +202,8 @@ func checkSessionStartCondition(condition Condition, input *SessionStartInput) (
 	return false, fmt.Errorf("unknown condition type for SessionStart: %s", condition.Type)
 }
 
-// 汎用条件チェック関数
+// checkCommonCondition checks common conditions that are applicable to all event types.
+// Includes file/directory existence checks and working directory conditions.
 func checkCommonCondition(condition Condition, baseInput *BaseInput) (bool, error) {
 	switch condition.Type {
 	case ConditionFileExists:
@@ -239,9 +249,7 @@ func checkCommonCondition(condition Condition, baseInput *BaseInput) (bool, erro
 	}
 }
 
-// ツール関連の条件チェック関数
-// isGitTracked checks if a file is tracked by Git
-// findGitRepository finds the Git repository containing the given path
+// findGitRepository finds the Git repository containing the given path.
 func findGitRepository(path string) (*git.Repository, error) {
 	dir := filepath.Dir(path)
 	for {
@@ -287,6 +295,7 @@ func isFileTrackedInRepo(repo *git.Repository, absPath string) (bool, error) {
 	return err == nil, nil
 }
 
+// isGitTracked checks if a file is tracked by Git.
 func isGitTracked(filePath string) (bool, error) {
 	// 絶対パスに変換
 	absPath, err := filepath.Abs(filePath)
@@ -385,6 +394,8 @@ func checkGitTrackedFileOperation(command string, blockedOps string) (bool, erro
 	return false, nil
 }
 
+// checkToolCondition checks tool-specific conditions like file_extension, command_contains, and url_starts_with.
+// Returns ErrConditionNotHandled if the condition type is not a tool condition.
 func checkToolCondition(condition Condition, toolInput *ToolInput) (bool, error) {
 	switch condition.Type {
 	case ConditionFileExtension:
@@ -423,7 +434,8 @@ func checkToolCondition(condition Condition, toolInput *ToolInput) (bool, error)
 	}
 }
 
-// countUserPromptsFromTranscript はtranscriptファイルから指定セッションのユーザープロンプトをカウントする
+// countUserPromptsFromTranscript counts user prompts in the transcript file for the specified session.
+// Returns the count including the current prompt.
 func countUserPromptsFromTranscript(transcriptPath, sessionID string) (int, error) {
 	file, err := os.Open(transcriptPath)
 	if err != nil {
@@ -456,6 +468,8 @@ func countUserPromptsFromTranscript(transcriptPath, sessionID string) (int, erro
 	return count + 1, nil
 }
 
+// checkPromptCondition checks prompt-specific conditions like prompt_regex.
+// Returns ErrConditionNotHandled if the condition type is not a prompt condition.
 func checkPromptCondition(condition Condition, prompt string) (bool, error) {
 	switch condition.Type {
 	case ConditionPromptRegex:
@@ -472,7 +486,8 @@ func checkPromptCondition(condition Condition, prompt string) (bool, error) {
 	}
 }
 
-// Notification用の条件チェック（汎用条件のみ）
+// checkNotificationCondition checks if a condition matches for Notification events.
+// Only supports common conditions.
 func checkNotificationCondition(condition Condition, input *NotificationInput) (bool, error) {
 	// Notificationは汎用条件のみ使用
 	matched, err := checkCommonCondition(condition, &input.BaseInput)
@@ -487,7 +502,8 @@ func checkNotificationCondition(condition Condition, input *NotificationInput) (
 	return false, fmt.Errorf("unknown condition type for Notification: %s", condition.Type)
 }
 
-// Stop用の条件チェック（汎用条件のみ）
+// checkStopCondition checks if a condition matches for Stop events.
+// Only supports common conditions.
 func checkStopCondition(condition Condition, input *StopInput) (bool, error) {
 	// Stopは汎用条件のみ使用
 	matched, err := checkCommonCondition(condition, &input.BaseInput)
@@ -502,7 +518,8 @@ func checkStopCondition(condition Condition, input *StopInput) (bool, error) {
 	return false, fmt.Errorf("unknown condition type for Stop: %s", condition.Type)
 }
 
-// SubagentStop用の条件チェック（汎用条件のみ）
+// checkSubagentStopCondition checks if a condition matches for SubagentStop events.
+// Only supports common conditions.
 func checkSubagentStopCondition(condition Condition, input *SubagentStopInput) (bool, error) {
 	// SubagentStopは汎用条件のみ使用
 	matched, err := checkCommonCondition(condition, &input.BaseInput)
@@ -517,7 +534,8 @@ func checkSubagentStopCondition(condition Condition, input *SubagentStopInput) (
 	return false, fmt.Errorf("unknown condition type for SubagentStop: %s", condition.Type)
 }
 
-// SessionEnd用の条件チェック（汎用条件 + reason_is）
+// checkSessionEndCondition checks if a condition matches for SessionEnd events.
+// Supports common conditions and reason_is condition.
 func checkSessionEndCondition(condition Condition, input *SessionEndInput) (bool, error) {
 	// reason_is condition
 	if condition.Type == ConditionReasonIs {
@@ -537,7 +555,8 @@ func checkSessionEndCondition(condition Condition, input *SessionEndInput) (bool
 	return false, fmt.Errorf("unknown condition type for SessionEnd: %s", condition.Type)
 }
 
-// PreCompact用の条件チェック（汎用条件のみ）
+// checkPreCompactCondition checks if a condition matches for PreCompact events.
+// Only supports common conditions.
 func checkPreCompactCondition(condition Condition, input *PreCompactInput) (bool, error) {
 	// PreCompactは汎用条件のみ使用
 	matched, err := checkCommonCondition(condition, &input.BaseInput)
@@ -552,6 +571,7 @@ func checkPreCompactCondition(condition Condition, input *PreCompactInput) (bool
 	return false, fmt.Errorf("unknown condition type for PreCompact: %s", condition.Type)
 }
 
+// runCommand executes a shell command with optional JSON data passed via stdin.
 func runCommand(command string, useStdin bool, data interface{}) error {
 	if strings.TrimSpace(command) == "" {
 		return fmt.Errorf("empty command")

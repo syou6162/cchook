@@ -4,7 +4,8 @@ import (
 	"fmt"
 )
 
-// handleOutput は output アクションを処理し、必要に応じて ExitError を返す
+// handleOutput processes an output action and returns ExitError if a non-zero exit status is specified.
+// Exit status 2 outputs to stderr, while other non-zero statuses output to stdout with error.
 func handleOutput(message string, exitStatus *int, rawJSON interface{}) error {
 	processedMessage := unifiedTemplateReplace(message, rawJSON)
 	status := getExitStatus(exitStatus, "output")
@@ -17,6 +18,8 @@ func handleOutput(message string, exitStatus *int, rawJSON interface{}) error {
 	return nil
 }
 
+// executeNotificationAction executes an action for the Notification event.
+// Supports command execution and output actions.
 func executeNotificationAction(action Action, input *NotificationInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
@@ -30,6 +33,8 @@ func executeNotificationAction(action Action, input *NotificationInput, rawJSON 
 	return nil
 }
 
+// executeStopAction executes an action for the Stop event.
+// Command failures result in exit status 2 to block the stop operation.
 func executeStopAction(action Action, input *StopInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
@@ -44,6 +49,8 @@ func executeStopAction(action Action, input *StopInput, rawJSON interface{}) err
 	return nil
 }
 
+// executeSubagentStopAction executes an action for the SubagentStop event.
+// Command failures result in exit status 2 to block the subagent stop operation.
 func executeSubagentStopAction(action Action, input *SubagentStopInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
@@ -58,6 +65,8 @@ func executeSubagentStopAction(action Action, input *SubagentStopInput, rawJSON 
 	return nil
 }
 
+// executePreCompactAction executes an action for the PreCompact event.
+// Supports command execution and output actions.
 func executePreCompactAction(action Action, input *PreCompactInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
@@ -71,6 +80,8 @@ func executePreCompactAction(action Action, input *PreCompactInput, rawJSON inte
 	return nil
 }
 
+// executeSessionStartAction executes an action for the SessionStart event.
+// Errors are logged but do not block session startup.
 func executeSessionStartAction(action Action, input *SessionStartInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
@@ -90,6 +101,8 @@ func executeSessionStartAction(action Action, input *SessionStartInput, rawJSON 
 	return nil
 }
 
+// executeUserPromptSubmitAction executes an action for the UserPromptSubmit event.
+// Command failures result in exit status 2 to block prompt processing.
 func executeUserPromptSubmitAction(action Action, input *UserPromptSubmitInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
@@ -110,6 +123,8 @@ func executeUserPromptSubmitAction(action Action, input *UserPromptSubmitInput, 
 	return nil
 }
 
+// executePreToolUseAction executes an action for the PreToolUse event.
+// Command failures result in exit status 2 to block tool execution.
 func executePreToolUseAction(action Action, input *PreToolUseInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
@@ -124,6 +139,8 @@ func executePreToolUseAction(action Action, input *PreToolUseInput, rawJSON inte
 	return nil
 }
 
+// executePostToolUseAction executes an action for the PostToolUse event.
+// Supports command execution and output actions.
 func executePostToolUseAction(action Action, input *PostToolUseInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
@@ -137,8 +154,8 @@ func executePostToolUseAction(action Action, input *PostToolUseInput, rawJSON in
 	return nil
 }
 
-// getExitStatus returns the exit status for the given action type
-// Default for "output" actions is 2, others default to 0
+// getExitStatus returns the exit status for the given action type.
+// Default for "output" actions is 2, others default to 0.
 func getExitStatus(exitStatus *int, actionType string) int {
 	if exitStatus != nil {
 		return *exitStatus
@@ -149,6 +166,8 @@ func getExitStatus(exitStatus *int, actionType string) int {
 	return 0
 }
 
+// executeSessionEndAction executes an action for the SessionEnd event.
+// Errors are logged but do not block session end.
 func executeSessionEndAction(action Action, input *SessionEndInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
