@@ -521,15 +521,23 @@ func executePreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inte
 		}
 		if shouldExecute {
 			if err := executePreToolUseHook(hook, input, rawJSON); err != nil {
-				// Action execution errors are fatal - return immediately
+				// Action execution errors are fatal - return immediately with any collected condition errors
 				if exitErr, ok := err.(*ExitError); ok {
-					return &ExitError{
+					actionErr := &ExitError{
 						Code:    exitErr.Code,
 						Message: fmt.Sprintf("PreToolUse hook %d failed: %s", i, exitErr.Message),
 						Stderr:  exitErr.Stderr,
 					}
+					if len(conditionErrors) > 0 {
+						return errors.Join(append(conditionErrors, actionErr)...)
+					}
+					return actionErr
 				}
-				return fmt.Errorf("PreToolUse hook %d failed: %w", i, err)
+				actionErr := fmt.Errorf("PreToolUse hook %d failed: %w", i, err)
+				if len(conditionErrors) > 0 {
+					return errors.Join(append(conditionErrors, actionErr)...)
+				}
+				return actionErr
 			}
 		}
 	}
@@ -556,13 +564,21 @@ func executePostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON in
 		if shouldExecute {
 			if err := executePostToolUseHook(hook, input, rawJSON); err != nil {
 				if exitErr, ok := err.(*ExitError); ok {
-					return &ExitError{
+					actionErr := &ExitError{
 						Code:    exitErr.Code,
 						Message: fmt.Sprintf("PostToolUse hook %d failed: %s", i, exitErr.Message),
 						Stderr:  exitErr.Stderr,
 					}
+					if len(conditionErrors) > 0 {
+						return errors.Join(append(conditionErrors, actionErr)...)
+					}
+					return actionErr
 				}
-				return fmt.Errorf("PostToolUse hook %d failed: %w", i, err)
+				actionErr := fmt.Errorf("PostToolUse hook %d failed: %w", i, err)
+				if len(conditionErrors) > 0 {
+					return errors.Join(append(conditionErrors, actionErr)...)
+				}
+				return actionErr
 			}
 		}
 	}
@@ -600,13 +616,21 @@ func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON 
 		for _, action := range hook.Actions {
 			if err := executeNotificationAction(action, input, rawJSON); err != nil {
 				if exitErr, ok := err.(*ExitError); ok {
-					return &ExitError{
+					actionErr := &ExitError{
 						Code:    exitErr.Code,
 						Message: fmt.Sprintf("Notification hook %d failed: %s", i, exitErr.Message),
 						Stderr:  exitErr.Stderr,
 					}
+					if len(conditionErrors) > 0 {
+						return errors.Join(append(conditionErrors, actionErr)...)
+					}
+					return actionErr
 				}
-				return fmt.Errorf("notification hook %d failed: %w", i, err)
+				actionErr := fmt.Errorf("Notification hook %d failed: %w", i, err)
+				if len(conditionErrors) > 0 {
+					return errors.Join(append(conditionErrors, actionErr)...)
+				}
+				return actionErr
 			}
 		}
 	}
@@ -646,13 +670,21 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) err
 			if err := executeStopAction(action, input, rawJSON); err != nil {
 				// Stopフックはブロッキング可能なのでエラーを返す
 				if exitErr, ok := err.(*ExitError); ok {
-					return &ExitError{
+					actionErr := &ExitError{
 						Code:    exitErr.Code,
 						Message: fmt.Sprintf("Stop hook %d failed: %s", i, exitErr.Message),
 						Stderr:  exitErr.Stderr,
 					}
+					if len(conditionErrors) > 0 {
+						return errors.Join(append(conditionErrors, actionErr)...)
+					}
+					return actionErr
 				}
-				return fmt.Errorf("stop hook %d failed: %w", i, err)
+				actionErr := fmt.Errorf("Stop hook %d failed: %w", i, err)
+				if len(conditionErrors) > 0 {
+					return errors.Join(append(conditionErrors, actionErr)...)
+				}
+				return actionErr
 			}
 		}
 	}
@@ -692,13 +724,21 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 			if err := executeSubagentStopAction(action, input, rawJSON); err != nil {
 				// SubagentStopフックもブロッキング可能なのでエラーを返す
 				if exitErr, ok := err.(*ExitError); ok {
-					return &ExitError{
+					actionErr := &ExitError{
 						Code:    exitErr.Code,
 						Message: fmt.Sprintf("SubagentStop hook %d failed: %s", i, exitErr.Message),
 						Stderr:  exitErr.Stderr,
 					}
+					if len(conditionErrors) > 0 {
+						return errors.Join(append(conditionErrors, actionErr)...)
+					}
+					return actionErr
 				}
-				return fmt.Errorf("SubagentStop hook %d failed: %w", i, err)
+				actionErr := fmt.Errorf("SubagentStop hook %d failed: %w", i, err)
+				if len(conditionErrors) > 0 {
+					return errors.Join(append(conditionErrors, actionErr)...)
+				}
+				return actionErr
 			}
 		}
 	}
@@ -736,13 +776,21 @@ func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON inte
 		for _, action := range hook.Actions {
 			if err := executePreCompactAction(action, input, rawJSON); err != nil {
 				if exitErr, ok := err.(*ExitError); ok {
-					return &ExitError{
+					actionErr := &ExitError{
 						Code:    exitErr.Code,
 						Message: fmt.Sprintf("PreCompact hook %d failed: %s", i, exitErr.Message),
 						Stderr:  exitErr.Stderr,
 					}
+					if len(conditionErrors) > 0 {
+						return errors.Join(append(conditionErrors, actionErr)...)
+					}
+					return actionErr
 				}
-				return fmt.Errorf("PreCompact hook %d failed: %w", i, err)
+				actionErr := fmt.Errorf("PreCompact hook %d failed: %w", i, err)
+				if len(conditionErrors) > 0 {
+					return errors.Join(append(conditionErrors, actionErr)...)
+				}
+				return actionErr
 			}
 		}
 	}
@@ -786,13 +834,21 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 			if err := executeSessionStartAction(action, input, rawJSON); err != nil {
 				// ExitErrorの場合はメッセージを更新して返す
 				if exitErr, ok := err.(*ExitError); ok {
-					return &ExitError{
+					actionErr := &ExitError{
 						Code:    exitErr.Code,
 						Message: fmt.Sprintf("SessionStart hook %d failed: %s", i, exitErr.Message),
 						Stderr:  exitErr.Stderr,
 					}
+					if len(conditionErrors) > 0 {
+						return errors.Join(append(conditionErrors, actionErr)...)
+					}
+					return actionErr
 				}
-				return fmt.Errorf("SessionStart hook %d failed: %w", i, err)
+				actionErr := fmt.Errorf("SessionStart hook %d failed: %w", i, err)
+				if len(conditionErrors) > 0 {
+					return errors.Join(append(conditionErrors, actionErr)...)
+				}
+				return actionErr
 			}
 		}
 	}
@@ -833,13 +889,21 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 				// UserPromptSubmitはブロッキング可能なので、エラーを返す
 				// ExitErrorの場合はメッセージを更新して返す
 				if exitErr, ok := err.(*ExitError); ok {
-					return &ExitError{
+					actionErr := &ExitError{
 						Code:    exitErr.Code,
 						Message: fmt.Sprintf("UserPromptSubmit hook %d failed: %s", i, exitErr.Message),
 						Stderr:  exitErr.Stderr,
 					}
+					if len(conditionErrors) > 0 {
+						return errors.Join(append(conditionErrors, actionErr)...)
+					}
+					return actionErr
 				}
-				return fmt.Errorf("UserPromptSubmit hook %d failed: %w", i, err)
+				actionErr := fmt.Errorf("UserPromptSubmit hook %d failed: %w", i, err)
+				if len(conditionErrors) > 0 {
+					return errors.Join(append(conditionErrors, actionErr)...)
+				}
+				return actionErr
 			}
 		}
 	}
@@ -942,13 +1006,21 @@ func executeSessionEndHooks(config *Config, input *SessionEndInput, rawJSON inte
 				// SessionEndフックはセッション終了をブロックできないが、
 				// エラーをユーザーに通知するため返す
 				if exitErr, ok := err.(*ExitError); ok {
-					return &ExitError{
+					actionErr := &ExitError{
 						Code:    exitErr.Code,
 						Message: fmt.Sprintf("SessionEnd hook %d failed: %s", i, exitErr.Message),
 						Stderr:  exitErr.Stderr,
 					}
+					if len(conditionErrors) > 0 {
+						return errors.Join(append(conditionErrors, actionErr)...)
+					}
+					return actionErr
 				}
-				return fmt.Errorf("SessionEnd hook %d failed: %w", i, err)
+				actionErr := fmt.Errorf("SessionEnd hook %d failed: %w", i, err)
+				if len(conditionErrors) > 0 {
+					return errors.Join(append(conditionErrors, actionErr)...)
+				}
+				return actionErr
 			}
 		}
 	}

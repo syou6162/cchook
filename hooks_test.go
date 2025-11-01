@@ -761,7 +761,7 @@ func TestExecutePreToolUseHooks_ConditionErrorAggregation(t *testing.T) {
 				},
 			},
 			{
-				Matcher: "Edit",
+				Matcher: "Write", // 2件目もWriteにマッチするように変更
 				Conditions: []Condition{
 					{Type: ConditionEveryNPrompts, Value: "5"}, // これもPreToolUseでは無効
 				},
@@ -789,6 +789,10 @@ func TestExecutePreToolUseHooks_ConditionErrorAggregation(t *testing.T) {
 	if !strings.Contains(errMsg, "hook[PreToolUse][0]") {
 		t.Errorf("Expected error message to contain first hook error, got: %q", errMsg)
 	}
+	// 2件目のフックのエラーも含まれることを確認（Editツールにマッチするフックもある）
+	if !strings.Contains(errMsg, "hook[PreToolUse][1]") {
+		t.Errorf("Expected error message to contain second hook error, got: %q", errMsg)
+	}
 	if !strings.Contains(errMsg, "unknown condition type") {
 		t.Errorf("Expected error message to contain 'unknown condition type', got: %q", errMsg)
 	}
@@ -808,7 +812,7 @@ func TestExecutePostToolUseHooks_ConditionErrorAggregation(t *testing.T) {
 				},
 			},
 			{
-				Matcher: "Edit",
+				Matcher: "Write", // 2件目もWriteにマッチするように変更
 				Conditions: []Condition{
 					{Type: ConditionPromptRegex, Value: "test"}, // PostToolUseでは無効
 				},
@@ -835,6 +839,10 @@ func TestExecutePostToolUseHooks_ConditionErrorAggregation(t *testing.T) {
 	errMsg := err.Error()
 	if !strings.Contains(errMsg, "hook[PostToolUse][0]") {
 		t.Errorf("Expected error message to contain first hook error, got: %q", errMsg)
+	}
+	// 2件目のフックのエラーも含まれることを確認
+	if !strings.Contains(errMsg, "hook[PostToolUse][1]") {
+		t.Errorf("Expected error message to contain second hook error, got: %q", errMsg)
 	}
 	if !strings.Contains(errMsg, "unknown condition type") {
 		t.Errorf("Expected error message to contain 'unknown condition type', got: %q", errMsg)
