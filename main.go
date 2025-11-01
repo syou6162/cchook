@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -44,7 +45,9 @@ func main() {
 
 	// ExitError の場合は特別な処理
 	if err != nil {
-		if exitErr, ok := err.(*ExitError); ok {
+		var exitErr *ExitError
+		// errors.Joinでラップされた場合でもExitErrorを取り出せるようにerrors.Asを使用
+		if errors.As(err, &exitErr) {
 			// ExitError の場合は適切な出力先に出力して指定のコードで終了
 			// err.Error()を使ってラップされた全メッセージを出力
 			if exitErr.Stderr {

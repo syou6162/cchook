@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"strings"
@@ -883,6 +884,65 @@ func TestExecuteNotificationHooks_ConditionErrorAggregation(t *testing.T) {
 	}
 	if !strings.Contains(errMsg, "unknown condition type") {
 		t.Errorf("Expected error message to contain 'unknown condition type', got: %q", errMsg)
+	}
+}
+
+func TestExecutePreToolUseHooks_ConditionErrorAndExitError(t *testing.T) {
+	// 条件エラーとアクション実行エラー（ExitError）が同時に発生するケース
+	exitStatus := 10
+	config := &Config{
+		PreToolUse: []PreToolUseHook{
+			{
+				Matcher: "Write",
+				Conditions: []Condition{
+					{Type: ConditionPromptRegex, Value: "test"}, // PreToolUseでは無効
+				},
+				Actions: []Action{
+					{Type: "output", Message: "test"},
+				},
+			},
+			{
+				Matcher: "Write",
+				Actions: []Action{
+					{Type: "output", Message: "will fail", ExitStatus: &exitStatus},
+				},
+			},
+		},
+	}
+
+	input := &PreToolUseInput{
+		BaseInput: BaseInput{Cwd: "/tmp"},
+		ToolName:  "Write",
+	}
+
+	err := executePreToolUseHooks(config, input, nil)
+
+	// エラーが返されることを確認
+	if err == nil {
+		t.Fatal("Expected error, got nil")
+	}
+
+	// errors.Asを使ってExitErrorを取り出せることを確認
+	var exitErr *ExitError
+	if !errors.As(err, &exitErr) {
+		t.Fatal("Expected ExitError to be extractable with errors.As, but it wasn't")
+	}
+
+	// ExitErrorの情報が保持されていることを確認
+	if exitErr.Code != 10 {
+		t.Errorf("Expected exit code 10, got %d", exitErr.Code)
+	}
+	if exitErr.Stderr != false {
+		t.Errorf("Expected Stderr=false, got %v", exitErr.Stderr)
+	}
+
+	// エラーメッセージに条件エラーとアクションエラーの両方が含まれることを確認
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "hook[PreToolUse][0]") {
+		t.Errorf("Expected error message to contain condition error, got: %q", errMsg)
+	}
+	if !strings.Contains(errMsg, "PreToolUse hook 1 failed") {
+		t.Errorf("Expected error message to contain action error, got: %q", errMsg)
 	}
 }
 
