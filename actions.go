@@ -81,7 +81,7 @@ func executePreCompactAction(action Action, input *PreCompactInput, rawJSON inte
 }
 
 // executeSessionStartAction executes an action for the SessionStart event.
-// Does not block by default; only blocks if exit_status is explicitly specified.
+// Errors are logged but do not block session startup.
 func executeSessionStartAction(action Action, input *SessionStartInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
@@ -154,8 +154,8 @@ func executePostToolUseAction(action Action, input *PostToolUseInput, rawJSON in
 	return nil
 }
 
-// getExitStatus returns the exit status for the given action type
-// Default for "output" actions is 2, others default to 0
+// getExitStatus returns the exit status for the given action type.
+// Default for "output" actions is 2, others default to 0.
 func getExitStatus(exitStatus *int, actionType string) int {
 	if exitStatus != nil {
 		return *exitStatus
@@ -167,7 +167,7 @@ func getExitStatus(exitStatus *int, actionType string) int {
 }
 
 // executeSessionEndAction executes an action for the SessionEnd event.
-// Does not block by default; only blocks if exit_status is explicitly specified.
+// Errors are logged but do not block session end.
 func executeSessionEndAction(action Action, input *SessionEndInput, rawJSON interface{}) error {
 	switch action.Type {
 	case "command":
