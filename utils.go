@@ -37,8 +37,10 @@ func checkMatcher(matcher string, toolName string) bool {
 }
 
 // fileExistsRecursive は指定されたファイル名がディレクトリツリー内に存在するかを再帰的に検索する
-func fileExistsRecursive(filename string) bool {
-	if filename == "" {
+// existsRecursive recursively searches for a file or directory by name.
+// If isDir is true, it searches for directories; otherwise, it searches for files.
+func existsRecursive(name string, isDir bool) bool {
+	if name == "" {
 		return false
 	}
 
@@ -47,7 +49,7 @@ func fileExistsRecursive(filename string) bool {
 		if err != nil {
 			return nil // エラーがあっても続ける
 		}
-		if !info.IsDir() && filepath.Base(path) == filename {
+		if info.IsDir() == isDir && filepath.Base(path) == name {
 			found = true
 			return filepath.SkipAll // 見つかったら探索を終了
 		}
@@ -57,6 +59,10 @@ func fileExistsRecursive(filename string) bool {
 		return false
 	}
 	return found
+}
+
+func fileExistsRecursive(filename string) bool {
+	return existsRecursive(filename, false)
 }
 
 // fileExists は指定されたパスにファイルが存在するかをチェックする
@@ -82,25 +88,7 @@ func dirExists(path string) bool {
 
 // dirExistsRecursive は指定されたディレクトリ名がディレクトリツリー内に存在するかを再帰的に検索する
 func dirExistsRecursive(dirname string) bool {
-	if dirname == "" {
-		return false
-	}
-
-	found := false
-	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil // エラーがあっても続ける
-		}
-		if info.IsDir() && filepath.Base(path) == dirname {
-			found = true
-			return filepath.SkipAll // 見つかったら探索を終了
-		}
-		return nil
-	})
-	if err != nil {
-		return false
-	}
-	return found
+	return existsRecursive(dirname, true)
 }
 
 func checkPreToolUseCondition(condition Condition, input *PreToolUseInput) (bool, error) {
