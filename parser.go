@@ -6,7 +6,8 @@ import (
 	"os"
 )
 
-// ジェネリック入力パース関数（構造化データと生JSONを返す）
+// parseInput parses JSON input from stdin and returns both structured data and raw JSON.
+// It handles special processing for PreToolUse and PostToolUse events that have complex tool_input fields.
 func parseInput[T HookInput](eventType HookEventType) (T, interface{}, error) {
 	var rawInput json.RawMessage
 	var input T
@@ -53,7 +54,8 @@ func parseInput[T HookInput](eventType HookEventType) (T, interface{}, error) {
 	}
 }
 
-// PreToolUseInputの特別なパース関数
+// parsePreToolUseInput parses PreToolUse event input with special handling for tool_input field.
+// It first parses the base structure, then parses tool_input according to the tool name.
 func parsePreToolUseInput(rawInput json.RawMessage) (*PreToolUseInput, error) {
 	// まず基本構造をパース
 	var temp struct {
@@ -79,7 +81,8 @@ func parsePreToolUseInput(rawInput json.RawMessage) (*PreToolUseInput, error) {
 	}, nil
 }
 
-// PostToolUseInputの特別なパース関数
+// parsePostToolUseInput parses PostToolUse event input with special handling for tool_input and tool_response fields.
+// It parses tool_input according to the tool name and preserves tool_response as RawMessage.
 func parsePostToolUseInput(rawInput json.RawMessage) (*PostToolUseInput, error) {
 	// まず基本構造をパース
 	var temp struct {
@@ -110,8 +113,8 @@ func parsePostToolUseInput(rawInput json.RawMessage) (*PostToolUseInput, error) 
 	}, nil
 }
 
-// ツール名に基づいてtool_inputを適切な構造体にパースする関数
-// 全ツール共通構造と仮定
+// parseToolInputByName parses tool_input JSON into a ToolInput struct based on the tool name.
+// Currently assumes a common structure for all tools.
 func parseToolInputByName(toolName string, rawToolInput json.RawMessage) (ToolInput, error) {
 	var input ToolInput
 	if err := json.Unmarshal(rawToolInput, &input); err != nil {

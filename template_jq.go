@@ -18,7 +18,8 @@ var (
 
 // 削除: 古い {jq: } パターンは不要
 
-// executeJQQuery はgojqクエリを実行し結果を文字列として返す
+// executeJQQuery executes a gojq query against the input and returns the result as a string.
+// It caches compiled queries for performance. Returns an error if the query is invalid or execution fails.
 func executeJQQuery(queryStr string, input interface{}) (string, error) {
 	// クエリをキャッシュから取得または作成
 	jqCacheMutex.RLock()
@@ -80,7 +81,8 @@ func executeJQQuery(queryStr string, input interface{}) (string, error) {
 	}
 }
 
-// jqValueToString はgojqの結果値を文字列に変換
+// jqValueToString converts a gojq result value to a string representation.
+// Handles strings, booleans, null, numbers, and objects/arrays (as JSON).
 func jqValueToString(value interface{}) string {
 	switch v := value.(type) {
 	case string:
@@ -103,7 +105,8 @@ func jqValueToString(value interface{}) string {
 
 // 削除: 古い {jq: } システムは不要
 
-// unifiedTemplateReplace は{}内を常にJQクエリとして処理する統一テンプレートシステム
+// unifiedTemplateReplace replaces all {query} patterns in the template with JQ query results.
+// Patterns are detected using {}, and the content is treated as a JQ query executed against rawJSON.
 func unifiedTemplateReplace(template string, rawJSON interface{}) string {
 	// パターン: { で始まり } で終わる任意の内容
 	pattern := regexp.MustCompile(`\{([^}]+)\}`)
