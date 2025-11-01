@@ -849,9 +849,9 @@ func executePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput, rawJS
 }
 
 // executeSessionEndHooks executes all matching SessionEnd hooks based on condition checks.
-// Does not return errors as blocking session end is not meaningful.
+// Returns errors to inform users of failures, though session end cannot be blocked.
 func executeSessionEndHooks(config *Config, input *SessionEndInput, rawJSON interface{}) error {
-	for _, hook := range config.SessionEnd {
+	for i, hook := range config.SessionEnd {
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
@@ -871,9 +871,16 @@ func executeSessionEndHooks(config *Config, input *SessionEndInput, rawJSON inte
 
 		for _, action := range hook.Actions {
 			if err := executeSessionEndAction(action, input, rawJSON); err != nil {
-				// SessionEndフックはブロッキング不可能なのでエラーを返さない
-				// （セッション終了時なので止める意味がない）
-				// エラーは発生しても無視する
+				// SessionEndフックはセッション終了をブロックできないが、
+				// エラーをユーザーに通知するため返す
+				if exitErr, ok := err.(*ExitError); ok {
+					return &ExitError{
+						Code:    exitErr.Code,
+						Message: fmt.Sprintf("SessionEnd hook %d failed: %s", i, exitErr.Message),
+						Stderr:  exitErr.Stderr,
+					}
+				}
+				return fmt.Errorf("SessionEnd hook %d failed: %w", i, err)
 			}
 		}
 	}
