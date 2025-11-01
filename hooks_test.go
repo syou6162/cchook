@@ -721,11 +721,6 @@ func TestExecutePostToolUseHook_Success(t *testing.T) {
 }
 
 func TestExecutePreToolUseHooks_Integration(t *testing.T) {
-	// 標準エラーをキャプチャして、フック実行エラーをテスト
-	oldStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-
 	config := &Config{
 		PreToolUse: []PreToolUseHook{
 			{
@@ -741,22 +736,14 @@ func TestExecutePreToolUseHooks_Integration(t *testing.T) {
 
 	err := executePreToolUseHooks(config, input, nil)
 
-	// 標準エラーを復元
-	_ = w.Close()
-	os.Stderr = oldStderr
-
-	// エラー出力を読み取り
-	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(r)
-	stderrOutput := buf.String()
-
 	// executePreToolUseHooksはフック失敗時にエラーを返す
 	if err == nil {
 		t.Error("Expected executePreToolUseHooks to return error for failing command")
 	}
 
-	if !strings.Contains(stderrOutput, "PreToolUse hook 0 failed") {
-		t.Errorf("Expected stderr to contain hook failure message, got: %q", stderrOutput)
+	// エラーメッセージに"PreToolUse hook 0 failed"が含まれることを確認
+	if !strings.Contains(err.Error(), "PreToolUse hook 0 failed") {
+		t.Errorf("Expected error message to contain hook failure message, got: %q", err.Error())
 	}
 }
 
