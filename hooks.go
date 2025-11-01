@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 )
 
 // runHooks parses input and executes hooks for the specified event type.
@@ -511,13 +510,19 @@ func executePreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inte
 	for i, hook := range config.PreToolUse {
 		shouldExecute, err := shouldExecutePreToolUseHook(hook, input)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "PreToolUse hook %d condition check failed: %v\n", i, err)
 			continue // 条件チェックエラーの場合はスキップして次のフックへ
 		}
 		if shouldExecute {
 			if err := executePreToolUseHook(hook, input, rawJSON); err != nil {
-				fmt.Fprintf(os.Stderr, "PreToolUse hook %d failed: %v\n", i, err)
-				return err // ExitErrorの場合はすぐに返す
+				// ExitErrorの場合はメッセージを更新して返す
+				if exitErr, ok := err.(*ExitError); ok {
+					return &ExitError{
+						Code:    exitErr.Code,
+						Message: fmt.Sprintf("PreToolUse hook %d failed: %s", i, exitErr.Message),
+						Stderr:  exitErr.Stderr,
+					}
+				}
+				return fmt.Errorf("PreToolUse hook %d failed: %w", i, err)
 			}
 		}
 	}
@@ -529,12 +534,19 @@ func executePostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON in
 	for i, hook := range config.PostToolUse {
 		shouldExecute, err := shouldExecutePostToolUseHook(hook, input)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "PostToolUse hook %d condition check failed: %v\n", i, err)
 			continue // 条件チェックエラーの場合はスキップして次のフックへ
 		}
 		if shouldExecute {
 			if err := executePostToolUseHook(hook, input, rawJSON); err != nil {
-				fmt.Fprintf(os.Stderr, "PostToolUse hook %d failed: %v\n", i, err)
+				// ExitErrorの場合はメッセージを更新して返す
+				if exitErr, ok := err.(*ExitError); ok {
+					return &ExitError{
+						Code:    exitErr.Code,
+						Message: fmt.Sprintf("PostToolUse hook %d failed: %s", i, exitErr.Message),
+						Stderr:  exitErr.Stderr,
+					}
+				}
+				return fmt.Errorf("PostToolUse hook %d failed: %w", i, err)
 			}
 		}
 	}
@@ -549,7 +561,6 @@ func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON 
 		for _, condition := range hook.Conditions {
 			matched, err := checkNotificationCondition(condition, input)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Notification hook %d condition check failed: %v\n", i, err)
 				shouldExecute = false
 				break
 			}
@@ -564,7 +575,15 @@ func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON 
 
 		for _, action := range hook.Actions {
 			if err := executeNotificationAction(action, input, rawJSON); err != nil {
-				fmt.Fprintf(os.Stderr, "Notification hook %d failed: %v\n", i, err)
+				// ExitErrorの場合はメッセージを更新して返す
+				if exitErr, ok := err.(*ExitError); ok {
+					return &ExitError{
+						Code:    exitErr.Code,
+						Message: fmt.Sprintf("Notification hook %d failed: %s", i, exitErr.Message),
+						Stderr:  exitErr.Stderr,
+					}
+				}
+				return fmt.Errorf("notification hook %d failed: %w", i, err)
 			}
 		}
 	}
@@ -580,7 +599,6 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) err
 		for _, condition := range hook.Conditions {
 			matched, err := checkStopCondition(condition, input)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Stop hook %d condition check failed: %v\n", i, err)
 				shouldExecute = false
 				break
 			}
@@ -595,9 +613,16 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) err
 
 		for _, action := range hook.Actions {
 			if err := executeStopAction(action, input, rawJSON); err != nil {
-				fmt.Fprintf(os.Stderr, "Stop hook %d failed: %v\n", i, err)
 				// Stopフックはブロッキング可能なのでエラーを返す
-				return err
+				// ExitErrorの場合はメッセージを更新して返す
+				if exitErr, ok := err.(*ExitError); ok {
+					return &ExitError{
+						Code:    exitErr.Code,
+						Message: fmt.Sprintf("Stop hook %d failed: %s", i, exitErr.Message),
+						Stderr:  exitErr.Stderr,
+					}
+				}
+				return fmt.Errorf("stop hook %d failed: %w", i, err)
 			}
 		}
 	}
@@ -613,7 +638,6 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 		for _, condition := range hook.Conditions {
 			matched, err := checkSubagentStopCondition(condition, input)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "SubagentStop hook %d condition check failed: %v\n", i, err)
 				shouldExecute = false
 				break
 			}
@@ -628,9 +652,16 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 
 		for _, action := range hook.Actions {
 			if err := executeSubagentStopAction(action, input, rawJSON); err != nil {
-				fmt.Fprintf(os.Stderr, "SubagentStop hook %d failed: %v\n", i, err)
 				// SubagentStopフックもブロッキング可能なのでエラーを返す
-				return err
+				// ExitErrorの場合はメッセージを更新して返す
+				if exitErr, ok := err.(*ExitError); ok {
+					return &ExitError{
+						Code:    exitErr.Code,
+						Message: fmt.Sprintf("SubagentStop hook %d failed: %s", i, exitErr.Message),
+						Stderr:  exitErr.Stderr,
+					}
+				}
+				return fmt.Errorf("SubagentStop hook %d failed: %w", i, err)
 			}
 		}
 	}
@@ -645,7 +676,6 @@ func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON inte
 		for _, condition := range hook.Conditions {
 			matched, err := checkPreCompactCondition(condition, input)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "PreCompact hook %d condition check failed: %v\n", i, err)
 				shouldExecute = false
 				break
 			}
@@ -660,7 +690,15 @@ func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON inte
 
 		for _, action := range hook.Actions {
 			if err := executePreCompactAction(action, input, rawJSON); err != nil {
-				fmt.Fprintf(os.Stderr, "PreCompact hook %d failed: %v\n", i, err)
+				// ExitErrorの場合はメッセージを更新して返す
+				if exitErr, ok := err.(*ExitError); ok {
+					return &ExitError{
+						Code:    exitErr.Code,
+						Message: fmt.Sprintf("PreCompact hook %d failed: %s", i, exitErr.Message),
+						Stderr:  exitErr.Stderr,
+					}
+				}
+				return fmt.Errorf("PreCompact hook %d failed: %w", i, err)
 			}
 		}
 	}
@@ -680,7 +718,6 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 		for _, condition := range hook.Conditions {
 			matched, err := checkSessionStartCondition(condition, input)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "SessionStart hook %d condition check failed: %v\n", i, err)
 				shouldExecute = false
 				break
 			}
@@ -695,7 +732,15 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 
 		for _, action := range hook.Actions {
 			if err := executeSessionStartAction(action, input, rawJSON); err != nil {
-				fmt.Fprintf(os.Stderr, "SessionStart hook %d failed: %v\n", i, err)
+				// ExitErrorの場合はメッセージを更新して返す
+				if exitErr, ok := err.(*ExitError); ok {
+					return &ExitError{
+						Code:    exitErr.Code,
+						Message: fmt.Sprintf("SessionStart hook %d failed: %s", i, exitErr.Message),
+						Stderr:  exitErr.Stderr,
+					}
+				}
+				return fmt.Errorf("SessionStart hook %d failed: %w", i, err)
 			}
 		}
 	}
@@ -711,7 +756,6 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 		for _, condition := range hook.Conditions {
 			matched, err := checkUserPromptSubmitCondition(condition, input)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "UserPromptSubmit hook %d condition check failed: %v\n", i, err)
 				shouldExecute = false
 				break
 			}
@@ -727,7 +771,15 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 		for _, action := range hook.Actions {
 			if err := executeUserPromptSubmitAction(action, input, rawJSON); err != nil {
 				// UserPromptSubmitはブロッキング可能なので、エラーを返す
-				return err
+				// ExitErrorの場合はメッセージを更新して返す
+				if exitErr, ok := err.(*ExitError); ok {
+					return &ExitError{
+						Code:    exitErr.Code,
+						Message: fmt.Sprintf("UserPromptSubmit hook %d failed: %s", i, exitErr.Message),
+						Stderr:  exitErr.Stderr,
+					}
+				}
+				return fmt.Errorf("UserPromptSubmit hook %d failed: %w", i, err)
 			}
 		}
 	}
@@ -799,13 +851,12 @@ func executePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput, rawJS
 // executeSessionEndHooks executes all matching SessionEnd hooks based on condition checks.
 // Does not return errors as blocking session end is not meaningful.
 func executeSessionEndHooks(config *Config, input *SessionEndInput, rawJSON interface{}) error {
-	for i, hook := range config.SessionEnd {
+	for _, hook := range config.SessionEnd {
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
 			matched, err := checkSessionEndCondition(condition, input)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "SessionEnd hook %d condition check failed: %v\n", i, err)
 				shouldExecute = false
 				break
 			}
@@ -820,9 +871,9 @@ func executeSessionEndHooks(config *Config, input *SessionEndInput, rawJSON inte
 
 		for _, action := range hook.Actions {
 			if err := executeSessionEndAction(action, input, rawJSON); err != nil {
-				fmt.Fprintf(os.Stderr, "SessionEnd hook %d failed: %v\n", i, err)
 				// SessionEndフックはブロッキング不可能なのでエラーを返さない
 				// （セッション終了時なので止める意味がない）
+				// エラーは発生しても無視する
 			}
 		}
 	}
