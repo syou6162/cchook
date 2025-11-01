@@ -747,6 +747,137 @@ func TestExecutePreToolUseHooks_Integration(t *testing.T) {
 	}
 }
 
+func TestExecutePreToolUseHooks_ConditionErrorAggregation(t *testing.T) {
+	// 無効な条件タイプを含む設定（prompt_regex はPreToolUseでは使えない）
+	config := &Config{
+		PreToolUse: []PreToolUseHook{
+			{
+				Matcher: "Write",
+				Conditions: []Condition{
+					{Type: ConditionPromptRegex, Value: "test"}, // PreToolUseでは無効
+				},
+				Actions: []Action{
+					{Type: "output", Message: "test"},
+				},
+			},
+			{
+				Matcher: "Edit",
+				Conditions: []Condition{
+					{Type: ConditionEveryNPrompts, Value: "5"}, // これもPreToolUseでは無効
+				},
+				Actions: []Action{
+					{Type: "output", Message: "test"},
+				},
+			},
+		},
+	}
+
+	input := &PreToolUseInput{
+		BaseInput: BaseInput{Cwd: "/tmp"},
+		ToolName:  "Write",
+	}
+
+	err := executePreToolUseHooks(config, input, nil)
+
+	// エラーが返されることを確認
+	if err == nil {
+		t.Fatal("Expected error for invalid condition types, got nil")
+	}
+
+	// エラーメッセージに両方のフックのエラーが含まれることを確認（errors.Joinによる集約）
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "hook[PreToolUse][0]") {
+		t.Errorf("Expected error message to contain first hook error, got: %q", errMsg)
+	}
+	if !strings.Contains(errMsg, "unknown condition type") {
+		t.Errorf("Expected error message to contain 'unknown condition type', got: %q", errMsg)
+	}
+}
+
+func TestExecutePostToolUseHooks_ConditionErrorAggregation(t *testing.T) {
+	// 複数の無効な条件タイプを含む設定
+	config := &Config{
+		PostToolUse: []PostToolUseHook{
+			{
+				Matcher: "Write",
+				Conditions: []Condition{
+					{Type: ConditionReasonIs, Value: "clear"}, // PostToolUseでは無効
+				},
+				Actions: []Action{
+					{Type: "output", Message: "test"},
+				},
+			},
+			{
+				Matcher: "Edit",
+				Conditions: []Condition{
+					{Type: ConditionPromptRegex, Value: "test"}, // PostToolUseでは無効
+				},
+				Actions: []Action{
+					{Type: "output", Message: "test"},
+				},
+			},
+		},
+	}
+
+	input := &PostToolUseInput{
+		BaseInput: BaseInput{Cwd: "/tmp"},
+		ToolName:  "Write",
+	}
+
+	err := executePostToolUseHooks(config, input, nil)
+
+	// エラーが返されることを確認
+	if err == nil {
+		t.Fatal("Expected error for invalid condition types, got nil")
+	}
+
+	// 複数のエラーが集約されていることを確認
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "hook[PostToolUse][0]") {
+		t.Errorf("Expected error message to contain first hook error, got: %q", errMsg)
+	}
+	if !strings.Contains(errMsg, "unknown condition type") {
+		t.Errorf("Expected error message to contain 'unknown condition type', got: %q", errMsg)
+	}
+}
+
+func TestExecuteNotificationHooks_ConditionErrorAggregation(t *testing.T) {
+	// Notificationでは使えない条件タイプを設定
+	config := &Config{
+		Notification: []NotificationHook{
+			{
+				Conditions: []Condition{
+					{Type: ConditionFileExtension, Value: ".go"}, // Notificationでは無効
+				},
+				Actions: []Action{
+					{Type: "output", Message: "test"},
+				},
+			},
+		},
+	}
+
+	input := &NotificationInput{
+		BaseInput: BaseInput{Cwd: "/tmp"},
+		Message:   "test notification",
+	}
+
+	err := executeNotificationHooks(config, input, nil)
+
+	// エラーが返されることを確認
+	if err == nil {
+		t.Fatal("Expected error for invalid condition type, got nil")
+	}
+
+	// エラーメッセージの確認
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "hook[Notification][0]") {
+		t.Errorf("Expected error message to contain hook identifier, got: %q", errMsg)
+	}
+	if !strings.Contains(errMsg, "unknown condition type") {
+		t.Errorf("Expected error message to contain 'unknown condition type', got: %q", errMsg)
+	}
+}
+
 func TestExecutePostToolUseHooks_Integration(t *testing.T) {
 	config := &Config{
 		PostToolUse: []PostToolUseHook{
