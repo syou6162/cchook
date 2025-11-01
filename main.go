@@ -46,10 +46,11 @@ func main() {
 	if err != nil {
 		if exitErr, ok := err.(*ExitError); ok {
 			// ExitError の場合は適切な出力先に出力して指定のコードで終了
+			// err.Error()を使ってラップされた全メッセージを出力
 			if exitErr.Stderr {
-				fmt.Fprintf(os.Stderr, "%s\n", exitErr.Message)
+				fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 			} else {
-				fmt.Println(exitErr.Message)
+				fmt.Println(err.Error())
 			}
 			os.Exit(exitErr.Code)
 		} else {
