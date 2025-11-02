@@ -619,7 +619,7 @@ func runCommandWithOutput(command string, useStdin bool, data interface{}) (stdo
 
 	// コマンド実行
 	runErr := cmd.Run()
-	
+
 	// stdout/stderrを文字列として取得
 	stdoutStr := stdoutBuf.String()
 	stderrStr := stderrBuf.String()
