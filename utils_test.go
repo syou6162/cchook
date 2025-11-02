@@ -1435,3 +1435,114 @@ func TestRunCommand_WithStdin(t *testing.T) {
 		})
 	}
 }
+
+func TestRunCommandWithOutput_Success(t *testing.T) {
+	stdout, stderr, exitCode, err := runCommandWithOutput("echo 'test output'", false, nil)
+
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d", exitCode)
+	}
+	if !strings.Contains(stdout, "test output") {
+		t.Errorf("Expected stdout to contain 'test output', got: %s", stdout)
+	}
+	if stderr != "" {
+		t.Errorf("Expected empty stderr, got: %s", stderr)
+	}
+}
+
+func TestRunCommandWithOutput_FailedCommand(t *testing.T) {
+	_, _, exitCode, err := runCommandWithOutput("exit 42", false, nil)
+
+	if err == nil {
+		t.Fatal("Expected error for non-zero exit code")
+	}
+	if exitCode != 42 {
+		t.Errorf("Expected exit code 42, got %d", exitCode)
+	}
+}
+
+func TestRunCommandWithOutput_StderrCapture(t *testing.T) {
+	stdout, stderr, exitCode, err := runCommandWithOutput("echo 'error message' >&2 && exit 1", false, nil)
+
+	if err == nil {
+		t.Fatal("Expected error for non-zero exit code")
+	}
+	if exitCode != 1 {
+		t.Errorf("Expected exit code 1, got %d", exitCode)
+	}
+	if !strings.Contains(stderr, "error message") {
+		t.Errorf("Expected stderr to contain 'error message', got: %s", stderr)
+	}
+	if stdout != "" {
+		t.Errorf("Expected empty stdout, got: %s", stdout)
+	}
+}
+
+func TestRunCommandWithOutput_WithStdin(t *testing.T) {
+	testData := map[string]string{
+		"key": "value",
+	}
+
+	// JSONを受け取ってechoするコマンド
+	stdout, _, exitCode, err := runCommandWithOutput("cat", true, testData)
+
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d", exitCode)
+	}
+
+	// stdoutにJSONが含まれることを確認
+	var decoded map[string]string
+	decodeErr := json.Unmarshal([]byte(stdout), &decoded)
+	if decodeErr != nil {
+		t.Fatalf("Failed to decode stdout as JSON: %v", decodeErr)
+	}
+	if decoded["key"] != "value" {
+		t.Errorf("Expected key=value, got key=%s", decoded["key"])
+	}
+}
+
+func TestRunCommandWithOutput_EmptyCommand(t *testing.T) {
+	_, _, exitCode, err := runCommandWithOutput("", false, nil)
+
+	if err == nil {
+		t.Fatal("Expected error for empty command")
+	}
+	if exitCode != 1 {
+		t.Errorf("Expected exit code 1, got %d", exitCode)
+	}
+}
+
+func TestRunCommandWithOutput_EmptyOutput(t *testing.T) {
+	stdout, stderr, exitCode, err := runCommandWithOutput("true", false, nil)
+
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d", exitCode)
+	}
+	if stdout != "" {
+		t.Errorf("Expected empty stdout, got: %s", stdout)
+	}
+	if stderr != "" {
+		t.Errorf("Expected empty stderr, got: %s", stderr)
+	}
+}
+
+func TestRunCommandWithOutput_CommandNotFound(t *testing.T) {
+	_, _, exitCode, err := runCommandWithOutput("nonexistent_command_xyz", false, nil)
+
+	if err == nil {
+		t.Fatal("Expected error for command not found")
+	}
+	// コマンドが見つからない場合は127が返されることが多い
+	if exitCode == 0 {
+		t.Error("Expected non-zero exit code for command not found")
+	}
+}
