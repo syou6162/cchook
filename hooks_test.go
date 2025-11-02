@@ -297,9 +297,9 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 	}
 
 	tests := []struct {
-		name                     string
-		input                    *SessionStartInput
-		wantAdditionalContexts   []string
+		name                       string
+		input                      *SessionStartInput
+		wantAdditionalContexts     []string
 		wantNotInAdditionalContext string
 	}{
 		{
