@@ -97,7 +97,8 @@ func TestExecutePreToolUseAction_WithUseStdin(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			err := executePreToolUseAction(tt.action, tt.input, tt.rawJSON)
+			executor := NewActionExecutor(nil)
+			err := executor.ExecutePreToolUseAction(tt.action, tt.input, tt.rawJSON)
 
 			// 標準出力を復元
 			_ = w.Close()
@@ -136,7 +137,8 @@ func TestExecutePostToolUseAction_WithUseStdin(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := executePostToolUseAction(action, input, rawJSON)
+	executor := NewActionExecutor(nil)
+	err := executor.ExecutePostToolUseAction(action, input, rawJSON)
 
 	// 標準出力を復元
 	_ = w.Close()
