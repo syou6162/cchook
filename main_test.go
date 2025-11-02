@@ -707,7 +707,7 @@ func TestSessionStartIntegration_InvalidHookEventName(t *testing.T) {
 	// Test schema validation: hookEventName must be "SessionStart"
 	tmpDir := t.TempDir()
 	configPath := tmpDir + "/config.yaml"
-	
+
 	// Create a script that outputs wrong hookEventName
 	scriptPath := tmpDir + "/wrong-hook-name.sh"
 	scriptContent := `#!/bin/sh
@@ -721,27 +721,27 @@ cat <<'EOF'
 }
 EOF
 `
-	
+
 	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
 		t.Fatalf("Failed to write script file: %v", err)
 	}
-	
+
 	configYAML := `SessionStart:
   - matcher: "startup"
     actions:
       - type: command
         command: "` + scriptPath + `"
 `
-	
+
 	if err := os.WriteFile(configPath, []byte(configYAML), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
-	
+
 	config, err := loadConfig(configPath)
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
-	
+
 	input := &SessionStartInput{
 		BaseInput: BaseInput{
 			SessionID:      "test-session",
@@ -750,24 +750,24 @@ EOF
 		},
 		Source: "startup",
 	}
-	
+
 	rawJSON := map[string]interface{}{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
 		"source":          input.Source,
 	}
-	
+
 	output, err := executeSessionStartHooks(config, input, rawJSON)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	
+
 	// Verify schema validation rejected wrong hookEventName
 	if output.Continue {
 		t.Errorf("Continue = true, want false (schema validation should reject)")
 	}
-	
+
 	if !strings.Contains(output.SystemMessage, "validation failed") {
 		t.Errorf("SystemMessage should contain 'validation failed', got: %s", output.SystemMessage)
 	}
@@ -777,7 +777,7 @@ func TestSessionStartIntegration_UnsupportedFields(t *testing.T) {
 	// Test schema validation: unsupported fields should be rejected
 	tmpDir := t.TempDir()
 	configPath := tmpDir + "/config.yaml"
-	
+
 	// Create a script that outputs unsupported field
 	scriptPath := tmpDir + "/unsupported-field.sh"
 	scriptContent := `#!/bin/sh
@@ -793,27 +793,27 @@ cat <<'EOF'
 }
 EOF
 `
-	
+
 	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
 		t.Fatalf("Failed to write script file: %v", err)
 	}
-	
+
 	configYAML := `SessionStart:
   - matcher: "startup"
     actions:
       - type: command
         command: "` + scriptPath + `"
 `
-	
+
 	if err := os.WriteFile(configPath, []byte(configYAML), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
-	
+
 	config, err := loadConfig(configPath)
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
-	
+
 	input := &SessionStartInput{
 		BaseInput: BaseInput{
 			SessionID:      "test-session",
@@ -822,25 +822,92 @@ EOF
 		},
 		Source: "startup",
 	}
-	
+
 	rawJSON := map[string]interface{}{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
 		"source":          input.Source,
 	}
-	
+
 	output, err := executeSessionStartHooks(config, input, rawJSON)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	
+
 	// Verify schema validation rejected unsupported fields
 	if output.Continue {
 		t.Errorf("Continue = true, want false (schema validation should reject unsupported fields)")
 	}
-	
+
 	if !strings.Contains(output.SystemMessage, "validation failed") && !strings.Contains(output.SystemMessage, "Additional property") {
 		t.Errorf("SystemMessage should mention validation failure or additional properties, got: %s", output.SystemMessage)
+	}
+}
+
+func TestSessionStartIntegration_MissingHookSpecificOutput(t *testing.T) {
+	// Test schema validation: hookSpecificOutput is required (prevents panic)
+	tmpDir := t.TempDir()
+	configPath := tmpDir + "/config.yaml"
+
+	// Create a script that outputs JSON without hookSpecificOutput
+	scriptPath := tmpDir + "/missing-hook-specific.sh"
+	scriptContent := `#!/bin/sh
+cat <<'EOF'
+{
+  "continue": true,
+  "systemMessage": "Missing hookSpecificOutput"
+}
+EOF
+`
+
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
+		t.Fatalf("Failed to write script file: %v", err)
+	}
+
+	configYAML := `SessionStart:
+  - matcher: "startup"
+    actions:
+      - type: command
+        command: "` + scriptPath + `"
+`
+
+	if err := os.WriteFile(configPath, []byte(configYAML), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	config, err := loadConfig(configPath)
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	input := &SessionStartInput{
+		BaseInput: BaseInput{
+			SessionID:      "test-session",
+			TranscriptPath: "/tmp/transcript",
+			HookEventName:  SessionStart,
+		},
+		Source: "startup",
+	}
+
+	rawJSON := map[string]interface{}{
+		"session_id":      input.SessionID,
+		"transcript_path": input.TranscriptPath,
+		"hook_event_name": string(input.HookEventName),
+		"source":          input.Source,
+	}
+
+	output, err := executeSessionStartHooks(config, input, rawJSON)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	// Verify schema validation rejected missing hookSpecificOutput (prevents panic at executor.go:136)
+	if output.Continue {
+		t.Errorf("Continue = true, want false (schema validation should reject missing hookSpecificOutput)")
+	}
+
+	if !strings.Contains(output.SystemMessage, "validation failed") {
+		t.Errorf("SystemMessage should contain 'validation failed', got: %s", output.SystemMessage)
 	}
 }
