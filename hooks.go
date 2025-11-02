@@ -930,6 +930,8 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 	allErrors = append(allErrors, actionErrors...)
 
 	if len(allErrors) > 0 {
+		// Safe side default: エラー時は必ず continue: false を設定
+		finalOutput.Continue = false
 		return finalOutput, errors.Join(allErrors...)
 	}
 
