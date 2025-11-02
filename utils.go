@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/invopop/jsonschema"
 	"github.com/xeipuuv/gojsonschema"
 	"mvdan.cc/sh/v3/shell"
 )
@@ -657,52 +658,48 @@ func runCommandWithOutput(command string, useStdin bool, data interface{}) (stdo
 	return stdout, stderr, exitCode, err
 }
 
-// sessionStartOutputSchema defines the JSON Schema for SessionStart hook output
-var sessionStartOutputSchema = map[string]interface{}{
-	"$schema": "http://json-schema.org/draft-07/schema#",
-	"title":   "SessionStart Hook Output Schema",
-	"type":    "object",
-	"properties": map[string]interface{}{
-		"continue": map[string]interface{}{
-			"type":        "boolean",
-			"description": "Whether to continue session startup",
-		},
-		"stopReason": map[string]interface{}{
-			"type":        "string",
-			"description": "Reason for stopping (Phase 1 unused)",
-		},
-		"suppressOutput": map[string]interface{}{
-			"type":        "boolean",
-			"description": "Whether to suppress output (Phase 1 unused)",
-		},
-		"systemMessage": map[string]interface{}{
-			"type":        "string",
-			"description": "System message to display to user only",
-		},
-		"hookSpecificOutput": map[string]interface{}{
-			"type": "object",
-			"properties": map[string]interface{}{
-				"hookEventName": map[string]interface{}{
-					"type":        "string",
-					"enum":        []interface{}{"SessionStart"},
-					"description": "Hook event name, must be 'SessionStart'",
-				},
-				"additionalContext": map[string]interface{}{
-					"type":        "string",
-					"description": "Additional context to provide to Claude",
-				},
-			},
-			"required":             []interface{}{"hookEventName"},
-			"additionalProperties": false,
-		},
-	},
-	"required":             []interface{}{"hookSpecificOutput"},
-	"additionalProperties": true,
-}
-
-// validateSessionStartOutput validates SessionStartOutput JSON against schema
+// validateSessionStartOutput validates SessionStartOutput JSON against auto-generated schema
 func validateSessionStartOutput(jsonData []byte) error {
-	schemaLoader := gojsonschema.NewGoLoader(sessionStartOutputSchema)
+	// Generate schema from SessionStartOutput struct
+	reflector := jsonschema.Reflector{
+		DoNotReference: true, // Inline all definitions
+	}
+	schema := reflector.Reflect(&SessionStartOutput{})
+
+	// Customize schema to match requirements
+	// 1. Allow additional properties at root level (requirement: additionalProperties: true)
+	schema.AdditionalProperties = nil // nil means allow any additional properties
+
+	// 2. Set required fields: only hookSpecificOutput (continue is always output but not required for validation)
+	schema.Required = []string{"hookSpecificOutput"}
+
+	// 3. Add custom validation: hookEventName must be "SessionStart"
+	if hookSpecificProp, ok := schema.Properties.Get("hookSpecificOutput"); ok {
+		if hookSpecific := hookSpecificProp; hookSpecific != nil {
+			if hookEventNameProp, ok := hookSpecific.Properties.Get("hookEventName"); ok {
+				if hookEventName := hookEventNameProp; hookEventName != nil {
+					hookEventName.Enum = []interface{}{"SessionStart"}
+				}
+			}
+			// hookSpecificOutput.hookEventName is required
+			hookSpecific.Required = []string{"hookEventName"}
+			// hookSpecificOutput should not allow additional properties
+			hookSpecific.AdditionalProperties = &jsonschema.Schema{Not: &jsonschema.Schema{}} // false
+		}
+	}
+
+	// Convert schema to map for gojsonschema
+	schemaBytes, err := json.Marshal(schema)
+	if err != nil {
+		return fmt.Errorf("failed to marshal schema: %w", err)
+	}
+
+	var schemaMap map[string]interface{}
+	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
+		return fmt.Errorf("failed to unmarshal schema: %w", err)
+	}
+
+	schemaLoader := gojsonschema.NewGoLoader(schemaMap)
 	documentLoader := gojsonschema.NewBytesLoader(jsonData)
 
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)

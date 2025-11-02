@@ -160,7 +160,7 @@ type SessionStartOutput struct {
 	StopReason         string                          `json:"stopReason,omitempty"`
 	SuppressOutput     bool                            `json:"suppressOutput,omitempty"`
 	SystemMessage      string                          `json:"systemMessage,omitempty"`
-	HookSpecificOutput *SessionStartHookSpecificOutput `json:"hookSpecificOutput,omitempty"`
+	HookSpecificOutput *SessionStartHookSpecificOutput `json:"hookSpecificOutput"`
 }
 
 // SessionStartHookSpecificOutput はSessionStart固有の出力フィールド
