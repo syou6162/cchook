@@ -86,22 +86,7 @@ func getExitStatus(exitStatus *int, actionType string) int {
 }
 
 // executeSessionEndAction executes an action for the SessionEnd event.
-// Errors are logged but do not block session end.
+// This is a wrapper function that uses the default ActionExecutor.
 func executeSessionEndAction(action Action, input *SessionEndInput, rawJSON interface{}) error {
-	switch action.Type {
-	case "command":
-		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			return err
-		}
-	case "output":
-		// SessionEndはブロッキング不要なので、exitStatusが指定されていない場合は通常出力
-		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
-		if action.ExitStatus != nil && *action.ExitStatus != 0 {
-			stderr := *action.ExitStatus == 2
-			return NewExitError(*action.ExitStatus, processedMessage, stderr)
-		}
-		fmt.Println(processedMessage)
-	}
-	return nil
+	return defaultExecutor.ExecuteSessionEndAction(action, input, rawJSON)
 }

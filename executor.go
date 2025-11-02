@@ -155,3 +155,24 @@ func (e *ActionExecutor) ExecutePostToolUseAction(action Action, input *PostTool
 	}
 	return nil
 }
+
+// ExecuteSessionEndAction executes an action for the SessionEnd event.
+// Errors are logged but do not block session end.
+func (e *ActionExecutor) ExecuteSessionEndAction(action Action, input *SessionEndInput, rawJSON interface{}) error {
+	switch action.Type {
+	case "command":
+		cmd := unifiedTemplateReplace(action.Command, rawJSON)
+		if err := e.runner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
+			return err
+		}
+	case "output":
+		// SessionEndはブロッキング不要なので、exitStatusが指定されていない場合は通常出力
+		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
+		if action.ExitStatus != nil && *action.ExitStatus != 0 {
+			stderr := *action.ExitStatus == 2
+			return NewExitError(*action.ExitStatus, processedMessage, stderr)
+		}
+		fmt.Println(processedMessage)
+	}
+	return nil
+}
