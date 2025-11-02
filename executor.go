@@ -91,7 +91,7 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		stdout, stderr, exitCode, err := runCommandWithOutput(cmd, action.UseStdin, rawJSON)
+		stdout, stderr, exitCode, err := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
 
 		// Command failed with non-zero exit code
 		if exitCode != 0 {
