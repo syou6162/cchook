@@ -8,6 +8,9 @@ import (
 // Can be swapped in tests for mocking.
 var commandRunner CommandRunner = DefaultCommandRunner
 
+// defaultExecutor is the default ActionExecutor instance used by package-level functions.
+var defaultExecutor = NewActionExecutor(DefaultCommandRunner)
+
 // handleOutput processes an output action and returns ExitError if a non-zero exit status is specified.
 // Exit status 2 outputs to stderr, while other non-zero statuses output to stdout with error.
 func handleOutput(message string, exitStatus *int, rawJSON interface{}) error {
@@ -23,34 +26,15 @@ func handleOutput(message string, exitStatus *int, rawJSON interface{}) error {
 }
 
 // executeNotificationAction executes an action for the Notification event.
-// Supports command execution and output actions.
+// This is a wrapper function that uses the default ActionExecutor.
 func executeNotificationAction(action Action, input *NotificationInput, rawJSON interface{}) error {
-	switch action.Type {
-	case "command":
-		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			return err
-		}
-	case "output":
-		return handleOutput(action.Message, action.ExitStatus, rawJSON)
-	}
-	return nil
+	return defaultExecutor.ExecuteNotificationAction(action, input, rawJSON)
 }
 
 // executeStopAction executes an action for the Stop event.
-// Command failures result in exit status 2 to block the stop operation.
+// This is a wrapper function that uses the default ActionExecutor.
 func executeStopAction(action Action, input *StopInput, rawJSON interface{}) error {
-	switch action.Type {
-	case "command":
-		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			// Stopでコマンドが失敗した場合はexit 2で停止をブロック
-			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
-		}
-	case "output":
-		return handleOutput(action.Message, action.ExitStatus, rawJSON)
-	}
-	return nil
+	return defaultExecutor.ExecuteStopAction(action, input, rawJSON)
 }
 
 // executeSubagentStopAction executes an action for the SubagentStop event.
