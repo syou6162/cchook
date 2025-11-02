@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // ActionExecutor executes actions with a specified CommandRunner.
@@ -83,24 +85,86 @@ func (e *ActionExecutor) ExecutePreCompactAction(action Action, input *PreCompac
 }
 
 // ExecuteSessionStartAction executes an action for the SessionStart event.
-// Errors are logged but do not block session startup.
-func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *SessionStartInput, rawJSON interface{}) error {
+// Returns ActionOutput for JSON serialization.
+func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *SessionStartInput, rawJSON interface{}) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := e.runner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			return err
+		stdout, stderr, exitCode, err := runCommandWithOutput(cmd, action.UseStdin, rawJSON)
+
+		// Command failed with non-zero exit code
+		if exitCode != 0 {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr),
+			}, nil
 		}
+
+		// Empty stdout
+		if strings.TrimSpace(stdout) == "" {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: "Command produced no output",
+			}, nil
+		}
+
+		// Parse JSON output
+		var cmdOutput SessionStartOutput
+		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: fmt.Sprintf("Command output is not valid JSON: %s", stdout),
+			}, nil
+		}
+
+		// Validate hookEventName field
+		if cmdOutput.HookSpecificOutput == nil || cmdOutput.HookSpecificOutput.HookEventName == "" {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: "Command output is missing required field: hookSpecificOutput.hookEventName",
+			}, nil
+		}
+
+		// Build ActionOutput from parsed JSON
+		// If continue field is missing, default to false
+		result := &ActionOutput{
+			Continue:      cmdOutput.Continue,
+			HookEventName: cmdOutput.HookSpecificOutput.HookEventName,
+			SystemMessage: cmdOutput.SystemMessage,
+		}
+
+		// Set AdditionalContext if present
+		if cmdOutput.HookSpecificOutput != nil {
+			result.AdditionalContext = cmdOutput.HookSpecificOutput.AdditionalContext
+		}
+
+		return result, err
+
 	case "output":
-		// SessionStartはブロッキング不要なので、exitStatusが指定されていない場合は通常出力
 		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
-		if action.ExitStatus != nil && *action.ExitStatus != 0 {
-			stderr := *action.ExitStatus == 2
-			return NewExitError(*action.ExitStatus, processedMessage, stderr)
+
+		// Empty message check
+		if strings.TrimSpace(processedMessage) == "" {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: "Action output has no message",
+			}, nil
 		}
-		fmt.Println(processedMessage)
+
+		// Determine continue value: default to true if unspecified
+		continueValue := true
+		if action.Continue != nil {
+			continueValue = *action.Continue
+		}
+
+		return &ActionOutput{
+			Continue:          continueValue,
+			HookEventName:     "SessionStart",
+			AdditionalContext: processedMessage,
+		}, nil
 	}
-	return nil
+
+	return nil, nil
 }
 
 // ExecuteUserPromptSubmitAction executes an action for the UserPromptSubmit event.
