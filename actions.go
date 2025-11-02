@@ -18,54 +18,6 @@ func handleOutput(message string, exitStatus *int, rawJSON interface{}) error {
 	return nil
 }
 
-// executeNotificationAction executes an action for the Notification event.
-// This is a wrapper function that uses the default ActionExecutor.
-func executeNotificationAction(action Action, input *NotificationInput, rawJSON interface{}) error {
-	return defaultExecutor.ExecuteNotificationAction(action, input, rawJSON)
-}
-
-// executeStopAction executes an action for the Stop event.
-// This is a wrapper function that uses the default ActionExecutor.
-func executeStopAction(action Action, input *StopInput, rawJSON interface{}) error {
-	return defaultExecutor.ExecuteStopAction(action, input, rawJSON)
-}
-
-// executeSubagentStopAction executes an action for the SubagentStop event.
-// This is a wrapper function that uses the default ActionExecutor.
-func executeSubagentStopAction(action Action, input *SubagentStopInput, rawJSON interface{}) error {
-	return defaultExecutor.ExecuteSubagentStopAction(action, input, rawJSON)
-}
-
-// executePreCompactAction executes an action for the PreCompact event.
-// This is a wrapper function that uses the default ActionExecutor.
-func executePreCompactAction(action Action, input *PreCompactInput, rawJSON interface{}) error {
-	return defaultExecutor.ExecutePreCompactAction(action, input, rawJSON)
-}
-
-// executeSessionStartAction executes an action for the SessionStart event.
-// This is a wrapper function that uses the default ActionExecutor.
-func executeSessionStartAction(action Action, input *SessionStartInput, rawJSON interface{}) error {
-	return defaultExecutor.ExecuteSessionStartAction(action, input, rawJSON)
-}
-
-// executeUserPromptSubmitAction executes an action for the UserPromptSubmit event.
-// This is a wrapper function that uses the default ActionExecutor.
-func executeUserPromptSubmitAction(action Action, input *UserPromptSubmitInput, rawJSON interface{}) error {
-	return defaultExecutor.ExecuteUserPromptSubmitAction(action, input, rawJSON)
-}
-
-// executePreToolUseAction executes an action for the PreToolUse event.
-// This is a wrapper function that uses the default ActionExecutor.
-func executePreToolUseAction(action Action, input *PreToolUseInput, rawJSON interface{}) error {
-	return defaultExecutor.ExecutePreToolUseAction(action, input, rawJSON)
-}
-
-// executePostToolUseAction executes an action for the PostToolUse event.
-// This is a wrapper function that uses the default ActionExecutor.
-func executePostToolUseAction(action Action, input *PostToolUseInput, rawJSON interface{}) error {
-	return defaultExecutor.ExecutePostToolUseAction(action, input, rawJSON)
-}
-
 // getExitStatus returns the exit status for the given action type.
 // Default for "output" actions is 2, others default to 0.
 func getExitStatus(exitStatus *int, actionType string) int {
