@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -121,7 +122,6 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 		// This checks:
 		// - hookSpecificOutput exists (required field)
 		// - hookEventName is "SessionStart" (enum validation)
-		// - No unsupported fields are present (additionalProperties: false)
 		// - All field types match the schema
 		if err := validateSessionStartOutput([]byte(stdout)); err != nil {
 			return &ActionOutput{
@@ -129,6 +129,9 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 				SystemMessage: fmt.Sprintf("Command output validation failed: %s", err.Error()),
 			}, nil
 		}
+
+		// Check for unsupported fields and log warnings to stderr
+		checkUnsupportedFieldsSessionStart(stdout)
 
 		// Build ActionOutput from parsed JSON
 		// After schema validation, hookSpecificOutput is guaranteed to exist
@@ -242,4 +245,29 @@ func (e *ActionExecutor) ExecuteSessionEndAction(action Action, input *SessionEn
 		fmt.Println(processedMessage)
 	}
 	return nil
+}
+
+// checkUnsupportedFieldsSessionStart checks for unsupported fields in SessionStart JSON output
+// and logs warnings to stderr. Supported fields are: continue, stopReason, suppressOutput,
+// systemMessage, and hookSpecificOutput.
+func checkUnsupportedFieldsSessionStart(stdout string) {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+		// JSON parsing failed - this will be caught by the main validation
+		return
+	}
+
+	supportedFields := map[string]bool{
+		"continue":           true,
+		"stopReason":         true,
+		"suppressOutput":     true,
+		"systemMessage":      true,
+		"hookSpecificOutput": true,
+	}
+
+	for field := range data {
+		if !supportedFields[field] {
+			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for SessionStart hooks\n", field)
+		}
+	}
 }
