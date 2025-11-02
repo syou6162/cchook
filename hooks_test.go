@@ -312,7 +312,7 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 				},
 				Source: "startup",
 			},
-			wantAdditionalContexts:   []string{"Go project detected", "Test file found recursively"},
+			wantAdditionalContexts:     []string{"Go project detected", "Test file found recursively"},
 			wantNotInAdditionalContext: "This should not appear",
 		},
 	}
@@ -1608,9 +1608,9 @@ func TestExecuteSessionStartHooks_NewSignature(t *testing.T) {
 				},
 				Source: "startup", // Doesn't match "resume"
 			},
-			wantContinue:          true, // Default Continue: true when no actions run
-			wantHookEventName:     "",   // No hookEventName set
-			wantAdditionalContext: "",   // No messages
+			wantContinue:          true,           // Default Continue: true when no actions run
+			wantHookEventName:     "SessionStart", // Always set to "SessionStart" (requirement 4.1)
+			wantAdditionalContext: "",             // No messages
 			wantSystemMessage:     "",
 			wantErr:               false,
 		},

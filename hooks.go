@@ -913,11 +913,13 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 	}
 
 	// Build final output
-	if hookEventName != "" {
-		finalOutput.HookSpecificOutput = &SessionStartHookSpecificOutput{
-			HookEventName:     hookEventName,
-			AdditionalContext: additionalContextBuilder.String(),
-		}
+	// Always set hookEventName to "SessionStart" (requirement 4.1)
+	if hookEventName == "" {
+		hookEventName = "SessionStart"
+	}
+	finalOutput.HookSpecificOutput = &SessionStartHookSpecificOutput{
+		HookEventName:     hookEventName,
+		AdditionalContext: additionalContextBuilder.String(),
 	}
 
 	finalOutput.SystemMessage = systemMessageBuilder.String()
