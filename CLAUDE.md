@@ -255,6 +255,57 @@ Available condition types:
 
 Template variables are available based on the event type and include fields from BaseInput, tool-specific data, and full jq query support.
 
+### SessionStart JSON Output
+
+SessionStart hooks support JSON output format for Claude Code integration. Actions can return structured output:
+
+**Output Action** (type: `output`):
+```yaml
+SessionStart:
+  - actions:
+      - type: output
+        message: "Welcome message"
+        continue: true  # optional, defaults to true
+```
+
+**Command Action** (type: `command`):
+Commands must output JSON with the following structure:
+```json
+{
+  "continue": true,
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "Message to display"
+  },
+  "systemMessage": "Optional system message"
+}
+```
+
+**Field Merging**:
+When multiple actions execute:
+- `continue`: Last value wins (early return on `false`)
+- `hookEventName`: Set once by first action
+- `additionalContext` and `systemMessage`: Concatenated with newline separator
+
+**Exit Code Behavior**:
+SessionStart hooks **always exit with code 0**, even when:
+- Command actions fail or return non-zero exit codes
+- JSON parsing errors occur
+- Invalid/unsupported fields are detected in command output
+
+Errors are logged to stderr as warnings, but cchook continues to output JSON and exits successfully. This ensures Claude Code always receives a response.
+
+**Example**:
+```yaml
+SessionStart:
+  - matcher: "startup"
+    actions:
+      - type: output
+        message: "Session started"
+      - type: command
+        command: "get-project-info.sh"  # Returns JSON
+```
+
 ## Common Workflows
 
 ### Adding a New Hook Type
