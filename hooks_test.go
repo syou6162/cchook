@@ -488,7 +488,8 @@ func TestExecutePreToolUseHook_OutputAction(t *testing.T) {
 
 	input := &PreToolUseInput{ToolName: "Write"}
 
-	err := executePreToolUseHook(hook, input, nil)
+	executor := NewActionExecutor(nil)
+	err := executePreToolUseHook(executor, hook, input, nil)
 
 	// 標準出力を復元
 	_ = w.Close()
@@ -516,7 +517,8 @@ func TestExecutePreToolUseHook_CommandAction(t *testing.T) {
 
 	input := &PreToolUseInput{ToolName: "Write"}
 
-	err := executePreToolUseHook(hook, input, nil)
+	executor := NewActionExecutor(nil)
+	err := executePreToolUseHook(executor, hook, input, nil)
 	if err != nil {
 		t.Errorf("executePreToolUseHook() error = %v", err)
 	}
@@ -541,7 +543,8 @@ func TestExecutePreToolUseHook_CommandWithVariables(t *testing.T) {
 		},
 	}
 
-	err := executePreToolUseHook(hook, input, rawJSON)
+	executor := NewActionExecutor(nil)
+	err := executePreToolUseHook(executor, hook, input, rawJSON)
 	if err != nil {
 		t.Errorf("executePreToolUseHook() error = %v", err)
 	}
@@ -556,7 +559,8 @@ func TestExecutePreToolUseHook_FailingCommand(t *testing.T) {
 
 	input := &PreToolUseInput{ToolName: "Write"}
 
-	err := executePreToolUseHook(hook, input, nil)
+	executor := NewActionExecutor(nil)
+	err := executePreToolUseHook(executor, hook, input, nil)
 	if err == nil {
 		t.Error("Expected error for failing command, got nil")
 	}
@@ -571,7 +575,8 @@ func TestExecutePreToolUseHook_FailingCommandReturnsExit2(t *testing.T) {
 
 	input := &PreToolUseInput{ToolName: "Write"}
 
-	err := executePreToolUseHook(hook, input, nil)
+	executor := NewActionExecutor(nil)
+	err := executePreToolUseHook(executor, hook, input, nil)
 
 	// エラーが返されることを確認
 	if err == nil {
@@ -715,7 +720,8 @@ func TestExecutePostToolUseHook_Success(t *testing.T) {
 
 	input := &PostToolUseInput{ToolName: "Edit"}
 
-	err := executePostToolUseHook(hook, input, nil)
+	executor := NewActionExecutor(nil)
+	err := executePostToolUseHook(executor, hook, input, nil)
 	if err != nil {
 		t.Errorf("executePostToolUseHook() error = %v", err)
 	}

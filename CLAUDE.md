@@ -80,16 +80,25 @@ go build -o cchook
 go mod download
 go mod tidy
 
-# Run all tests
+# Run unit tests only (fast, no external dependencies)
 go test ./...
 
-# Run tests with verbose output
+# Run unit tests with verbose output
 go test -v ./...
+
+# Run integration tests (requires external commands like cat, jq)
+go test -tags=integration ./...
+
+# Run integration tests with verbose output
+go test -v -tags=integration ./...
 
 # Run specific test function (more practical than test file)
 go test -v -run TestCheckGitTrackedFileOperation ./...
 go test -v -run TestExecutePreToolUseHooks ./...
 go test -v -run TestCheckUserPromptSubmitCondition ./...
+
+# Run specific integration test
+go test -v -tags=integration -run TestExecutePreToolUseAction_WithUseStdin ./...
 
 # Run with coverage
 go test -cover ./...
@@ -192,13 +201,38 @@ The application follows a modular architecture with clear separation of concerns
 
 ## Testing Strategy
 
-Tests are organized by component with comprehensive coverage:
-- Unit tests for each module (*_test.go files)
-- Integration tests for hook execution flows
-- Template processing tests with real-world examples
-- Dry-run functionality testing
-- Error condition coverage including unknown condition types
-- Transcript parsing tests for `every_n_prompts` condition
+Tests are organized into two tiers:
+
+**Unit Tests** (*_test.go files)
+- Fast execution with no external dependencies
+- Command execution is mocked using `stubRunner` implementation for dependency injection testing
+- Tests cover ActionExecutor methods, logic, error handling, and template processing
+- Run by default with `go test ./...`
+- Examples:
+  - `TestExecuteNotificationAction_CommandWithStubRunner`: Tests command execution mocking
+  - `TestExecutePreToolUseAction_CommandWithStubRunner`: Tests exit code 2 blocking behavior
+  - `TestGetExitStatus`: Tests exit status logic
+
+**Integration Tests** (*_integration_test.go files with `//go:build integration` tag)
+- Load real YAML configuration files (e.g., `testdata/integration_test_config.yaml`)
+- Execute real shell commands (requires `cat`, `jq`, etc.)
+- Test end-to-end hook execution with real config parsing
+- Separated to avoid dependency issues and slow test runs
+- Run explicitly with `go test -tags=integration ./...`
+- Examples:
+  - `TestPreToolUseIntegration`: Tests complete PreToolUse flow with YAML config
+  - `TestComplexJSONTemplateProcessing`: Tests jq template processing with complex JSON
+  - `TestExecutePreToolUseAction_WithUseStdin`: Tests stdin handling with real commands
+
+**Coverage includes:**
+- Dependency injection pattern with ActionExecutor
+- Hook execution flows with real YAML configuration
+- Condition matching and evaluation
+- Template processing with jq queries (nested objects, arrays, transformations)
+- Exit status control and error handling
+- Dry-run functionality
+- Transcript parsing for `every_n_prompts` condition
+- Git-tracked file operation detection
 
 ## Configuration Format
 

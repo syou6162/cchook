@@ -5,6 +5,13 @@ import (
 	"fmt"
 )
 
+// CommandRunner is an interface for executing shell commands.
+// This interface allows for dependency injection in tests.
+type CommandRunner interface {
+	// RunCommand executes a shell command with optional stdin data.
+	RunCommand(cmd string, useStdin bool, data interface{}) error
+}
+
 // イベントタイプのenum定義
 type HookEventType string
 
