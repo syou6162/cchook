@@ -10,6 +10,8 @@ import (
 type CommandRunner interface {
 	// RunCommand executes a shell command with optional stdin data.
 	RunCommand(cmd string, useStdin bool, data interface{}) error
+	// RunCommandWithOutput executes a shell command and returns stdout, stderr, exit code, and error.
+	RunCommandWithOutput(cmd string, useStdin bool, data interface{}) (stdout, stderr string, exitCode int, err error)
 }
 
 // イベントタイプのenum定義

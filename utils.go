@@ -580,6 +580,11 @@ func (r *realCommandRunner) RunCommand(cmd string, useStdin bool, data interface
 	return runCommand(cmd, useStdin, data)
 }
 
+// RunCommandWithOutput implements CommandRunner.RunCommandWithOutput
+func (r *realCommandRunner) RunCommandWithOutput(cmd string, useStdin bool, data interface{}) (stdout, stderr string, exitCode int, err error) {
+	return runCommandWithOutput(cmd, useStdin, data)
+}
+
 // DefaultCommandRunner is the default implementation used in production.
 var DefaultCommandRunner CommandRunner = &realCommandRunner{}
 
