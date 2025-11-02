@@ -40,8 +40,15 @@ func main() {
 			// SessionStart special handling with JSON output
 			output, err := RunSessionStartHooks(config)
 			if err != nil {
-				// Log error but continue processing
+				// Log error to stderr
 				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+				// Ensure output has continue field even on error (requirement 1.4)
+				if output == nil {
+					output = &SessionStartOutput{
+						Continue:      false,
+						SystemMessage: fmt.Sprintf("Failed to process SessionStart: %v", err),
+					}
+				}
 			}
 
 			// Marshal JSON with 2-space indent
