@@ -774,11 +774,11 @@ EOF
 }
 
 func TestSessionStartIntegration_UnsupportedFields(t *testing.T) {
-	// Test schema validation: unsupported fields should be rejected
+	// Test that unsupported fields log warnings to stderr and are ignored (requirement 3.8)
 	tmpDir := t.TempDir()
 	configPath := tmpDir + "/config.yaml"
 
-	// Create a script that outputs unsupported field
+	// Create a script that outputs unsupported fields (permissionDecision, decision)
 	scriptPath := tmpDir + "/unsupported-field.sh"
 	scriptContent := `#!/bin/sh
 cat <<'EOF'
@@ -830,18 +830,34 @@ EOF
 		"source":          input.Source,
 	}
 
+	// Note: This test logs warnings to stderr for unsupported fields:
+	// "Warning: Field 'permissionDecision' is not supported for SessionStart hooks"
+	// "Warning: Field 'decision' is not supported for SessionStart hooks"
 	output, err := executeSessionStartHooks(config, input, rawJSON)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	// Verify schema validation rejected unsupported fields
-	if output.Continue {
-		t.Errorf("Continue = true, want false (schema validation should reject unsupported fields)")
+	// Verify processing continues despite unsupported fields
+	if !output.Continue {
+		t.Errorf("Continue = false, want true (processing should continue despite unsupported fields)")
 	}
 
-	if !strings.Contains(output.SystemMessage, "validation failed") && !strings.Contains(output.SystemMessage, "Additional property") {
-		t.Errorf("SystemMessage should mention validation failure or additional properties, got: %s", output.SystemMessage)
+	if output.HookSpecificOutput == nil {
+		t.Fatal("HookSpecificOutput is nil")
+	}
+
+	if output.HookSpecificOutput.HookEventName != "SessionStart" {
+		t.Errorf("HookEventName = %q, want %q", output.HookSpecificOutput.HookEventName, "SessionStart")
+	}
+
+	if output.HookSpecificOutput.AdditionalContext != "Valid context" {
+		t.Errorf("AdditionalContext = %q, want %q", output.HookSpecificOutput.AdditionalContext, "Valid context")
+	}
+
+	// Unsupported fields should be ignored (not cause errors)
+	if output.SystemMessage != "" {
+		t.Errorf("SystemMessage = %q, want empty (no error)", output.SystemMessage)
 	}
 }
 
