@@ -138,6 +138,28 @@ type SessionStartInput struct {
 	Source string `json:"source"` // "startup", "resume", "clear", or "compact"
 }
 
+// SessionStartOutput represents the JSON output for SessionStart hooks
+// following Claude Code specification
+type SessionStartOutput struct {
+	Continue           bool                            `json:"continue"`
+	HookSpecificOutput *SessionStartHookSpecificOutput `json:"hookSpecificOutput,omitempty"`
+	SystemMessage      string                          `json:"systemMessage,omitempty"`
+}
+
+// SessionStartHookSpecificOutput contains SessionStart-specific fields
+type SessionStartHookSpecificOutput struct {
+	HookEventName     string `json:"hookEventName"`
+	AdditionalContext string `json:"additionalContext,omitempty"`
+}
+
+// ActionOutput is an internal type representing the result of a single action execution
+type ActionOutput struct {
+	Continue          bool
+	HookEventName     string // "SessionStart" or ""
+	AdditionalContext string
+	SystemMessage     string
+}
+
 // GetToolName returns an empty string as SessionStart events have no associated tool.
 func (s *SessionStartInput) GetToolName() string {
 	return ""
@@ -332,6 +354,7 @@ type Action struct {
 	Type       string `yaml:"type"`
 	Command    string `yaml:"command,omitempty"`
 	Message    string `yaml:"message,omitempty"`
+	Continue   *bool  `yaml:"continue,omitempty"`
 	UseStdin   bool   `yaml:"use_stdin,omitempty"`
 	ExitStatus *int   `yaml:"exit_status,omitempty"`
 }

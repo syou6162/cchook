@@ -531,3 +531,168 @@ message: "Test message"
 		})
 	}
 }
+
+func TestSessionStartOutput_JSONSerialization(t *testing.T) {
+	tests := []struct {
+		name       string
+		output     SessionStartOutput
+		wantJSON   string
+		wantFields map[string]bool // フィールドの存在確認
+	}{
+		{
+			name: "Full output with all fields",
+			output: SessionStartOutput{
+				Continue: true,
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName:     "SessionStart",
+					AdditionalContext: "Test context",
+				},
+				SystemMessage: "Test message",
+			},
+			wantFields: map[string]bool{
+				"continue":            true,
+				"hookSpecificOutput":  true,
+				"systemMessage":       true,
+				"hookEventName":       true,
+				"additionalContext":   true,
+			},
+		},
+		{
+			name: "omitempty fields omitted when empty",
+			output: SessionStartOutput{
+				Continue:           false,
+				HookSpecificOutput: nil,
+				SystemMessage:      "",
+			},
+			wantJSON: `{"continue":false}`,
+		},
+		{
+			name: "HookEventName is SessionStart",
+			output: SessionStartOutput{
+				Continue: true,
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName:     "SessionStart",
+					AdditionalContext: "",
+				},
+			},
+			wantFields: map[string]bool{
+				"hookEventName": true,
+			},
+		},
+		{
+			name: "Empty AdditionalContext omitted",
+			output: SessionStartOutput{
+				Continue: true,
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName:     "SessionStart",
+					AdditionalContext: "",
+				},
+			},
+			wantFields: map[string]bool{
+				"additionalContext": false, // omitemptyで省略される
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Marshal
+			jsonBytes, err := json.Marshal(tt.output)
+			if err != nil {
+				t.Fatalf("Failed to marshal JSON: %v", err)
+			}
+
+			// wantJSONが指定されている場合は完全一致チェック
+			if tt.wantJSON != "" {
+				var want, got interface{}
+				json.Unmarshal([]byte(tt.wantJSON), &want)
+				json.Unmarshal(jsonBytes, &got)
+
+				wantStr, _ := json.Marshal(want)
+				gotStr, _ := json.Marshal(got)
+				if string(wantStr) != string(gotStr) {
+					t.Errorf("JSON mismatch:\nwant: %s\ngot:  %s", wantStr, gotStr)
+				}
+			}
+
+			// wantFieldsが指定されている場合はフィールド存在チェック
+			if tt.wantFields != nil {
+				var jsonMap map[string]interface{}
+				json.Unmarshal(jsonBytes, &jsonMap)
+
+				for field, shouldExist := range tt.wantFields {
+					// ネストされたフィールドのチェック
+					if field == "hookEventName" || field == "additionalContext" {
+						hookOutput, ok := jsonMap["hookSpecificOutput"].(map[string]interface{})
+						if !ok && shouldExist {
+							t.Errorf("hookSpecificOutput not found in JSON")
+							continue
+						}
+						if ok {
+							_, exists := hookOutput[field]
+							if exists != shouldExist {
+								t.Errorf("Field %s existence: want %v, got %v", field, shouldExist, exists)
+							}
+							// hookEventNameの値チェック
+							if field == "hookEventName" && exists {
+								if hookOutput[field] != "SessionStart" {
+									t.Errorf("hookEventName: want SessionStart, got %v", hookOutput[field])
+								}
+							}
+						}
+					} else {
+						_, exists := jsonMap[field]
+						if exists != shouldExist {
+							t.Errorf("Field %s existence: want %v, got %v", field, shouldExist, exists)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestSessionStartOutput_RoundTripSerialization(t *testing.T) {
+	original := SessionStartOutput{
+		Continue: true,
+		HookSpecificOutput: &SessionStartHookSpecificOutput{
+			HookEventName:     "SessionStart",
+			AdditionalContext: "Original context",
+		},
+		SystemMessage: "Original message",
+	}
+
+	// Marshal
+	jsonBytes, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("Failed to marshal: %v", err)
+	}
+
+	// Unmarshal
+	var decoded SessionStartOutput
+	err = json.Unmarshal(jsonBytes, &decoded)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+
+	// Verify all fields preserved
+	if decoded.Continue != original.Continue {
+		t.Errorf("Continue: want %v, got %v", original.Continue, decoded.Continue)
+	}
+	if decoded.SystemMessage != original.SystemMessage {
+		t.Errorf("SystemMessage: want %s, got %s", original.SystemMessage, decoded.SystemMessage)
+	}
+	if decoded.HookSpecificOutput == nil {
+		t.Fatal("HookSpecificOutput is nil after unmarshal")
+	}
+	if decoded.HookSpecificOutput.HookEventName != original.HookSpecificOutput.HookEventName {
+		t.Errorf("HookEventName: want %s, got %s",
+			original.HookSpecificOutput.HookEventName,
+			decoded.HookSpecificOutput.HookEventName)
+	}
+	if decoded.HookSpecificOutput.AdditionalContext != original.HookSpecificOutput.AdditionalContext {
+		t.Errorf("AdditionalContext: want %s, got %s",
+			original.HookSpecificOutput.AdditionalContext,
+			decoded.HookSpecificOutput.AdditionalContext)
+	}
+}
