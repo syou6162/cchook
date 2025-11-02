@@ -2,11 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
-	"strings"
 	"testing"
 
-	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
 )
 
@@ -663,28 +660,6 @@ func stringContains(s, substr string) bool {
 		}
 	}
 	return false
-}
-
-// validateSessionStartOutput validates SessionStartOutput JSON against schema
-func validateSessionStartOutput(jsonData []byte) error {
-	schemaPath := "file://testdata/schemas/session-start-output.json"
-	schemaLoader := gojsonschema.NewReferenceLoader(schemaPath)
-	documentLoader := gojsonschema.NewBytesLoader(jsonData)
-
-	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
-	if err != nil {
-		return fmt.Errorf("schema validation error: %w", err)
-	}
-
-	if !result.Valid() {
-		var errMsgs []string
-		for _, err := range result.Errors() {
-			errMsgs = append(errMsgs, err.String())
-		}
-		return fmt.Errorf("schema validation failed: %s", strings.Join(errMsgs, "; "))
-	}
-
-	return nil
 }
 
 func TestSessionStartOutputSchemaValidation(t *testing.T) {

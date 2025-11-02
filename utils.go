@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/xeipuuv/gojsonschema"
 	"mvdan.cc/sh/v3/shell"
 )
 
@@ -649,4 +650,26 @@ func runCommandWithOutput(command string, useStdin bool, data interface{}) (stdo
 	}
 
 	return stdout, stderr, exitCode, err
+}
+
+// validateSessionStartOutput validates SessionStartOutput JSON against schema
+func validateSessionStartOutput(jsonData []byte) error {
+	schemaPath := "file://testdata/schemas/session-start-output.json"
+	schemaLoader := gojsonschema.NewReferenceLoader(schemaPath)
+	documentLoader := gojsonschema.NewBytesLoader(jsonData)
+
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return fmt.Errorf("schema validation error: %w", err)
+	}
+
+	if !result.Valid() {
+		var errMsgs []string
+		for _, validationErr := range result.Errors() {
+			errMsgs = append(errMsgs, validationErr.String())
+		}
+		return fmt.Errorf("schema validation failed: %s", strings.Join(errMsgs, "; "))
+	}
+
+	return nil
 }
