@@ -1435,3 +1435,111 @@ func TestRunCommand_WithStdin(t *testing.T) {
 		})
 	}
 }
+
+func TestRunCommandWithOutput_Success(t *testing.T) {
+	stdout, stderr, exitCode, err := runCommandWithOutput("echo 'hello'", false, nil)
+
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d", exitCode)
+	}
+	if stdout != "hello\n" {
+		t.Errorf("Expected stdout 'hello\\n', got %q", stdout)
+	}
+	if stderr != "" {
+		t.Errorf("Expected empty stderr, got %q", stderr)
+	}
+}
+
+func TestRunCommandWithOutput_Failure(t *testing.T) {
+	stdout, stderr, exitCode, err := runCommandWithOutput("sh -c 'echo error >&2; exit 42'", false, nil)
+
+	if err == nil {
+		t.Error("Expected error, got nil")
+	}
+	if exitCode != 42 {
+		t.Errorf("Expected exit code 42, got %d", exitCode)
+	}
+	if stdout != "" {
+		t.Errorf("Expected empty stdout, got %q", stdout)
+	}
+	if stderr != "error\n" {
+		t.Errorf("Expected stderr 'error\\n', got %q", stderr)
+	}
+}
+
+func TestRunCommandWithOutput_UseStdin(t *testing.T) {
+	data := map[string]string{"key": "value"}
+	stdout, stderr, exitCode, err := runCommandWithOutput("cat", true, data)
+
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d", exitCode)
+	}
+	if stdout != "{\"key\":\"value\"}" {
+		t.Errorf("Expected stdout '{\"key\":\"value\"}', got %q", stdout)
+	}
+	if stderr != "" {
+		t.Errorf("Expected empty stderr, got %q", stderr)
+	}
+}
+
+func TestRunCommandWithOutput_EmptyCommand(t *testing.T) {
+	stdout, stderr, exitCode, err := runCommandWithOutput("", false, nil)
+
+	if err == nil {
+		t.Error("Expected error for empty command, got nil")
+	}
+	if exitCode != 1 {
+		t.Errorf("Expected exit code 1, got %d", exitCode)
+	}
+	if stdout != "" {
+		t.Errorf("Expected empty stdout, got %q", stdout)
+	}
+	if stderr != "" {
+		t.Errorf("Expected empty stderr, got %q", stderr)
+	}
+}
+
+func TestRunCommandWithOutput_EmptyOutput(t *testing.T) {
+	stdout, stderr, exitCode, err := runCommandWithOutput("true", false, nil)
+
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d", exitCode)
+	}
+	if stdout != "" {
+		t.Errorf("Expected empty stdout, got %q", stdout)
+	}
+	if stderr != "" {
+		t.Errorf("Expected empty stderr, got %q", stderr)
+	}
+}
+
+func TestRunCommandWithOutput_ExitCodes(t *testing.T) {
+	tests := []struct {
+		name         string
+		command      string
+		wantExitCode int
+	}{
+		{"Exit 0", "exit 0", 0},
+		{"Exit 1", "exit 1", 1},
+		{"Exit 2", "exit 2", 2},
+		{"Exit 127", "exit 127", 127},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, exitCode, _ := runCommandWithOutput(tt.command, false, nil)
+			if exitCode != tt.wantExitCode {
+				t.Errorf("Expected exit code %d, got %d", tt.wantExitCode, exitCode)
+			}
+		})
+	}
+}
