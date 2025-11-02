@@ -50,3 +50,19 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 	}
 	return nil
 }
+
+// ExecuteSubagentStopAction executes an action for the SubagentStop event.
+// Command failures result in exit status 2 to block the subagent stop operation.
+func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *SubagentStopInput, rawJSON interface{}) error {
+	switch action.Type {
+	case "command":
+		cmd := unifiedTemplateReplace(action.Command, rawJSON)
+		if err := e.runner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
+			// SubagentStopでコマンドが失敗した場合はexit 2でサブエージェント停止をブロック
+			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
+		}
+	case "output":
+		return handleOutput(action.Message, action.ExitStatus, rawJSON)
+	}
+	return nil
+}

@@ -38,19 +38,9 @@ func executeStopAction(action Action, input *StopInput, rawJSON interface{}) err
 }
 
 // executeSubagentStopAction executes an action for the SubagentStop event.
-// Command failures result in exit status 2 to block the subagent stop operation.
+// This is a wrapper function that uses the default ActionExecutor.
 func executeSubagentStopAction(action Action, input *SubagentStopInput, rawJSON interface{}) error {
-	switch action.Type {
-	case "command":
-		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			// SubagentStopでコマンドが失敗した場合はexit 2でサブエージェント停止をブロック
-			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
-		}
-	case "output":
-		return handleOutput(action.Message, action.ExitStatus, rawJSON)
-	}
-	return nil
+	return defaultExecutor.ExecuteSubagentStopAction(action, input, rawJSON)
 }
 
 // executePreCompactAction executes an action for the PreCompact event.
