@@ -604,3 +604,49 @@ func runCommand(command string, useStdin bool, data interface{}) error {
 
 	return cmd.Run()
 }
+
+// runCommandWithOutput executes a command and captures stdout, stderr, and exit code
+func runCommandWithOutput(command string, useStdin bool, data interface{}) (stdout string, stderr string, exitCode int, err error) {
+	if strings.TrimSpace(command) == "" {
+		return "", "", 1, fmt.Errorf("empty command")
+	}
+
+	// シェル経由でコマンドを実行
+	cmd := exec.Command("sh", "-c", command)
+
+	// stdout/stderrをキャプチャするためのバッファ
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+
+	// useStdinがtrueの場合、dataをJSON形式でstdinに渡す
+	if useStdin && data != nil {
+		jsonData, marshalErr := json.Marshal(data)
+		if marshalErr != nil {
+			return "", "", 1, fmt.Errorf("failed to marshal JSON for stdin: %w", marshalErr)
+		}
+		cmd.Stdin = bytes.NewReader(jsonData)
+	}
+
+	// コマンド実行
+	runErr := cmd.Run()
+
+	// 出力を文字列として取得
+	stdout = outBuf.String()
+	stderr = errBuf.String()
+
+	// 終了コードを抽出
+	if runErr != nil {
+		if exitErr, ok := runErr.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		} else {
+			// exec.ExitError以外のエラー（コマンドが見つからない等）
+			exitCode = 1
+		}
+		err = runErr
+	} else {
+		exitCode = 0
+	}
+
+	return stdout, stderr, exitCode, err
+}
