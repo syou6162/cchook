@@ -4,13 +4,6 @@ import (
 	"fmt"
 )
 
-// commandRunner is the package-level CommandRunner used by action executors.
-// Can be swapped in tests for mocking.
-var commandRunner CommandRunner = DefaultCommandRunner
-
-// defaultExecutor is the default ActionExecutor instance used by package-level functions.
-var defaultExecutor = NewActionExecutor(DefaultCommandRunner)
-
 // handleOutput processes an output action and returns ExitError if a non-zero exit status is specified.
 // Exit status 2 outputs to stderr, while other non-zero statuses output to stdout with error.
 func handleOutput(message string, exitStatus *int, rawJSON interface{}) error {
