@@ -59,6 +59,12 @@ func main() {
 				os.Exit(1)
 			}
 
+			// Validate final JSON output against schema (non-functional requirement)
+			if err := validateSessionStartOutput(jsonBytes); err != nil {
+				fmt.Fprintf(os.Stderr, "Final JSON output validation failed: %v\n", err)
+				os.Exit(1)
+			}
+
 			// Output JSON to stdout
 			fmt.Println(string(jsonBytes))
 			// Always exit 0 for SessionStart (continue field controls behavior)
