@@ -42,11 +42,14 @@ func main() {
 			if err != nil {
 				// Log error to stderr
 				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
-				// Ensure output has continue field even on error (requirement 1.4)
+				// Ensure output has continue field and hookSpecificOutput even on error (requirement 1.4)
 				if output == nil {
 					output = &SessionStartOutput{
 						Continue:      false,
 						SystemMessage: fmt.Sprintf("Failed to process SessionStart: %v", err),
+						HookSpecificOutput: &SessionStartHookSpecificOutput{
+							HookEventName: "SessionStart",
+						},
 					}
 				}
 			}
