@@ -62,34 +62,15 @@ func executeUserPromptSubmitAction(action Action, input *UserPromptSubmitInput, 
 }
 
 // executePreToolUseAction executes an action for the PreToolUse event.
-// Command failures result in exit status 2 to block tool execution.
+// This is a wrapper function that uses the default ActionExecutor.
 func executePreToolUseAction(action Action, input *PreToolUseInput, rawJSON interface{}) error {
-	switch action.Type {
-	case "command":
-		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			// PreToolUseでコマンドが失敗した場合はexit 2でツール実行をブロック
-			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
-		}
-	case "output":
-		return handleOutput(action.Message, action.ExitStatus, rawJSON)
-	}
-	return nil
+	return defaultExecutor.ExecutePreToolUseAction(action, input, rawJSON)
 }
 
 // executePostToolUseAction executes an action for the PostToolUse event.
-// Supports command execution and output actions.
+// This is a wrapper function that uses the default ActionExecutor.
 func executePostToolUseAction(action Action, input *PostToolUseInput, rawJSON interface{}) error {
-	switch action.Type {
-	case "command":
-		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			return err
-		}
-	case "output":
-		return handleOutput(action.Message, action.ExitStatus, rawJSON)
-	}
-	return nil
+	return defaultExecutor.ExecutePostToolUseAction(action, input, rawJSON)
 }
 
 // getExitStatus returns the exit status for the given action type.
