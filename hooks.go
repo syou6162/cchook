@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // runHooks parses input and executes hooks for the specified event type.
@@ -49,7 +50,9 @@ func runHooks(config *Config, eventType HookEventType) error {
 		if err != nil {
 			return err
 		}
-		return executeSessionStartHooks(config, input, rawJSON)
+		// TODO: Task 9 will handle JSON serialization and output
+		_, err = executeSessionStartHooks(config, input, rawJSON)
+		return err
 	case UserPromptSubmit:
 		input, rawJSON, err := parseInput[*UserPromptSubmitInput](eventType)
 		if err != nil {
@@ -65,6 +68,16 @@ func runHooks(config *Config, eventType HookEventType) error {
 	default:
 		return fmt.Errorf("unsupported event type: %s", eventType)
 	}
+}
+
+// RunSessionStartHooks executes SessionStart hooks and returns JSON output.
+// This is a special exported function for SessionStart event handling in main.go.
+func RunSessionStartHooks(config *Config) (*SessionStartOutput, error) {
+	input, rawJSON, err := parseInput[*SessionStartInput](SessionStart)
+	if err != nil {
+		return nil, err
+	}
+	return executeSessionStartHooks(config, input, rawJSON)
 }
 
 // dryRunHooks parses input and performs a dry-run of hooks for the specified event type.

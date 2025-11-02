@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -35,6 +36,27 @@ func main() {
 
 	switch *command {
 	case "run":
+		if HookEventType(*eventType) == SessionStart {
+			// SessionStart special handling with JSON output
+			output, err := RunSessionStartHooks(config)
+			if err != nil {
+				// Log error but continue processing
+				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+			}
+
+			// Marshal JSON with 2-space indent
+			jsonBytes, err := json.MarshalIndent(output, "", "  ")
+			if err != nil {
+				// Marshal failure is fatal
+				fmt.Fprintf(os.Stderr, "Error marshaling JSON: %v\n", err)
+				os.Exit(1)
+			}
+
+			// Output JSON to stdout
+			fmt.Println(string(jsonBytes))
+			// Always exit 0 for SessionStart (continue field controls behavior)
+			os.Exit(0)
+		}
 		err = runHooks(config, HookEventType(*eventType))
 	case "dry-run":
 		err = dryRunHooks(config, HookEventType(*eventType))
