@@ -240,7 +240,8 @@ func TestExecuteNotificationAction_WithExitError(t *testing.T) {
 		ExitStatus: intPtr(2),
 	}
 
-	err := executeNotificationAction(action, &NotificationInput{}, map[string]interface{}{})
+	executor := NewActionExecutor(nil)
+	err := executor.ExecuteNotificationAction(action, &NotificationInput{}, map[string]interface{}{})
 
 	if err == nil {
 		t.Fatal("Expected ExitError, got nil")
@@ -287,7 +288,8 @@ func TestExecuteSessionEndAction_WithExitError(t *testing.T) {
 		ExitStatus: intPtr(2),
 	}
 
-	err := executeSessionEndAction(action, &SessionEndInput{}, map[string]interface{}{})
+	executor := NewActionExecutor(nil)
+	err := executor.ExecuteSessionEndAction(action, &SessionEndInput{}, map[string]interface{}{})
 
 	if err == nil {
 		t.Fatal("Expected ExitError, got nil")
@@ -333,7 +335,8 @@ func TestExecuteSessionEndAction_OutputWithDefaultExitStatus(t *testing.T) {
 				ExitStatus: tt.exitStatus,
 			}
 
-			err := executeSessionEndAction(action, &SessionEndInput{}, map[string]interface{}{})
+			executor := NewActionExecutor(nil)
+	err := executor.ExecuteSessionEndAction(action, &SessionEndInput{}, map[string]interface{}{})
 
 			if tt.wantErr {
 				if err == nil {

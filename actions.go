@@ -29,9 +29,3 @@ func getExitStatus(exitStatus *int, actionType string) int {
 	}
 	return 0
 }
-
-// executeSessionEndAction executes an action for the SessionEnd event.
-// This is a wrapper function that uses the default ActionExecutor.
-func executeSessionEndAction(action Action, input *SessionEndInput, rawJSON interface{}) error {
-	return defaultExecutor.ExecuteSessionEndAction(action, input, rawJSON)
-}
