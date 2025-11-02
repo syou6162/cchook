@@ -1543,3 +1543,115 @@ func TestRunCommandWithOutput_ExitCodes(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateSessionStartOutput(t *testing.T) {
+	tests := []struct {
+		name      string
+		jsonData  string
+		wantError bool
+		errorMsg  string
+	}{
+		{
+			name: "Valid output with all fields",
+			jsonData: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "SessionStart",
+					"additionalContext": "test context"
+				},
+				"systemMessage": "test message"
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Valid output with minimal fields",
+			jsonData: `{
+				"continue": false,
+				"hookSpecificOutput": {
+					"hookEventName": "SessionStart"
+				}
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Missing hookSpecificOutput (required field)",
+			jsonData: `{
+				"continue": true
+			}`,
+			wantError: true,
+			errorMsg:  "hookSpecificOutput",
+		},
+		{
+			name: "Missing hookEventName (required field)",
+			jsonData: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"additionalContext": "test"
+				}
+			}`,
+			wantError: true,
+			errorMsg:  "hookEventName",
+		},
+		{
+			name: "Invalid hookEventName value (not SessionStart)",
+			jsonData: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PreToolUse"
+				}
+			}`,
+			wantError: true,
+			errorMsg:  "hookEventName",
+		},
+		{
+			name: "Invalid continue type (string instead of boolean)",
+			jsonData: `{
+				"continue": "true",
+				"hookSpecificOutput": {
+					"hookEventName": "SessionStart"
+				}
+			}`,
+			wantError: true,
+			errorMsg:  "continue",
+		},
+		{
+			name: "Invalid hookSpecificOutput type (array instead of object)",
+			jsonData: `{
+				"continue": true,
+				"hookSpecificOutput": []
+			}`,
+			wantError: true,
+			errorMsg:  "hookSpecificOutput",
+		},
+		{
+			name: "Invalid additionalContext type (number instead of string)",
+			jsonData: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "SessionStart",
+					"additionalContext": 123
+				}
+			}`,
+			wantError: true,
+			errorMsg:  "additionalContext",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateSessionStartOutput([]byte(tt.jsonData))
+
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("Expected error but got nil")
+				} else if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("Expected error to contain %q, got %q", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
