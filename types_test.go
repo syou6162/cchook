@@ -2,8 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
 )
 
@@ -564,7 +567,7 @@ func TestSessionStartOutput_JSONSerialization(t *testing.T) {
 			name: "Phase 1 unused fields (stopReason, suppressOutput) are omitted when zero",
 			output: SessionStartOutput{
 				Continue:       true,
-				StopReason:     "", // zero value
+				StopReason:     "",    // zero value
 				SuppressOutput: false, // zero value
 				HookSpecificOutput: &SessionStartHookSpecificOutput{
 					HookEventName: "SessionStart",
@@ -660,4 +663,117 @@ func stringContains(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+// validateSessionStartOutput validates SessionStartOutput JSON against schema
+func validateSessionStartOutput(jsonData []byte) error {
+	schemaPath := "file://testdata/schemas/session-start-output.json"
+	schemaLoader := gojsonschema.NewReferenceLoader(schemaPath)
+	documentLoader := gojsonschema.NewBytesLoader(jsonData)
+
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return fmt.Errorf("schema validation error: %w", err)
+	}
+
+	if !result.Valid() {
+		var errMsgs []string
+		for _, err := range result.Errors() {
+			errMsgs = append(errMsgs, err.String())
+		}
+		return fmt.Errorf("schema validation failed: %s", strings.Join(errMsgs, "; "))
+	}
+
+	return nil
+}
+
+func TestSessionStartOutputSchemaValidation(t *testing.T) {
+	tests := []struct {
+		name      string
+		output    SessionStartOutput
+		wantValid bool
+		wantError string
+	}{
+		{
+			name: "Valid full output with all fields",
+			output: SessionStartOutput{
+				Continue:       true,
+				StopReason:     "test",
+				SuppressOutput: false,
+				SystemMessage:  "Test message",
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName:     "SessionStart",
+					AdditionalContext: "Additional info",
+				},
+			},
+			wantValid: true,
+		},
+		{
+			name: "Valid minimal output with only hookEventName",
+			output: SessionStartOutput{
+				Continue: false,
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName: "SessionStart",
+				},
+			},
+			wantValid: true,
+		},
+		{
+			name: "Invalid: wrong hookEventName value",
+			output: SessionStartOutput{
+				Continue: true,
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName:     "WrongEvent",
+					AdditionalContext: "Context",
+				},
+			},
+			wantValid: false,
+			wantError: "hookEventName",
+		},
+		{
+			name: "Valid: Phase 1 unused fields omitted (omitempty)",
+			output: SessionStartOutput{
+				Continue: true,
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName: "SessionStart",
+				},
+			},
+			wantValid: true,
+		},
+		{
+			name: "Valid: continue field with different boolean values",
+			output: SessionStartOutput{
+				Continue: false,
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName: "SessionStart",
+				},
+			},
+			wantValid: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Marshal to JSON
+			jsonBytes, err := json.Marshal(tt.output)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+
+			// Validate against schema
+			err = validateSessionStartOutput(jsonBytes)
+
+			if tt.wantValid {
+				if err != nil {
+					t.Errorf("Expected valid, but got error: %v\nJSON: %s", err, string(jsonBytes))
+				}
+			} else {
+				if err == nil {
+					t.Errorf("Expected invalid, but validation passed\nJSON: %s", string(jsonBytes))
+				} else if tt.wantError != "" && !stringContains(err.Error(), tt.wantError) {
+					t.Errorf("Error message should contain %q, but got: %v", tt.wantError, err)
+				}
+			}
+		})
+	}
 }
