@@ -1673,3 +1673,81 @@ func TestExecuteSessionStartHooks_NewSignature(t *testing.T) {
 		})
 	}
 }
+
+func TestExecuteSessionStartHooks_ErrorHandling(t *testing.T) {
+	tests := []struct {
+		name              string
+		config            *Config
+		input             *SessionStartInput
+		wantContinue      bool
+		wantHookEventName string
+		wantErr           bool
+	}{
+		{
+			name: "Condition error sets continue to false",
+			config: &Config{
+				SessionStart: []SessionStartHook{
+					{
+						Matcher: "startup",
+						Conditions: []Condition{
+							{
+								Type:  ConditionPromptRegex,
+								Value: "test", // Invalid for SessionStart
+							},
+						},
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "This should not execute",
+							},
+						},
+					},
+				},
+			},
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  SessionStart,
+				},
+				Source: "startup",
+			},
+			wantContinue:      false, // Safe side default: error sets continue to false
+			wantHookEventName: "SessionStart",
+			wantErr:           true, // Error is returned
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rawJSON := map[string]interface{}{
+				"session_id":      tt.input.SessionID,
+				"transcript_path": tt.input.TranscriptPath,
+				"hook_event_name": string(tt.input.HookEventName),
+				"source":          tt.input.Source,
+			}
+
+			output, err := executeSessionStartHooks(tt.config, tt.input, rawJSON)
+
+			// Error check
+			if tt.wantErr && err == nil {
+				t.Errorf("Expected error but got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			// Continue check
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			// HookEventName check
+			if output.HookSpecificOutput != nil {
+				if output.HookSpecificOutput.HookEventName != tt.wantHookEventName {
+					t.Errorf("HookEventName = %v, want %v", output.HookSpecificOutput.HookEventName, tt.wantHookEventName)
+				}
+			}
+		})
+	}
+}
