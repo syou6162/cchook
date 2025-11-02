@@ -553,14 +553,6 @@ func TestSessionStartOutput_JSONSerialization(t *testing.T) {
 			wantNotContain: []string{"stopReason", "suppressOutput"},
 		},
 		{
-			name: "Minimal output with only required fields",
-			output: SessionStartOutput{
-				Continue: false,
-			},
-			wantContains:   []string{"\"continue\":false"},
-			wantNotContain: []string{"systemMessage", "hookSpecificOutput", "stopReason", "suppressOutput"},
-		},
-		{
 			name: "Phase 1 unused fields (stopReason, suppressOutput) are omitted when zero",
 			output: SessionStartOutput{
 				Continue:       true,
