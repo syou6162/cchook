@@ -838,7 +838,9 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 		}
 
 		for _, action := range hook.Actions {
-			if err := executor.ExecuteSessionStartAction(action, input, rawJSON); err != nil {
+			// TODO: Task 7-8 will use ActionOutput for JSON integration
+			_, err := executor.ExecuteSessionStartAction(action, input, rawJSON)
+			if err != nil {
 				// ExitErrorの場合はメッセージを更新して返す
 				if exitErr, ok := err.(*ExitError); ok {
 					actionErr := &ExitError{
