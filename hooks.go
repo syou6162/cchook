@@ -509,6 +509,7 @@ func dryRunUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, r
 // executePreToolUseHooks executes all matching PreToolUse hooks based on matcher and condition checks.
 // Collects all condition check errors and returns them aggregated so users can fix all config issues in one run.
 func executePreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON interface{}) error {
+	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 
 	for i, hook := range config.PreToolUse {
@@ -520,7 +521,7 @@ func executePreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inte
 			continue // Skip this hook's actions but continue checking others
 		}
 		if shouldExecute {
-			if err := executePreToolUseHook(hook, input, rawJSON); err != nil {
+			if err := executePreToolUseHook(executor, hook, input, rawJSON); err != nil {
 				// Action execution errors are fatal - return immediately with any collected condition errors
 				if exitErr, ok := err.(*ExitError); ok {
 					actionErr := &ExitError{
@@ -552,6 +553,7 @@ func executePreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inte
 // executePostToolUseHooks executes all matching PostToolUse hooks based on matcher and condition checks.
 // Collects all condition check errors and returns them aggregated.
 func executePostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON interface{}) error {
+	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 
 	for i, hook := range config.PostToolUse {
@@ -562,7 +564,7 @@ func executePostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON in
 			continue
 		}
 		if shouldExecute {
-			if err := executePostToolUseHook(hook, input, rawJSON); err != nil {
+			if err := executePostToolUseHook(executor, hook, input, rawJSON); err != nil {
 				if exitErr, ok := err.(*ExitError); ok {
 					actionErr := &ExitError{
 						Code:    exitErr.Code,
@@ -591,6 +593,7 @@ func executePostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON in
 
 // executeNotificationHooks executes all matching Notification hooks based on condition checks.
 func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON interface{}) error {
+	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 
 	for i, hook := range config.Notification {
@@ -614,7 +617,7 @@ func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON 
 		}
 
 		for _, action := range hook.Actions {
-			if err := executeNotificationAction(action, input, rawJSON); err != nil {
+			if err := executor.ExecuteNotificationAction(action, input, rawJSON); err != nil {
 				if exitErr, ok := err.(*ExitError); ok {
 					actionErr := &ExitError{
 						Code:    exitErr.Code,
@@ -644,6 +647,7 @@ func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON 
 // executeStopHooks executes all matching Stop hooks based on condition checks.
 // Returns an error to block the stop operation if any hook fails.
 func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) error {
+	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 
 	for i, hook := range config.Stop {
@@ -667,7 +671,7 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) err
 		}
 
 		for _, action := range hook.Actions {
-			if err := executeStopAction(action, input, rawJSON); err != nil {
+			if err := executor.ExecuteStopAction(action, input, rawJSON); err != nil {
 				// Stopフックはブロッキング可能なのでエラーを返す
 				if exitErr, ok := err.(*ExitError); ok {
 					actionErr := &ExitError{
@@ -698,6 +702,7 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) err
 // executeSubagentStopHooks executes all matching SubagentStop hooks based on condition checks.
 // Returns an error to block the subagent stop operation if any hook fails.
 func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON interface{}) error {
+	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 
 	for i, hook := range config.SubagentStop {
@@ -721,7 +726,7 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 		}
 
 		for _, action := range hook.Actions {
-			if err := executeSubagentStopAction(action, input, rawJSON); err != nil {
+			if err := executor.ExecuteSubagentStopAction(action, input, rawJSON); err != nil {
 				// SubagentStopフックもブロッキング可能なのでエラーを返す
 				if exitErr, ok := err.(*ExitError); ok {
 					actionErr := &ExitError{
@@ -751,6 +756,7 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 
 // executePreCompactHooks executes all matching PreCompact hooks based on condition checks.
 func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON interface{}) error {
+	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 
 	for i, hook := range config.PreCompact {
@@ -774,7 +780,7 @@ func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON inte
 		}
 
 		for _, action := range hook.Actions {
-			if err := executePreCompactAction(action, input, rawJSON); err != nil {
+			if err := executor.ExecutePreCompactAction(action, input, rawJSON); err != nil {
 				if exitErr, ok := err.(*ExitError); ok {
 					actionErr := &ExitError{
 						Code:    exitErr.Code,
@@ -803,6 +809,7 @@ func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON inte
 
 // executeSessionStartHooks executes all matching SessionStart hooks based on matcher and condition checks.
 func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON interface{}) error {
+	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 
 	for i, hook := range config.SessionStart {
@@ -831,7 +838,7 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 		}
 
 		for _, action := range hook.Actions {
-			if err := executeSessionStartAction(action, input, rawJSON); err != nil {
+			if err := executor.ExecuteSessionStartAction(action, input, rawJSON); err != nil {
 				// ExitErrorの場合はメッセージを更新して返す
 				if exitErr, ok := err.(*ExitError); ok {
 					actionErr := &ExitError{
@@ -862,6 +869,7 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 // executeUserPromptSubmitHooks executes all matching UserPromptSubmit hooks based on condition checks.
 // Returns an error to block prompt processing if any hook fails.
 func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, rawJSON interface{}) error {
+	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 
 	for i, hook := range config.UserPromptSubmit {
@@ -885,7 +893,7 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 		}
 
 		for _, action := range hook.Actions {
-			if err := executeUserPromptSubmitAction(action, input, rawJSON); err != nil {
+			if err := executor.ExecuteUserPromptSubmitAction(action, input, rawJSON); err != nil {
 				// UserPromptSubmitはブロッキング可能なので、エラーを返す
 				// ExitErrorの場合はメッセージを更新して返す
 				if exitErr, ok := err.(*ExitError); ok {
@@ -957,9 +965,9 @@ func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput)
 }
 
 // executePreToolUseHook executes all actions for a single PreToolUse hook.
-func executePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput, rawJSON interface{}) error {
+func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input *PreToolUseInput, rawJSON interface{}) error {
 	for _, action := range hook.Actions {
-		if err := executePreToolUseAction(action, input, rawJSON); err != nil {
+		if err := executor.ExecutePreToolUseAction(action, input, rawJSON); err != nil {
 			return err
 		}
 	}
@@ -967,9 +975,9 @@ func executePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput, rawJSON 
 }
 
 // executePostToolUseHook executes all actions for a single PostToolUse hook.
-func executePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput, rawJSON interface{}) error {
+func executePostToolUseHook(executor *ActionExecutor, hook PostToolUseHook, input *PostToolUseInput, rawJSON interface{}) error {
 	for _, action := range hook.Actions {
-		if err := executePostToolUseAction(action, input, rawJSON); err != nil {
+		if err := executor.ExecutePostToolUseAction(action, input, rawJSON); err != nil {
 			return err
 		}
 	}
@@ -979,6 +987,7 @@ func executePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput, rawJS
 // executeSessionEndHooks executes all matching SessionEnd hooks based on condition checks.
 // Returns errors to inform users of failures, though session end cannot be blocked.
 func executeSessionEndHooks(config *Config, input *SessionEndInput, rawJSON interface{}) error {
+	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 
 	for i, hook := range config.SessionEnd {
@@ -1002,7 +1011,7 @@ func executeSessionEndHooks(config *Config, input *SessionEndInput, rawJSON inte
 		}
 
 		for _, action := range hook.Actions {
-			if err := executeSessionEndAction(action, input, rawJSON); err != nil {
+			if err := executor.ExecuteSessionEndAction(action, input, rawJSON); err != nil {
 				// SessionEndフックはセッション終了をブロックできないが、
 				// エラーをユーザーに通知するため返す
 				if exitErr, ok := err.(*ExitError); ok {

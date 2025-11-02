@@ -1,0 +1,43 @@
+# Integration test configuration file
+# This file tests real YAML parsing with various conditions and actions
+
+PreToolUse:
+  - matcher: "Write"
+    conditions:
+      - type: file_extension
+        value: ".go"
+    actions:
+      - type: output
+        message: "Writing Go file: {.tool_input.file_path}"
+        exit_status: 0
+
+  - matcher: "Bash"
+    conditions:
+      - type: command_starts_with
+        value: "rm"
+    actions:
+      - type: output
+        message: "Blocking dangerous rm command"
+        exit_status: 2
+
+PostToolUse:
+  - matcher: "Write|Edit"
+    conditions:
+      - type: file_extension
+        value: ".md"
+    actions:
+      - type: output
+        message: "Modified markdown file: {.tool_input.file_path}"
+        exit_status: 0
+
+Notification:
+  - actions:
+      - type: output
+        message: "Notification: {.title}"
+        exit_status: 0
+
+Stop:
+  - actions:
+      - type: output
+        message: "Stopping session: {.reason}"
+        exit_status: 0

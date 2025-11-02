@@ -42,14 +42,23 @@ cchookは、Claude Codeのフック設定を管理する**CLIツール**です�
 
 **モジュラー設計**（実際のファイル構成）:
 - `main.go`: エントリーポイント、CLI引数処理
-- `types.go`: 型定義（イベント、フック、アクション、条件）
+- `types.go`: 型定義（イベント、フック、アクション、条件、CommandRunnerインターフェース）
 - `parser.go`: JSON入力の解析
 - `config.go`: YAML設定の読み込み
 - `hooks.go`: フック実行ロジック
-- `actions.go`: アクション実行ロジック
-- `utils.go`: 条件チェックユーティリティ
+- `actions.go`: アクション実行ロジック（依存性注入対応）
+- `utils.go`: 条件チェックユーティリティ、CommandRunner実装
 - `template_jq.go`: テンプレート処理
 - `errors.go`: カスタムエラー型
+
+**依存性注入パターン**:
+- `CommandRunner`インターフェースによる抽象化
+  - コマンド実行ロジックをインターフェース化
+  - 本番環境: `realCommandRunner`による実際のシェルコマンド実行
+  - テスト環境: `stubRunner`によるモック実装
+- `commandRunner`パッケージ変数による実行時の切り替え
+  - デフォルトで`DefaultCommandRunner`を使用
+  - テストでは`stubRunner`に置き換え可能
 
 ### Data Storage
 
@@ -103,6 +112,15 @@ cchookは、Claude Codeのフック設定を管理する**CLIツール**です�
   - Go標準の`testing`パッケージ
   - Table-driven tests パターンを採用（hooks_test.goで確認）
   - カバレッジ: 49.7%（実測値）
+  - **2層テストアーキテクチャ**:
+    - **ユニットテスト** (*_test.go):
+      - 外部依存なし、高速実行
+      - `stubRunner`によるコマンド実行のモック化
+      - `go test ./...`で実行
+    - **統合テスト** (*_integration_test.go):
+      - 実際のシェルコマンド実行（cat, jq等が必要）
+      - `//go:build integration`タグで分離
+      - `go test -tags=integration ./...`で実行
 
 - **Documentation**:
   - README.md
@@ -196,6 +214,17 @@ cchookは、Claude Codeのフック設定を管理する**CLIツール**です�
 5. **XDG Base Directory準拠**:
    - Linux/Unixの標準的な設定ファイル配置
    - config.goで実装確認済み
+
+6. **依存性注入パターンの導入**:
+   - コマンド実行をインターフェース化してテスト可能性を向上
+   - `CommandRunner`インターフェースによる抽象化
+   - 本番環境とテスト環境で実装を切り替え可能
+
+7. **2層テストアーキテクチャ**:
+   - ユニットテストと統合テストを明確に分離
+   - Build tagsによる統合テストの制御
+   - CI/CD環境での柔軟なテスト実行
+   - テスト実行速度の向上（ユニットテストは外部依存なし）
 
 ## Known Limitations
 

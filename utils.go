@@ -571,6 +571,17 @@ func checkPreCompactCondition(condition Condition, input *PreCompactInput) (bool
 	return false, fmt.Errorf("unknown condition type for PreCompact: %s", condition.Type)
 }
 
+// realCommandRunner is the production implementation of CommandRunner.
+type realCommandRunner struct{}
+
+// RunCommand implements CommandRunner.RunCommand
+func (r *realCommandRunner) RunCommand(cmd string, useStdin bool, data interface{}) error {
+	return runCommand(cmd, useStdin, data)
+}
+
+// DefaultCommandRunner is the default implementation used in production.
+var DefaultCommandRunner CommandRunner = &realCommandRunner{}
+
 // runCommand executes a shell command with optional JSON data passed via stdin.
 func runCommand(command string, useStdin bool, data interface{}) error {
 	if strings.TrimSpace(command) == "" {
