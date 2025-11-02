@@ -131,6 +131,10 @@ The application follows a modular architecture with clear separation of concerns
 - Hook and Action interfaces for polymorphic behavior
 - Separate condition and action types for each event
 - Opaque struct pattern for ConditionType with predefined singletons
+- **SessionStart JSON Output Structures**:
+  - `SessionStartOutput`: Claude Code-compliant JSON output with `continue`, `hookSpecificOutput`, and `systemMessage` fields
+  - `SessionStartHookSpecificOutput`: Contains `hookEventName` and `additionalContext`
+  - `ActionOutput`: Internal representation of single action execution results
 
 **Configuration** (`config.go`)
 - YAML configuration loading with XDG_CONFIG_HOME support
@@ -147,11 +151,21 @@ The application follows a modular architecture with clear separation of concerns
 - Matcher checking (partial string matching with pipe separation)
 - Condition evaluation per event type
 - Dry-run mode for debugging configurations
+- **SessionStart JSON Output Processing**:
+  - Aggregates multiple action outputs into single SessionStartOutput
+  - Field merging logic: `continue` (overwrite), `hookEventName` (set once), `additionalContext` and `systemMessage` (concatenate with "\n")
+  - Early return on `continue: false`
+  - Outputs JSON to stdout for Claude Code consumption
 
 **Action Execution** (`actions.go`)
 - Command execution via shell
 - Output handling with exit status control
 - ExitError creation for blocking execution (PreToolUse only)
+- **SessionStart JSON Support**:
+  - `executeSessionStartAction` returns `(*ActionOutput, error)` for structured output
+  - Supports both `output` type (message display) and `command` type (JSON output from external commands)
+  - Command type validates JSON structure and extracts `continue`, `hookSpecificOutput.hookEventName`, `additionalContext`, and `systemMessage`
+  - Empty messages or missing required fields result in `continue: false` with error message
 
 **Template Engine** (`template_jq.go`)
 - Unified `{.field}` syntax for JSON field access
@@ -166,6 +180,7 @@ The application follows a modular architecture with clear separation of concerns
 - File existence, extension, and URL pattern matching
 - Prompt regex matching for UserPromptSubmit events
 - Transcript file parsing for `every_n_prompts` condition using json.Decoder
+- **`runCommandWithOutput`**: Executes commands and captures stdout, stderr, and exit code separately for JSON output processing
 
 ### Data Flow
 
@@ -175,6 +190,15 @@ The application follows a modular architecture with clear separation of concerns
 4. **Template Processing**: jq-based field substitution in commands/messages
 5. **Action Execution**: Shell commands or output with exit status control
 6. **Exit Handling**: ExitError for blocking vs allowing execution
+
+**SessionStart-specific Flow**:
+1. **Action Execution**: Each action returns `ActionOutput` with structured fields
+2. **Field Aggregation**: Multiple action outputs merged into `SessionStartOutput`
+   - `continue`: Last value wins (early return on false)
+   - `hookEventName`: Set by first action, preserved thereafter
+   - `additionalContext` & `systemMessage`: Concatenated with "\n"
+3. **JSON Serialization**: Final output marshaled to JSON
+4. **Output**: JSON printed to stdout for Claude Code to display/process
 
 ### Key Design Patterns
 
@@ -220,6 +244,49 @@ Available condition types:
   - `reason_is`: Matches session end reason ("clear", "logout", "prompt_input_exit", "other")
 
 Template variables are available based on the event type and include fields from BaseInput, tool-specific data, and full jq query support.
+
+### SessionStart JSON Output
+
+SessionStart hooks support JSON output format for Claude Code integration. Actions can return structured output:
+
+**Output Action** (type: `output`):
+```yaml
+SessionStart:
+  - actions:
+      - type: output
+        message: "Welcome message"
+        continue: true  # optional, defaults to true
+```
+
+**Command Action** (type: `command`):
+Commands must output JSON with the following structure:
+```json
+{
+  "continue": true,
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "Message to display"
+  },
+  "systemMessage": "Optional system message"
+}
+```
+
+**Field Merging**:
+When multiple actions execute:
+- `continue`: Last value wins (early return on `false`)
+- `hookEventName`: Set once by first action
+- `additionalContext` and `systemMessage`: Concatenated with newline separator
+
+**Example**:
+```yaml
+SessionStart:
+  - matcher: "startup"
+    actions:
+      - type: output
+        message: "Session started"
+      - type: command
+        command: "get-project-info.sh"  # Returns JSON
+```
 
 ## Common Workflows
 
