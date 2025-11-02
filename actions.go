@@ -50,46 +50,15 @@ func executePreCompactAction(action Action, input *PreCompactInput, rawJSON inte
 }
 
 // executeSessionStartAction executes an action for the SessionStart event.
-// Errors are logged but do not block session startup.
+// This is a wrapper function that uses the default ActionExecutor.
 func executeSessionStartAction(action Action, input *SessionStartInput, rawJSON interface{}) error {
-	switch action.Type {
-	case "command":
-		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			return err
-		}
-	case "output":
-		// SessionStartはブロッキング不要なので、exitStatusが指定されていない場合は通常出力
-		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
-		if action.ExitStatus != nil && *action.ExitStatus != 0 {
-			stderr := *action.ExitStatus == 2
-			return NewExitError(*action.ExitStatus, processedMessage, stderr)
-		}
-		fmt.Println(processedMessage)
-	}
-	return nil
+	return defaultExecutor.ExecuteSessionStartAction(action, input, rawJSON)
 }
 
 // executeUserPromptSubmitAction executes an action for the UserPromptSubmit event.
-// Command failures result in exit status 2 to block prompt processing.
+// This is a wrapper function that uses the default ActionExecutor.
 func executeUserPromptSubmitAction(action Action, input *UserPromptSubmitInput, rawJSON interface{}) error {
-	switch action.Type {
-	case "command":
-		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			// UserPromptSubmitでコマンドが失敗した場合はexit 2でプロンプト処理をブロック
-			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
-		}
-	case "output":
-		// UserPromptSubmitはデフォルトでブロックする必要がないので、exitStatusが指定されていない場合は通常出力
-		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
-		if action.ExitStatus != nil && *action.ExitStatus != 0 {
-			stderr := *action.ExitStatus == 2
-			return NewExitError(*action.ExitStatus, processedMessage, stderr)
-		}
-		fmt.Println(processedMessage)
-	}
-	return nil
+	return defaultExecutor.ExecuteUserPromptSubmitAction(action, input, rawJSON)
 }
 
 // executePreToolUseAction executes an action for the PreToolUse event.
