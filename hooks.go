@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -49,7 +50,16 @@ func runHooks(config *Config, eventType HookEventType) error {
 		if err != nil {
 			return err
 		}
-		return executeSessionStartHooks(config, input, rawJSON)
+		output, err := executeSessionStartHooks(config, input, rawJSON)
+		if err != nil {
+			return err
+		}
+		jsonBytes, err := json.Marshal(output)
+		if err != nil {
+			return fmt.Errorf("failed to marshal SessionStart output: %w", err)
+		}
+		fmt.Println(string(jsonBytes))
+		return nil
 	case UserPromptSubmit:
 		input, rawJSON, err := parseInput[*UserPromptSubmitInput](eventType)
 		if err != nil {
@@ -802,11 +812,17 @@ func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON inte
 }
 
 // executeSessionStartHooks executes all matching SessionStart hooks based on matcher and condition checks.
-func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON interface{}) error {
+func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON interface{}) (*SessionStartOutput, error) {
+	// Initialize final output with Continue: true
+	finalOutput := &SessionStartOutput{
+		Continue: true,
+	}
+
 	var conditionErrors []error
+	var actionErrors []error
 
 	for i, hook := range config.SessionStart {
-		// マッチャーチェック (startup, resume, clear)
+		// マッチャーチェック (startup, resume, clear, compact)
 		if hook.Matcher != "" && hook.Matcher != input.Source {
 			continue
 		}
@@ -830,33 +846,65 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 			continue
 		}
 
+		// アクションループ
 		for _, action := range hook.Actions {
-			if err := executeSessionStartAction(action, input, rawJSON); err != nil {
-				// ExitErrorの場合はメッセージを更新して返す
-				if exitErr, ok := err.(*ExitError); ok {
-					actionErr := &ExitError{
-						Code:    exitErr.Code,
-						Message: fmt.Sprintf("SessionStart hook %d failed: %s", i, exitErr.Message),
-						Stderr:  exitErr.Stderr,
-					}
-					if len(conditionErrors) > 0 {
-						return errors.Join(append(conditionErrors, actionErr)...)
-					}
-					return actionErr
-				}
-				actionErr := fmt.Errorf("SessionStart hook %d failed: %w", i, err)
-				if len(conditionErrors) > 0 {
-					return errors.Join(append(conditionErrors, actionErr)...)
-				}
-				return actionErr
+			actionOutput, err := executeSessionStartAction(action, input, rawJSON)
+			if err != nil {
+				actionErrors = append(actionErrors,
+					fmt.Errorf("SessionStart hook %d failed: %w", i, err))
+				// エラーがあっても actionOutput は返されているので続行
 			}
+
+			if actionOutput != nil {
+				// Update finalOutput with ActionOutput
+				// Continue: overwrite (early return if false)
+				finalOutput.Continue = actionOutput.Continue
+
+				// HookEventName: set once and preserve
+				if finalOutput.HookSpecificOutput == nil && actionOutput.HookEventName != "" {
+					finalOutput.HookSpecificOutput = &SessionStartHookSpecificOutput{
+						HookEventName: actionOutput.HookEventName,
+					}
+				}
+
+				// AdditionalContext: concatenate with "\n"
+				if actionOutput.AdditionalContext != "" {
+					if finalOutput.HookSpecificOutput != nil {
+						if finalOutput.HookSpecificOutput.AdditionalContext != "" {
+							finalOutput.HookSpecificOutput.AdditionalContext += "\n"
+						}
+						finalOutput.HookSpecificOutput.AdditionalContext += actionOutput.AdditionalContext
+					}
+				}
+
+				// SystemMessage: concatenate with "\n"
+				if actionOutput.SystemMessage != "" {
+					if finalOutput.SystemMessage != "" {
+						finalOutput.SystemMessage += "\n"
+					}
+					finalOutput.SystemMessage += actionOutput.SystemMessage
+				}
+
+				// Early return if continue is false
+				if !finalOutput.Continue {
+					break
+				}
+			}
+		}
+
+		// Early return if continue is false
+		if !finalOutput.Continue {
+			break
 		}
 	}
 
-	if len(conditionErrors) > 0 {
-		return errors.Join(conditionErrors...)
+	// Return errors if any
+	allErrors := append(conditionErrors, actionErrors...)
+	if len(allErrors) > 0 {
+		return finalOutput, errors.Join(allErrors...)
 	}
-	return nil
+
+	return finalOutput, nil
 }
 
 // executeUserPromptSubmitHooks executes all matching UserPromptSubmit hooks based on condition checks.

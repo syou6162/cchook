@@ -486,3 +486,243 @@ func TestExecutePostToolUseAction_WithUseStdin(t *testing.T) {
 		t.Errorf("Expected output to contain 'Edit', got %s", output)
 	}
 }
+
+func TestExecuteSessionStartAction_TypeOutput_Success(t *testing.T) {
+	tests := []struct {
+		name              string
+		action            Action
+		wantContinue      bool
+		wantHookEventName string
+		wantAddContext    string
+		wantSysMessage    string
+	}{
+		{
+			name: "Message with continue unspecified (default true)",
+			action: Action{
+				Type:    "output",
+				Message: "Test message",
+			},
+			wantContinue:      true,
+			wantHookEventName: "SessionStart",
+			wantAddContext:    "Test message",
+			wantSysMessage:    "",
+		},
+		{
+			name: "Message with continue: false",
+			action: Action{
+				Type:     "output",
+				Message:  "Test message",
+				Continue: func() *bool { b := false; return &b }(),
+			},
+			wantContinue:      false,
+			wantHookEventName: "SessionStart",
+			wantAddContext:    "Test message",
+			wantSysMessage:    "",
+		},
+		{
+			name: "Message with template variables",
+			action: Action{
+				Type:    "output",
+				Message: "Session {.source}",
+			},
+			wantContinue:      true,
+			wantHookEventName: "SessionStart",
+			wantAddContext:    "Session startup",
+			wantSysMessage:    "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := &SessionStartInput{
+				BaseInput: BaseInput{SessionID: "test123"},
+				Source:    "startup",
+			}
+			rawJSON := map[string]interface{}{
+				"source": "startup",
+			}
+
+			result, err := executeSessionStartAction(tt.action, input, rawJSON)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if result == nil {
+				t.Fatal("Result is nil")
+			}
+
+			if result.Continue != tt.wantContinue {
+				t.Errorf("Continue: want %v, got %v", tt.wantContinue, result.Continue)
+			}
+			if result.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName: want %s, got %s", tt.wantHookEventName, result.HookEventName)
+			}
+			if result.AdditionalContext != tt.wantAddContext {
+				t.Errorf("AdditionalContext: want %s, got %s", tt.wantAddContext, result.AdditionalContext)
+			}
+			if result.SystemMessage != tt.wantSysMessage {
+				t.Errorf("SystemMessage: want %s, got %s", tt.wantSysMessage, result.SystemMessage)
+			}
+		})
+	}
+}
+
+func TestExecuteSessionStartAction_TypeOutput_EmptyMessage(t *testing.T) {
+	action := Action{
+		Type:    "output",
+		Message: "",
+	}
+	input := &SessionStartInput{
+		BaseInput: BaseInput{SessionID: "test123"},
+		Source:    "startup",
+	}
+
+	result, err := executeSessionStartAction(action, input, nil)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("Result is nil")
+	}
+
+	if result.Continue != false {
+		t.Errorf("Continue: want false, got %v", result.Continue)
+	}
+	if result.SystemMessage != "Action output has no message" {
+		t.Errorf("SystemMessage: want 'Action output has no message', got %s", result.SystemMessage)
+	}
+}
+
+func TestExecuteSessionStartAction_TypeCommand_Success(t *testing.T) {
+	tests := []struct {
+		name              string
+		command           string
+		wantContinue      bool
+		wantHookEventName string
+		wantAddContext    string
+		wantSysMessage    string
+	}{
+		{
+			name:              "Command with valid JSON and continue: true",
+			command:           `echo eyJjb250aW51ZSI6IHRydWUsICJob29rU3BlY2lmaWNPdXRwdXQiOiB7Imhvb2tFdmVudE5hbWUiOiAiU2Vzc2lvblN0YXJ0IiwgImFkZGl0aW9uYWxDb250ZXh0IjogIlRlc3QgY29udGV4dCJ9fQ== | base64 -d`,
+			wantContinue:      true,
+			wantHookEventName: "SessionStart",
+			wantAddContext:    "Test context",
+			wantSysMessage:    "",
+		},
+		{
+			name:              "Command with continue unspecified (default false)",
+			command:           `echo eyJob29rU3BlY2lmaWNPdXRwdXQiOiB7Imhvb2tFdmVudE5hbWUiOiAiU2Vzc2lvblN0YXJ0In19 | base64 -d`,
+			wantContinue:      false, // Default to false
+			wantHookEventName: "SessionStart",
+			wantAddContext:    "",
+			wantSysMessage:    "",
+		},
+		{
+			name:              "Command with systemMessage",
+			command:           `echo eyJjb250aW51ZSI6IHRydWUsICJob29rU3BlY2lmaWNPdXRwdXQiOiB7Imhvb2tFdmVudE5hbWUiOiAiU2Vzc2lvblN0YXJ0In0sICJzeXN0ZW1NZXNzYWdlIjogIldhcm5pbmcgbWVzc2FnZSJ9 | base64 -d`,
+			wantContinue:      true,
+			wantHookEventName: "SessionStart",
+			wantAddContext:    "",
+			wantSysMessage:    "Warning message",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			action := Action{
+				Type:    "command",
+				Command: tt.command,
+			}
+			input := &SessionStartInput{
+				BaseInput: BaseInput{SessionID: "test123"},
+				Source:    "startup",
+			}
+
+			result, err := executeSessionStartAction(action, input, nil)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if result == nil {
+				t.Fatal("Result is nil")
+			}
+
+			if result.Continue != tt.wantContinue {
+				t.Errorf("Continue: want %v, got %v", tt.wantContinue, result.Continue)
+			}
+			if result.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName: want %s, got %s", tt.wantHookEventName, result.HookEventName)
+			}
+			if result.AdditionalContext != tt.wantAddContext {
+				t.Errorf("AdditionalContext: want %s, got %s", tt.wantAddContext, result.AdditionalContext)
+			}
+			if result.SystemMessage != tt.wantSysMessage {
+				t.Errorf("SystemMessage: want %s, got %s", tt.wantSysMessage, result.SystemMessage)
+			}
+		})
+	}
+}
+
+func TestExecuteSessionStartAction_TypeCommand_Errors(t *testing.T) {
+	tests := []struct {
+		name           string
+		command        string
+		wantContinue   bool
+		wantSysMessage string
+	}{
+		{
+			name:           "Command failed (exit code non-zero)",
+			command:        `echo 'error' >&2 && exit 1`,
+			wantContinue:   false,
+			wantSysMessage: "Command failed with exit code 1: error",
+		},
+		{
+			name:           "Empty stdout",
+			command:        `true`,
+			wantContinue:   false,
+			wantSysMessage: "Command produced no output",
+		},
+		{
+			name:           "Invalid JSON output",
+			command:        `echo 'not json'`,
+			wantContinue:   false,
+			wantSysMessage: "Command output is not valid JSON: not json",
+		},
+		{
+			name:           "Missing hookEventName",
+			command:        `echo eyJjb250aW51ZSI6IHRydWV9 | base64 -d`,
+			wantContinue:   false,
+			wantSysMessage: "Command output is missing required field: hookSpecificOutput.hookEventName",
+		},
+		{
+			name:           "Missing hookSpecificOutput",
+			command:        `echo eyJjb250aW51ZSI6IHRydWUsICJzeXN0ZW1NZXNzYWdlIjogInRlc3QifQ== | base64 -d`,
+			wantContinue:   false,
+			wantSysMessage: "Command output is missing required field: hookSpecificOutput.hookEventName",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			action := Action{
+				Type:    "command",
+				Command: tt.command,
+			}
+			input := &SessionStartInput{
+				BaseInput: BaseInput{SessionID: "test123"},
+				Source:    "startup",
+			}
+
+			result, _ := executeSessionStartAction(action, input, nil)
+			if result == nil {
+				t.Fatal("Result is nil")
+			}
+
+			if result.Continue != tt.wantContinue {
+				t.Errorf("Continue: want %v, got %v", tt.wantContinue, result.Continue)
+			}
+			if !bytes.Contains([]byte(result.SystemMessage), []byte(tt.wantSysMessage)) {
+				t.Errorf("SystemMessage: want to contain %q, got %q", tt.wantSysMessage, result.SystemMessage)
+			}
+		})
+	}
+}

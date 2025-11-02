@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // handleOutput processes an output action and returns ExitError if a non-zero exit status is specified.
@@ -82,23 +84,106 @@ func executePreCompactAction(action Action, input *PreCompactInput, rawJSON inte
 
 // executeSessionStartAction executes an action for the SessionStart event.
 // Errors are logged but do not block session startup.
-func executeSessionStartAction(action Action, input *SessionStartInput, rawJSON interface{}) error {
+func executeSessionStartAction(action Action, input *SessionStartInput, rawJSON interface{}) (*ActionOutput, error) {
 	switch action.Type {
-	case "command":
-		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			return err
-		}
 	case "output":
-		// SessionStartはブロッキング不要なので、exitStatusが指定されていない場合は通常出力
+		// Process message with template
 		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
-		if action.ExitStatus != nil && *action.ExitStatus != 0 {
-			stderr := *action.ExitStatus == 2
-			return NewExitError(*action.ExitStatus, processedMessage, stderr)
+
+		// If message is empty, return error
+		if processedMessage == "" {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: "Action output has no message",
+			}, nil
 		}
-		fmt.Println(processedMessage)
+
+		// Set continue based on action.Continue (default true if unspecified)
+		continueValue := true
+		if action.Continue != nil {
+			continueValue = *action.Continue
+		}
+
+		return &ActionOutput{
+			Continue:          continueValue,
+			HookEventName:     "SessionStart",
+			AdditionalContext: processedMessage,
+		}, nil
+
+	case "command":
+		// Process command with template
+		cmd := unifiedTemplateReplace(action.Command, rawJSON)
+
+		// Execute command and capture output
+		stdout, stderr, exitCode, err := runCommandWithOutput(cmd, action.UseStdin, rawJSON)
+
+		// If exit code != 0, return error
+		if exitCode != 0 {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr),
+			}, err
+		}
+
+		// If stdout is empty, return error
+		if strings.TrimSpace(stdout) == "" {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: "Command produced no output",
+			}, nil
+		}
+
+		// Parse stdout as JSON
+		var cmdOutput map[string]interface{}
+		if parseErr := json.Unmarshal([]byte(stdout), &cmdOutput); parseErr != nil {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: fmt.Sprintf("Command output is not valid JSON: %s", stdout),
+			}, nil
+		}
+
+		// Check for hookSpecificOutput.hookEventName
+		hookSpecific, hasHookSpecific := cmdOutput["hookSpecificOutput"].(map[string]interface{})
+		if !hasHookSpecific {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: "Command output is missing required field: hookSpecificOutput.hookEventName",
+			}, nil
+		}
+
+		hookEventName, hasEventName := hookSpecific["hookEventName"].(string)
+		if !hasEventName || hookEventName == "" {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: "Command output is missing required field: hookSpecificOutput.hookEventName",
+			}, nil
+		}
+
+		// Extract fields from JSON output
+		continueValue := false // Default to false if not specified
+		if continueVal, ok := cmdOutput["continue"].(bool); ok {
+			continueValue = continueVal
+		}
+
+		additionalContext := ""
+		if additionalCtx, ok := hookSpecific["additionalContext"].(string); ok {
+			additionalContext = additionalCtx
+		}
+
+		systemMessage := ""
+		if sysMsg, ok := cmdOutput["systemMessage"].(string); ok {
+			systemMessage = sysMsg
+		}
+
+		return &ActionOutput{
+			Continue:          continueValue,
+			HookEventName:     hookEventName,
+			AdditionalContext: additionalContext,
+			SystemMessage:     systemMessage,
+		}, nil
 	}
-	return nil
+
+	return nil, fmt.Errorf("unknown action type: %s", action.Type)
 }
 
 // executeUserPromptSubmitAction executes an action for the UserPromptSubmit event.
