@@ -692,7 +692,7 @@ var sessionStartOutputSchema = map[string]interface{}{
 		},
 	},
 	"required":             []interface{}{"hookSpecificOutput"},
-	"additionalProperties": false,
+	"additionalProperties": true,
 }
 
 // validateSessionStartOutput validates SessionStartOutput JSON against schema
