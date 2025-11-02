@@ -4,6 +4,22 @@ import (
 	"testing"
 )
 
+// stubRunnerWithOutput is a test stub that implements CommandRunner for testing ExecuteSessionStartAction.
+type stubRunnerWithOutput struct {
+	stdout   string
+	stderr   string
+	exitCode int
+	err      error
+}
+
+func (s *stubRunnerWithOutput) RunCommand(cmd string, useStdin bool, data interface{}) error {
+	return s.err
+}
+
+func (s *stubRunnerWithOutput) RunCommandWithOutput(cmd string, useStdin bool, data interface{}) (stdout, stderr string, exitCode int, err error) {
+	return s.stdout, s.stderr, s.exitCode, s.err
+}
+
 // Helper function to create *bool
 func boolPtr(b bool) *bool {
 	return &b
@@ -297,18 +313,47 @@ func TestExecuteSessionStartAction_TypeCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Skip command tests for now - they will be enabled once we add
-			// RunCommandWithOutput to CommandRunner interface
-			t.Skip("Command type tests pending CommandRunner interface extension")
+			runner := &stubRunnerWithOutput{
+				stdout:   tt.stdout,
+				stderr:   tt.stderr,
+				exitCode: tt.exitCode,
+			}
+			executor := NewActionExecutor(runner)
+			input := &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID: "test-session-123",
+				},
+			}
+			rawJSON := map[string]interface{}{
+				"session_id": "test-session-123",
+			}
 
-			// TODO: Once CommandRunner has RunCommandWithOutput method, use this pattern:
-			// runner := &stubRunnerWithOutput{
-			// 	stdout:   tt.stdout,
-			// 	stderr:   tt.stderr,
-			// 	exitCode: tt.exitCode,
-			// }
-			// executor := NewActionExecutor(runner)
-			// ... rest of test
+			output, err := executor.ExecuteSessionStartAction(tt.action, input, rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ExecuteSessionStartAction() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if output == nil {
+				t.Fatal("ExecuteSessionStartAction() returned nil output")
+			}
+
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			if output.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName = %q, want %q", output.HookEventName, tt.wantHookEventName)
+			}
+
+			if output.AdditionalContext != tt.wantAdditionalCtx {
+				t.Errorf("AdditionalContext = %q, want %q", output.AdditionalContext, tt.wantAdditionalCtx)
+			}
+
+			if output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
 		})
 	}
 }
