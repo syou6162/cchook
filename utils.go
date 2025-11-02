@@ -691,6 +691,7 @@ var sessionStartOutputSchema = map[string]interface{}{
 			"additionalProperties": false,
 		},
 	},
+	"required":             []interface{}{"hookSpecificOutput"},
 	"additionalProperties": false,
 }
 
