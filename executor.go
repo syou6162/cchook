@@ -118,6 +118,14 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 			}, nil
 		}
 
+		// Check for required field: hookSpecificOutput.hookEventName (requirement 3.4)
+		if cmdOutput.HookSpecificOutput == nil || cmdOutput.HookSpecificOutput.HookEventName == "" {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: "Command output is missing required field: hookSpecificOutput.hookEventName",
+			}, nil
+		}
+
 		// Validate against JSON Schema
 		// This checks:
 		// - hookSpecificOutput exists (required field)
