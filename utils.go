@@ -652,10 +652,51 @@ func runCommandWithOutput(command string, useStdin bool, data interface{}) (stdo
 	return stdout, stderr, exitCode, err
 }
 
+// sessionStartOutputSchema defines the JSON Schema for SessionStart hook output
+var sessionStartOutputSchema = map[string]interface{}{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title":   "SessionStart Hook Output Schema",
+	"type":    "object",
+	"properties": map[string]interface{}{
+		"continue": map[string]interface{}{
+			"type":        "boolean",
+			"description": "Whether to continue session startup",
+		},
+		"stopReason": map[string]interface{}{
+			"type":        "string",
+			"description": "Reason for stopping (Phase 1 unused)",
+		},
+		"suppressOutput": map[string]interface{}{
+			"type":        "boolean",
+			"description": "Whether to suppress output (Phase 1 unused)",
+		},
+		"systemMessage": map[string]interface{}{
+			"type":        "string",
+			"description": "System message to display to user only",
+		},
+		"hookSpecificOutput": map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"hookEventName": map[string]interface{}{
+					"type":        "string",
+					"enum":        []interface{}{"SessionStart"},
+					"description": "Hook event name, must be 'SessionStart'",
+				},
+				"additionalContext": map[string]interface{}{
+					"type":        "string",
+					"description": "Additional context to provide to Claude",
+				},
+			},
+			"required":             []interface{}{"hookEventName"},
+			"additionalProperties": false,
+		},
+	},
+	"additionalProperties": false,
+}
+
 // validateSessionStartOutput validates SessionStartOutput JSON against schema
 func validateSessionStartOutput(jsonData []byte) error {
-	schemaPath := "file://testdata/schemas/session-start-output.json"
-	schemaLoader := gojsonschema.NewReferenceLoader(schemaPath)
+	schemaLoader := gojsonschema.NewGoLoader(sessionStartOutputSchema)
 	documentLoader := gojsonschema.NewBytesLoader(jsonData)
 
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
