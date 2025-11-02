@@ -918,12 +918,13 @@ EOF
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	// Verify schema validation rejected missing hookSpecificOutput (prevents panic at executor.go:136)
+	// Verify hookEventName check rejected missing hookSpecificOutput (prevents panic)
 	if output.Continue {
-		t.Errorf("Continue = true, want false (schema validation should reject missing hookSpecificOutput)")
+		t.Errorf("Continue = true, want false (should reject missing hookSpecificOutput)")
 	}
 
-	if !strings.Contains(output.SystemMessage, "validation failed") {
-		t.Errorf("SystemMessage should contain 'validation failed', got: %s", output.SystemMessage)
+	expectedMsg := "Command output is missing required field: hookSpecificOutput.hookEventName"
+	if output.SystemMessage != expectedMsg {
+		t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, expectedMsg)
 	}
 }
