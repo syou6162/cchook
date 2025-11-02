@@ -117,11 +117,15 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 			}, nil
 		}
 
-		// Validate hookEventName field
-		if cmdOutput.HookSpecificOutput == nil || cmdOutput.HookSpecificOutput.HookEventName == "" {
+		// Validate against JSON Schema
+		// This checks:
+		// - hookEventName is "SessionStart" (not just non-empty)
+		// - No unsupported fields are present (additionalProperties: false)
+		// - All field types match the schema
+		if err := validateSessionStartOutput([]byte(stdout)); err != nil {
 			return &ActionOutput{
 				Continue:      false,
-				SystemMessage: "Command output is missing required field: hookSpecificOutput.hookEventName",
+				SystemMessage: fmt.Sprintf("Command output validation failed: %s", err.Error()),
 			}, nil
 		}
 
