@@ -119,7 +119,8 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 
 		// Validate against JSON Schema
 		// This checks:
-		// - hookEventName is "SessionStart" (not just non-empty)
+		// - hookSpecificOutput exists (required field)
+		// - hookEventName is "SessionStart" (enum validation)
 		// - No unsupported fields are present (additionalProperties: false)
 		// - All field types match the schema
 		if err := validateSessionStartOutput([]byte(stdout)); err != nil {
@@ -130,17 +131,15 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 		}
 
 		// Build ActionOutput from parsed JSON
-		// If continue field is missing, default to false
+		// After schema validation, hookSpecificOutput is guaranteed to exist
 		result := &ActionOutput{
 			Continue:      cmdOutput.Continue,
 			HookEventName: cmdOutput.HookSpecificOutput.HookEventName,
 			SystemMessage: cmdOutput.SystemMessage,
 		}
 
-		// Set AdditionalContext if present
-		if cmdOutput.HookSpecificOutput != nil {
-			result.AdditionalContext = cmdOutput.HookSpecificOutput.AdditionalContext
-		}
+		// Set AdditionalContext
+		result.AdditionalContext = cmdOutput.HookSpecificOutput.AdditionalContext
 
 		return result, err
 
