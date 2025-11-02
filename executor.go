@@ -66,3 +66,18 @@ func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *Subagen
 	}
 	return nil
 }
+
+// ExecutePreCompactAction executes an action for the PreCompact event.
+// Supports command execution and output actions.
+func (e *ActionExecutor) ExecutePreCompactAction(action Action, input *PreCompactInput, rawJSON interface{}) error {
+	switch action.Type {
+	case "command":
+		cmd := unifiedTemplateReplace(action.Command, rawJSON)
+		if err := e.runner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
+			return err
+		}
+	case "output":
+		return handleOutput(action.Message, action.ExitStatus, rawJSON)
+	}
+	return nil
+}

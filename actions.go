@@ -44,18 +44,9 @@ func executeSubagentStopAction(action Action, input *SubagentStopInput, rawJSON 
 }
 
 // executePreCompactAction executes an action for the PreCompact event.
-// Supports command execution and output actions.
+// This is a wrapper function that uses the default ActionExecutor.
 func executePreCompactAction(action Action, input *PreCompactInput, rawJSON interface{}) error {
-	switch action.Type {
-	case "command":
-		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			return err
-		}
-	case "output":
-		return handleOutput(action.Message, action.ExitStatus, rawJSON)
-	}
-	return nil
+	return defaultExecutor.ExecutePreCompactAction(action, input, rawJSON)
 }
 
 // executeSessionStartAction executes an action for the SessionStart event.
