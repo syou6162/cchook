@@ -155,10 +155,11 @@ func TestExecuteSessionStartHooks(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		input          *SessionStartInput
-		expectedOutput string
-		shouldMatch    bool
+		name                  string
+		input                 *SessionStartInput
+		wantAdditionalContext string
+		wantContinue          bool
+		wantHookEventName     string
 	}{
 		{
 			name: "Startup matcher matches",
@@ -170,8 +171,9 @@ func TestExecuteSessionStartHooks(t *testing.T) {
 				},
 				Source: "startup",
 			},
-			expectedOutput: "Session started: test-session-123",
-			shouldMatch:    true,
+			wantAdditionalContext: "Session started: test-session-123",
+			wantContinue:          true,
+			wantHookEventName:     "SessionStart",
 		},
 		{
 			name: "Resume matcher matches",
@@ -183,8 +185,9 @@ func TestExecuteSessionStartHooks(t *testing.T) {
 				},
 				Source: "resume",
 			},
-			expectedOutput: "Session resumed",
-			shouldMatch:    true,
+			wantAdditionalContext: "Session resumed",
+			wantContinue:          true,
+			wantHookEventName:     "SessionStart",
 		},
 		{
 			name: "Clear source doesn't match",
@@ -196,18 +199,14 @@ func TestExecuteSessionStartHooks(t *testing.T) {
 				},
 				Source: "clear",
 			},
-			expectedOutput: "",
-			shouldMatch:    false,
+			wantAdditionalContext: "",
+			wantContinue:          true,
+			wantHookEventName:     "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// キャプチャ用バッファ
-			oldStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
 			// rawJSON作成
 			rawJSON := map[string]interface{}{
 				"session_id":      tt.input.SessionID,
@@ -217,28 +216,37 @@ func TestExecuteSessionStartHooks(t *testing.T) {
 			}
 
 			// フック実行
-			err := executeSessionStartHooks(config, tt.input, rawJSON)
-
-			// 出力キャプチャ
-			w.Close()
-			os.Stdout = oldStdout
-			var buf bytes.Buffer
-			io.Copy(&buf, r)
-			output := strings.TrimSpace(buf.String())
+			output, err := executeSessionStartHooks(config, tt.input, rawJSON)
 
 			// エラーチェック
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
 
-			// 出力チェック
-			if tt.shouldMatch {
-				if output != tt.expectedOutput {
-					t.Errorf("Expected output '%s', got '%s'", tt.expectedOutput, output)
+			// Continue チェック
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			// HookEventName チェック
+			if tt.wantHookEventName != "" {
+				if output.HookSpecificOutput == nil {
+					t.Errorf("HookSpecificOutput is nil but expected hookEventName")
+				} else if output.HookSpecificOutput.HookEventName != tt.wantHookEventName {
+					t.Errorf("HookEventName = %v, want %v", output.HookSpecificOutput.HookEventName, tt.wantHookEventName)
+				}
+			}
+
+			// AdditionalContext チェック
+			if tt.wantAdditionalContext != "" {
+				if output.HookSpecificOutput == nil {
+					t.Errorf("HookSpecificOutput is nil but expected additionalContext")
+				} else if output.HookSpecificOutput.AdditionalContext != tt.wantAdditionalContext {
+					t.Errorf("AdditionalContext = %v, want %v", output.HookSpecificOutput.AdditionalContext, tt.wantAdditionalContext)
 				}
 			} else {
-				if output != "" {
-					t.Errorf("Expected no output, got '%s'", output)
+				if output.HookSpecificOutput != nil && output.HookSpecificOutput.AdditionalContext != "" {
+					t.Errorf("AdditionalContext = %v, want empty", output.HookSpecificOutput.AdditionalContext)
 				}
 			}
 		})
@@ -289,9 +297,10 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		input          *SessionStartInput
-		expectedOutput []string
+		name                     string
+		input                    *SessionStartInput
+		wantAdditionalContexts   []string
+		wantNotInAdditionalContext string
 	}{
 		{
 			name: "Conditions check - file_exists and file_exists_recursive",
@@ -303,17 +312,13 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 				},
 				Source: "startup",
 			},
-			expectedOutput: []string{"Go project detected", "Test file found recursively"},
+			wantAdditionalContexts:   []string{"Go project detected", "Test file found recursively"},
+			wantNotInAdditionalContext: "This should not appear",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// キャプチャ用バッファ
-			oldStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
 			// rawJSON作成
 			rawJSON := map[string]interface{}{
 				"session_id":      tt.input.SessionID,
@@ -323,30 +328,28 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 			}
 
 			// フック実行
-			err := executeSessionStartHooks(config, tt.input, rawJSON)
-
-			// 出力キャプチャ
-			w.Close()
-			os.Stdout = oldStdout
-			var buf bytes.Buffer
-			io.Copy(&buf, r)
-			output := strings.TrimSpace(buf.String())
+			output, err := executeSessionStartHooks(config, tt.input, rawJSON)
 
 			// エラーチェック
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
 
-			// 出力チェック
-			for _, expected := range tt.expectedOutput {
-				if !strings.Contains(output, expected) {
-					t.Errorf("Expected output to contain '%s', got '%s'", expected, output)
+			// AdditionalContext チェック
+			if output.HookSpecificOutput == nil {
+				t.Fatalf("HookSpecificOutput is nil")
+			}
+
+			additionalContext := output.HookSpecificOutput.AdditionalContext
+			for _, expected := range tt.wantAdditionalContexts {
+				if !strings.Contains(additionalContext, expected) {
+					t.Errorf("Expected additionalContext to contain '%s', got '%s'", expected, additionalContext)
 				}
 			}
 
-			// "This should not appear"が出力されていないことを確認
-			if strings.Contains(output, "This should not appear") {
-				t.Errorf("Output should not contain 'This should not appear', got '%s'", output)
+			// "This should not appear"が含まれていないことを確認
+			if strings.Contains(additionalContext, tt.wantNotInAdditionalContext) {
+				t.Errorf("AdditionalContext should not contain '%s', got '%s'", tt.wantNotInAdditionalContext, additionalContext)
 			}
 		})
 	}

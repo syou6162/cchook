@@ -821,9 +821,20 @@ func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON inte
 }
 
 // executeSessionStartHooks executes all matching SessionStart hooks based on matcher and condition checks.
-func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON interface{}) error {
+// Returns SessionStartOutput for JSON serialization.
+func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON interface{}) (*SessionStartOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
+	var actionErrors []error
+
+	// Initialize finalOutput with Continue: true
+	finalOutput := &SessionStartOutput{
+		Continue: true,
+	}
+
+	var additionalContextBuilder strings.Builder
+	var systemMessageBuilder strings.Builder
+	hookEventName := ""
 
 	for i, hook := range config.SessionStart {
 		// マッチャーチェック (startup, resume, clear)
@@ -851,34 +862,76 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 		}
 
 		for _, action := range hook.Actions {
-			// TODO: Task 7-8 will use ActionOutput for JSON integration
-			_, err := executor.ExecuteSessionStartAction(action, input, rawJSON)
+			actionOutput, err := executor.ExecuteSessionStartAction(action, input, rawJSON)
 			if err != nil {
-				// ExitErrorの場合はメッセージを更新して返す
-				if exitErr, ok := err.(*ExitError); ok {
-					actionErr := &ExitError{
-						Code:    exitErr.Code,
-						Message: fmt.Sprintf("SessionStart hook %d failed: %s", i, exitErr.Message),
-						Stderr:  exitErr.Stderr,
-					}
-					if len(conditionErrors) > 0 {
-						return errors.Join(append(conditionErrors, actionErr)...)
-					}
-					return actionErr
-				}
-				actionErr := fmt.Errorf("SessionStart hook %d failed: %w", i, err)
-				if len(conditionErrors) > 0 {
-					return errors.Join(append(conditionErrors, actionErr)...)
-				}
-				return actionErr
+				actionErrors = append(actionErrors, fmt.Errorf("SessionStart hook %d action failed: %w", i, err))
+				continue
 			}
+
+			if actionOutput == nil {
+				continue
+			}
+
+			// Update finalOutput fields following merge rules
+
+			// Continue: overwrite
+			finalOutput.Continue = actionOutput.Continue
+
+			// HookEventName: set once and preserve
+			if hookEventName == "" && actionOutput.HookEventName != "" {
+				hookEventName = actionOutput.HookEventName
+			}
+
+			// AdditionalContext: concatenate with "\n"
+			if actionOutput.AdditionalContext != "" {
+				if additionalContextBuilder.Len() > 0 {
+					additionalContextBuilder.WriteString("\n")
+				}
+				additionalContextBuilder.WriteString(actionOutput.AdditionalContext)
+			}
+
+			// SystemMessage: concatenate with "\n"
+			if actionOutput.SystemMessage != "" {
+				if systemMessageBuilder.Len() > 0 {
+					systemMessageBuilder.WriteString("\n")
+				}
+				systemMessageBuilder.WriteString(actionOutput.SystemMessage)
+			}
+
+			// Phase 1: Do NOT update StopReason or SuppressOutput (remain zero values)
+
+			// Early return check AFTER collecting this action's data
+			if !actionOutput.Continue {
+				break
+			}
+		}
+
+		// Early return if continue is false
+		if !finalOutput.Continue {
+			break
 		}
 	}
 
-	if len(conditionErrors) > 0 {
-		return errors.Join(conditionErrors...)
+	// Build final output
+	if hookEventName != "" {
+		finalOutput.HookSpecificOutput = &SessionStartHookSpecificOutput{
+			HookEventName:     hookEventName,
+			AdditionalContext: additionalContextBuilder.String(),
+		}
 	}
-	return nil
+
+	finalOutput.SystemMessage = systemMessageBuilder.String()
+
+	// Collect all errors
+	var allErrors []error
+	allErrors = append(allErrors, conditionErrors...)
+	allErrors = append(allErrors, actionErrors...)
+
+	if len(allErrors) > 0 {
+		return finalOutput, errors.Join(allErrors...)
+	}
+
+	return finalOutput, nil
 }
 
 // executeUserPromptSubmitHooks executes all matching UserPromptSubmit hooks based on condition checks.
