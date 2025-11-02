@@ -4,6 +4,10 @@ import (
 	"fmt"
 )
 
+// commandRunner is the package-level CommandRunner used by action executors.
+// Can be swapped in tests for mocking.
+var commandRunner CommandRunner = DefaultCommandRunner
+
 // handleOutput processes an output action and returns ExitError if a non-zero exit status is specified.
 // Exit status 2 outputs to stderr, while other non-zero statuses output to stdout with error.
 func handleOutput(message string, exitStatus *int, rawJSON interface{}) error {
@@ -24,7 +28,7 @@ func executeNotificationAction(action Action, input *NotificationInput, rawJSON 
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd, action.UseStdin, rawJSON); err != nil {
+		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
 			return err
 		}
 	case "output":
@@ -39,7 +43,7 @@ func executeStopAction(action Action, input *StopInput, rawJSON interface{}) err
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd, action.UseStdin, rawJSON); err != nil {
+		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
 			// Stopでコマンドが失敗した場合はexit 2で停止をブロック
 			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
 		}
@@ -55,7 +59,7 @@ func executeSubagentStopAction(action Action, input *SubagentStopInput, rawJSON 
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd, action.UseStdin, rawJSON); err != nil {
+		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
 			// SubagentStopでコマンドが失敗した場合はexit 2でサブエージェント停止をブロック
 			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
 		}
@@ -71,7 +75,7 @@ func executePreCompactAction(action Action, input *PreCompactInput, rawJSON inte
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd, action.UseStdin, rawJSON); err != nil {
+		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
 			return err
 		}
 	case "output":
@@ -86,7 +90,7 @@ func executeSessionStartAction(action Action, input *SessionStartInput, rawJSON 
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd, action.UseStdin, rawJSON); err != nil {
+		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
 			return err
 		}
 	case "output":
@@ -107,7 +111,7 @@ func executeUserPromptSubmitAction(action Action, input *UserPromptSubmitInput, 
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd, action.UseStdin, rawJSON); err != nil {
+		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
 			// UserPromptSubmitでコマンドが失敗した場合はexit 2でプロンプト処理をブロック
 			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
 		}
@@ -129,7 +133,7 @@ func executePreToolUseAction(action Action, input *PreToolUseInput, rawJSON inte
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd, action.UseStdin, rawJSON); err != nil {
+		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
 			// PreToolUseでコマンドが失敗した場合はexit 2でツール実行をブロック
 			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
 		}
@@ -145,7 +149,7 @@ func executePostToolUseAction(action Action, input *PostToolUseInput, rawJSON in
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd, action.UseStdin, rawJSON); err != nil {
+		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
 			return err
 		}
 	case "output":
@@ -172,7 +176,7 @@ func executeSessionEndAction(action Action, input *SessionEndInput, rawJSON inte
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := runCommand(cmd, action.UseStdin, rawJSON); err != nil {
+		if err := commandRunner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
 			return err
 		}
 	case "output":
