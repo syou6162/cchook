@@ -258,6 +258,9 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 			}, nil
 		}
 
+		// Check for unsupported fields and log warnings to stderr
+		checkUnsupportedFieldsUserPromptSubmit(stdout)
+
 		// Build ActionOutput from parsed JSON
 		// After validation, hookSpecificOutput is guaranteed to exist
 		result := &ActionOutput{
@@ -383,6 +386,31 @@ func checkUnsupportedFieldsSessionStart(stdout string) {
 	for field := range data {
 		if !supportedFields[field] {
 			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for SessionStart hooks\n", field)
+		}
+	}
+}
+
+// checkUnsupportedFieldsUserPromptSubmit checks for unsupported fields in UserPromptSubmit JSON output
+// and logs warnings to stderr for any fields that are not in the supported list.
+func checkUnsupportedFieldsUserPromptSubmit(stdout string) {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+		// JSON parsing failed - this will be caught by the main validation
+		return
+	}
+
+	supportedFields := map[string]bool{
+		"continue":           true,
+		"decision":           true, // UserPromptSubmit specific
+		"stopReason":         true,
+		"suppressOutput":     true,
+		"systemMessage":      true,
+		"hookSpecificOutput": true,
+	}
+
+	for field := range data {
+		if !supportedFields[field] {
+			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for UserPromptSubmit hooks\n", field)
 		}
 	}
 }
