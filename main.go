@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -35,6 +36,43 @@ func main() {
 
 	switch *command {
 	case "run":
+		if HookEventType(*eventType) == SessionStart {
+			// SessionStart special handling with JSON output
+			output, err := RunSessionStartHooks(config)
+			if err != nil {
+				// Log error to stderr
+				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+				// Ensure output has continue field and hookSpecificOutput even on error (requirement 1.4)
+				if output == nil {
+					output = &SessionStartOutput{
+						Continue:      false,
+						SystemMessage: fmt.Sprintf("Failed to process SessionStart: %v", err),
+						HookSpecificOutput: &SessionStartHookSpecificOutput{
+							HookEventName: "SessionStart",
+						},
+					}
+				}
+			}
+
+			// Marshal JSON with 2-space indent
+			jsonBytes, err := json.MarshalIndent(output, "", "  ")
+			if err != nil {
+				// Marshal failure is fatal
+				fmt.Fprintf(os.Stderr, "Error marshaling JSON: %v\n", err)
+				os.Exit(1)
+			}
+
+			// Validate final JSON output against schema (non-functional requirement)
+			if err := validateSessionStartOutput(jsonBytes); err != nil {
+				fmt.Fprintf(os.Stderr, "Final JSON output validation failed: %v\n", err)
+				os.Exit(1)
+			}
+
+			// Output JSON to stdout
+			fmt.Println(string(jsonBytes))
+			// Always exit 0 for SessionStart (continue field controls behavior)
+			os.Exit(0)
+		}
 		err = runHooks(config, HookEventType(*eventType))
 	case "dry-run":
 		err = dryRunHooks(config, HookEventType(*eventType))

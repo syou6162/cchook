@@ -10,6 +10,8 @@ import (
 type CommandRunner interface {
 	// RunCommand executes a shell command with optional stdin data.
 	RunCommand(cmd string, useStdin bool, data interface{}) error
+	// RunCommandWithOutput executes a shell command and returns stdout, stderr, exit code, and error.
+	RunCommandWithOutput(cmd string, useStdin bool, data interface{}) (stdout, stderr string, exitCode int, err error)
 }
 
 // イベントタイプのenum定義
@@ -148,6 +150,33 @@ type SessionStartInput struct {
 // GetToolName returns an empty string as SessionStart events have no associated tool.
 func (s *SessionStartInput) GetToolName() string {
 	return ""
+}
+
+// SessionStart JSON出力用の構造体
+
+// SessionStartOutput はSessionStartフックのJSON出力全体を表す（Claude Code共通フィールド含む）
+type SessionStartOutput struct {
+	Continue           bool                            `json:"continue"`
+	StopReason         string                          `json:"stopReason,omitempty"`
+	SuppressOutput     bool                            `json:"suppressOutput,omitempty"`
+	SystemMessage      string                          `json:"systemMessage,omitempty"`
+	HookSpecificOutput *SessionStartHookSpecificOutput `json:"hookSpecificOutput"`
+}
+
+// SessionStartHookSpecificOutput はSessionStart固有の出力フィールド
+type SessionStartHookSpecificOutput struct {
+	HookEventName     string `json:"hookEventName"`
+	AdditionalContext string `json:"additionalContext,omitempty"`
+}
+
+// ActionOutput はアクション実行結果を表す内部型（JSONには直接出力されない）
+type ActionOutput struct {
+	Continue          bool
+	StopReason        string
+	SuppressOutput    bool
+	SystemMessage     string
+	HookEventName     string
+	AdditionalContext string
 }
 
 // UserPromptSubmit用
@@ -341,6 +370,7 @@ type Action struct {
 	Message    string `yaml:"message,omitempty"`
 	UseStdin   bool   `yaml:"use_stdin,omitempty"`
 	ExitStatus *int   `yaml:"exit_status,omitempty"`
+	Continue   *bool  `yaml:"continue,omitempty"`
 }
 
 // 設定ファイル構造

@@ -155,10 +155,11 @@ func TestExecuteSessionStartHooks(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		input          *SessionStartInput
-		expectedOutput string
-		shouldMatch    bool
+		name                  string
+		input                 *SessionStartInput
+		wantAdditionalContext string
+		wantContinue          bool
+		wantHookEventName     string
 	}{
 		{
 			name: "Startup matcher matches",
@@ -170,8 +171,9 @@ func TestExecuteSessionStartHooks(t *testing.T) {
 				},
 				Source: "startup",
 			},
-			expectedOutput: "Session started: test-session-123",
-			shouldMatch:    true,
+			wantAdditionalContext: "Session started: test-session-123",
+			wantContinue:          true,
+			wantHookEventName:     "SessionStart",
 		},
 		{
 			name: "Resume matcher matches",
@@ -183,8 +185,9 @@ func TestExecuteSessionStartHooks(t *testing.T) {
 				},
 				Source: "resume",
 			},
-			expectedOutput: "Session resumed",
-			shouldMatch:    true,
+			wantAdditionalContext: "Session resumed",
+			wantContinue:          true,
+			wantHookEventName:     "SessionStart",
 		},
 		{
 			name: "Clear source doesn't match",
@@ -196,18 +199,14 @@ func TestExecuteSessionStartHooks(t *testing.T) {
 				},
 				Source: "clear",
 			},
-			expectedOutput: "",
-			shouldMatch:    false,
+			wantAdditionalContext: "",
+			wantContinue:          true,
+			wantHookEventName:     "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// キャプチャ用バッファ
-			oldStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
 			// rawJSON作成
 			rawJSON := map[string]interface{}{
 				"session_id":      tt.input.SessionID,
@@ -217,28 +216,37 @@ func TestExecuteSessionStartHooks(t *testing.T) {
 			}
 
 			// フック実行
-			err := executeSessionStartHooks(config, tt.input, rawJSON)
-
-			// 出力キャプチャ
-			w.Close()
-			os.Stdout = oldStdout
-			var buf bytes.Buffer
-			io.Copy(&buf, r)
-			output := strings.TrimSpace(buf.String())
+			output, err := executeSessionStartHooks(config, tt.input, rawJSON)
 
 			// エラーチェック
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
 
-			// 出力チェック
-			if tt.shouldMatch {
-				if output != tt.expectedOutput {
-					t.Errorf("Expected output '%s', got '%s'", tt.expectedOutput, output)
+			// Continue チェック
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			// HookEventName チェック
+			if tt.wantHookEventName != "" {
+				if output.HookSpecificOutput == nil {
+					t.Errorf("HookSpecificOutput is nil but expected hookEventName")
+				} else if output.HookSpecificOutput.HookEventName != tt.wantHookEventName {
+					t.Errorf("HookEventName = %v, want %v", output.HookSpecificOutput.HookEventName, tt.wantHookEventName)
+				}
+			}
+
+			// AdditionalContext チェック
+			if tt.wantAdditionalContext != "" {
+				if output.HookSpecificOutput == nil {
+					t.Errorf("HookSpecificOutput is nil but expected additionalContext")
+				} else if output.HookSpecificOutput.AdditionalContext != tt.wantAdditionalContext {
+					t.Errorf("AdditionalContext = %v, want %v", output.HookSpecificOutput.AdditionalContext, tt.wantAdditionalContext)
 				}
 			} else {
-				if output != "" {
-					t.Errorf("Expected no output, got '%s'", output)
+				if output.HookSpecificOutput != nil && output.HookSpecificOutput.AdditionalContext != "" {
+					t.Errorf("AdditionalContext = %v, want empty", output.HookSpecificOutput.AdditionalContext)
 				}
 			}
 		})
@@ -289,9 +297,10 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		input          *SessionStartInput
-		expectedOutput []string
+		name                       string
+		input                      *SessionStartInput
+		wantAdditionalContexts     []string
+		wantNotInAdditionalContext string
 	}{
 		{
 			name: "Conditions check - file_exists and file_exists_recursive",
@@ -303,17 +312,13 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 				},
 				Source: "startup",
 			},
-			expectedOutput: []string{"Go project detected", "Test file found recursively"},
+			wantAdditionalContexts:     []string{"Go project detected", "Test file found recursively"},
+			wantNotInAdditionalContext: "This should not appear",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// キャプチャ用バッファ
-			oldStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
 			// rawJSON作成
 			rawJSON := map[string]interface{}{
 				"session_id":      tt.input.SessionID,
@@ -323,30 +328,28 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 			}
 
 			// フック実行
-			err := executeSessionStartHooks(config, tt.input, rawJSON)
-
-			// 出力キャプチャ
-			w.Close()
-			os.Stdout = oldStdout
-			var buf bytes.Buffer
-			io.Copy(&buf, r)
-			output := strings.TrimSpace(buf.String())
+			output, err := executeSessionStartHooks(config, tt.input, rawJSON)
 
 			// エラーチェック
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
 
-			// 出力チェック
-			for _, expected := range tt.expectedOutput {
-				if !strings.Contains(output, expected) {
-					t.Errorf("Expected output to contain '%s', got '%s'", expected, output)
+			// AdditionalContext チェック
+			if output.HookSpecificOutput == nil {
+				t.Fatalf("HookSpecificOutput is nil")
+			}
+
+			additionalContext := output.HookSpecificOutput.AdditionalContext
+			for _, expected := range tt.wantAdditionalContexts {
+				if !strings.Contains(additionalContext, expected) {
+					t.Errorf("Expected additionalContext to contain '%s', got '%s'", expected, additionalContext)
 				}
 			}
 
-			// "This should not appear"が出力されていないことを確認
-			if strings.Contains(output, "This should not appear") {
-				t.Errorf("Output should not contain 'This should not appear', got '%s'", output)
+			// "This should not appear"が含まれていないことを確認
+			if strings.Contains(additionalContext, tt.wantNotInAdditionalContext) {
+				t.Errorf("AdditionalContext should not contain '%s', got '%s'", tt.wantNotInAdditionalContext, additionalContext)
 			}
 		})
 	}
@@ -1365,5 +1368,397 @@ func TestExecuteSessionEndHooks_CommandAction(t *testing.T) {
 	expected := "Session cleared\n"
 	if string(content) != expected {
 		t.Errorf("Expected file content %q, got %q", expected, string(content))
+	}
+}
+
+// TestExecuteSessionStartHooks_NewSignature tests the new executeSessionStartHooks
+// that returns (*SessionStartOutput, error) for JSON output
+func TestExecuteSessionStartHooks_NewSignature(t *testing.T) {
+	tests := []struct {
+		name                  string
+		config                *Config
+		input                 *SessionStartInput
+		wantContinue          bool
+		wantHookEventName     string
+		wantAdditionalContext string
+		wantSystemMessage     string
+		wantErr               bool
+	}{
+		{
+			name: "Single output action with continue true",
+			config: &Config{
+				SessionStart: []SessionStartHook{
+					{
+						Matcher: "startup",
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "Session initialized",
+								Continue: boolPtr(true),
+							},
+						},
+					},
+				},
+			},
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-123",
+					HookEventName:  SessionStart,
+					TranscriptPath: "/tmp/transcript",
+				},
+				Source: "startup",
+			},
+			wantContinue:          true,
+			wantHookEventName:     "SessionStart",
+			wantAdditionalContext: "Session initialized",
+			wantSystemMessage:     "",
+			wantErr:               false,
+		},
+		{
+			name: "Single output action with continue false",
+			config: &Config{
+				SessionStart: []SessionStartHook{
+					{
+						Matcher: "startup",
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "Blocked",
+								Continue: boolPtr(false),
+							},
+						},
+					},
+				},
+			},
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-123",
+					HookEventName:  SessionStart,
+					TranscriptPath: "/tmp/transcript",
+				},
+				Source: "startup",
+			},
+			wantContinue:          false,
+			wantHookEventName:     "SessionStart",
+			wantAdditionalContext: "Blocked",
+			wantSystemMessage:     "",
+			wantErr:               false,
+		},
+		{
+			name: "Multiple actions both succeed - additionalContext concatenated",
+			config: &Config{
+				SessionStart: []SessionStartHook{
+					{
+						Matcher: "startup",
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "First message",
+								Continue: boolPtr(true),
+							},
+							{
+								Type:     "output",
+								Message:  "Second message",
+								Continue: boolPtr(true),
+							},
+						},
+					},
+				},
+			},
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-123",
+					HookEventName:  SessionStart,
+					TranscriptPath: "/tmp/transcript",
+				},
+				Source: "startup",
+			},
+			wantContinue:          true,
+			wantHookEventName:     "SessionStart",
+			wantAdditionalContext: "First message\nSecond message",
+			wantSystemMessage:     "",
+			wantErr:               false,
+		},
+		{
+			name: "First action continue false - early return",
+			config: &Config{
+				SessionStart: []SessionStartHook{
+					{
+						Matcher: "startup",
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "First blocks",
+								Continue: boolPtr(false),
+							},
+							{
+								Type:     "output",
+								Message:  "Second never runs",
+								Continue: boolPtr(true),
+							},
+						},
+					},
+				},
+			},
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-123",
+					HookEventName:  SessionStart,
+					TranscriptPath: "/tmp/transcript",
+				},
+				Source: "startup",
+			},
+			wantContinue:          false,
+			wantHookEventName:     "SessionStart",
+			wantAdditionalContext: "First blocks", // Only first action's message
+			wantSystemMessage:     "",
+			wantErr:               false,
+		},
+		{
+			name: "Second action continue false - first preserved",
+			config: &Config{
+				SessionStart: []SessionStartHook{
+					{
+						Matcher: "startup",
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "First succeeds",
+								Continue: boolPtr(true),
+							},
+							{
+								Type:     "output",
+								Message:  "Second blocks",
+								Continue: boolPtr(false),
+							},
+						},
+					},
+				},
+			},
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-123",
+					HookEventName:  SessionStart,
+					TranscriptPath: "/tmp/transcript",
+				},
+				Source: "startup",
+			},
+			wantContinue:          false, // Last continue value wins
+			wantHookEventName:     "SessionStart",
+			wantAdditionalContext: "First succeeds\nSecond blocks",
+			wantSystemMessage:     "",
+			wantErr:               false,
+		},
+		{
+			name: "HookEventName set by first action and preserved",
+			config: &Config{
+				SessionStart: []SessionStartHook{
+					{
+						Matcher: "startup",
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "First",
+								Continue: boolPtr(true),
+							},
+							{
+								Type:     "output",
+								Message:  "Second",
+								Continue: boolPtr(true),
+							},
+						},
+					},
+				},
+			},
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-123",
+					HookEventName:  SessionStart,
+					TranscriptPath: "/tmp/transcript",
+				},
+				Source: "startup",
+			},
+			wantContinue:          true,
+			wantHookEventName:     "SessionStart", // Set once, preserved
+			wantAdditionalContext: "First\nSecond",
+			wantSystemMessage:     "",
+			wantErr:               false,
+		},
+		{
+			name: "Matcher not matching - hook skipped",
+			config: &Config{
+				SessionStart: []SessionStartHook{
+					{
+						Matcher: "resume",
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "Should not run",
+								Continue: boolPtr(true),
+							},
+						},
+					},
+				},
+			},
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-123",
+					HookEventName:  SessionStart,
+					TranscriptPath: "/tmp/transcript",
+				},
+				Source: "startup", // Doesn't match "resume"
+			},
+			wantContinue:          true,           // Default Continue: true when no actions run
+			wantHookEventName:     "SessionStart", // Always set to "SessionStart" (requirement 4.1)
+			wantAdditionalContext: "",             // No messages
+			wantSystemMessage:     "",
+			wantErr:               false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rawJSON := map[string]interface{}{
+				"session_id":      tt.input.SessionID,
+				"hook_event_name": string(tt.input.HookEventName),
+				"source":          tt.input.Source,
+			}
+
+			output, err := executeSessionStartHooks(tt.config, tt.input, rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("executeSessionStartHooks() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if output == nil {
+				t.Fatal("executeSessionStartHooks() returned nil output")
+			}
+
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			if output.HookSpecificOutput == nil && tt.wantHookEventName != "" {
+				t.Fatal("HookSpecificOutput is nil but expected hookEventName")
+			}
+
+			if output.HookSpecificOutput != nil {
+				if output.HookSpecificOutput.HookEventName != tt.wantHookEventName {
+					t.Errorf("HookEventName = %q, want %q", output.HookSpecificOutput.HookEventName, tt.wantHookEventName)
+				}
+
+				if output.HookSpecificOutput.AdditionalContext != tt.wantAdditionalContext {
+					t.Errorf("AdditionalContext = %q, want %q", output.HookSpecificOutput.AdditionalContext, tt.wantAdditionalContext)
+				}
+			} else if tt.wantHookEventName == "" && tt.wantAdditionalContext == "" {
+				// Expected nil HookSpecificOutput
+			} else {
+				t.Errorf("Expected HookSpecificOutput with HookEventName=%q, AdditionalContext=%q, but got nil",
+					tt.wantHookEventName, tt.wantAdditionalContext)
+			}
+
+			if output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+
+			// Phase 1: StopReason and SuppressOutput should remain zero values
+			if output.StopReason != "" {
+				t.Errorf("StopReason should be empty, got %q", output.StopReason)
+			}
+
+			if output.SuppressOutput != false {
+				t.Errorf("SuppressOutput should be false, got %v", output.SuppressOutput)
+			}
+		})
+	}
+}
+
+func TestExecuteSessionStartHooks_ErrorHandling(t *testing.T) {
+	tests := []struct {
+		name              string
+		config            *Config
+		input             *SessionStartInput
+		wantContinue      bool
+		wantHookEventName string
+		wantSystemMessage string // Expected substring in SystemMessage
+		wantErr           bool
+	}{
+		{
+			name: "Condition error sets continue to false and includes error in SystemMessage",
+			config: &Config{
+				SessionStart: []SessionStartHook{
+					{
+						Matcher: "startup",
+						Conditions: []Condition{
+							{
+								Type:  ConditionPromptRegex,
+								Value: "test", // Invalid for SessionStart
+							},
+						},
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "This should not execute",
+							},
+						},
+					},
+				},
+			},
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  SessionStart,
+				},
+				Source: "startup",
+			},
+			wantContinue:      false,                                     // Safe side default: error sets continue to false
+			wantHookEventName: "SessionStart",                            // Always set for SessionStart
+			wantSystemMessage: "unknown condition type for SessionStart", // Error message should be in SystemMessage (graceful degradation)
+			wantErr:           true,                                      // Error is returned
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rawJSON := map[string]interface{}{
+				"session_id":      tt.input.SessionID,
+				"transcript_path": tt.input.TranscriptPath,
+				"hook_event_name": string(tt.input.HookEventName),
+				"source":          tt.input.Source,
+			}
+
+			output, err := executeSessionStartHooks(tt.config, tt.input, rawJSON)
+
+			// Error check
+			if tt.wantErr && err == nil {
+				t.Errorf("Expected error but got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			// Continue check
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			// HookEventName check
+			if output.HookSpecificOutput != nil {
+				if output.HookSpecificOutput.HookEventName != tt.wantHookEventName {
+					t.Errorf("HookEventName = %v, want %v", output.HookSpecificOutput.HookEventName, tt.wantHookEventName)
+				}
+			}
+
+			// SystemMessage check (graceful degradation: error should be included in JSON output)
+			if tt.wantSystemMessage != "" {
+				if output.SystemMessage == "" {
+					t.Errorf("Expected SystemMessage to contain error, but got empty string")
+				} else if !strings.Contains(output.SystemMessage, tt.wantSystemMessage) {
+					t.Errorf("SystemMessage = %q, want to contain %q", output.SystemMessage, tt.wantSystemMessage)
+				}
+			}
+		})
 	}
 }

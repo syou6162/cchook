@@ -14,6 +14,8 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/invopop/jsonschema"
+	"github.com/xeipuuv/gojsonschema"
 	"mvdan.cc/sh/v3/shell"
 )
 
@@ -579,6 +581,11 @@ func (r *realCommandRunner) RunCommand(cmd string, useStdin bool, data interface
 	return runCommand(cmd, useStdin, data)
 }
 
+// RunCommandWithOutput implements CommandRunner.RunCommandWithOutput
+func (r *realCommandRunner) RunCommandWithOutput(cmd string, useStdin bool, data interface{}) (stdout, stderr string, exitCode int, err error) {
+	return runCommandWithOutput(cmd, useStdin, data)
+}
+
 // DefaultCommandRunner is the default implementation used in production.
 var DefaultCommandRunner CommandRunner = &realCommandRunner{}
 
@@ -603,4 +610,110 @@ func runCommand(command string, useStdin bool, data interface{}) error {
 	}
 
 	return cmd.Run()
+}
+
+// runCommandWithOutput executes a command and captures stdout, stderr, and exit code
+func runCommandWithOutput(command string, useStdin bool, data interface{}) (stdout string, stderr string, exitCode int, err error) {
+	if strings.TrimSpace(command) == "" {
+		return "", "", 1, fmt.Errorf("empty command")
+	}
+
+	// シェル経由でコマンドを実行
+	cmd := exec.Command("sh", "-c", command)
+
+	// stdout/stderrをキャプチャするためのバッファ
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+
+	// useStdinがtrueの場合、dataをJSON形式でstdinに渡す
+	if useStdin && data != nil {
+		jsonData, marshalErr := json.Marshal(data)
+		if marshalErr != nil {
+			return "", "", 1, fmt.Errorf("failed to marshal JSON for stdin: %w", marshalErr)
+		}
+		cmd.Stdin = bytes.NewReader(jsonData)
+	}
+
+	// コマンド実行
+	runErr := cmd.Run()
+
+	// 出力を文字列として取得
+	stdout = outBuf.String()
+	stderr = errBuf.String()
+
+	// 終了コードを抽出
+	if runErr != nil {
+		if exitErr, ok := runErr.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		} else {
+			// exec.ExitError以外のエラー（コマンドが見つからない等）
+			exitCode = 1
+		}
+		err = runErr
+	} else {
+		exitCode = 0
+	}
+
+	return stdout, stderr, exitCode, err
+}
+
+// validateSessionStartOutput validates SessionStartOutput JSON against auto-generated schema
+func validateSessionStartOutput(jsonData []byte) error {
+	// Generate schema from SessionStartOutput struct
+	reflector := jsonschema.Reflector{
+		DoNotReference: true, // Inline all definitions
+	}
+	schema := reflector.Reflect(&SessionStartOutput{})
+
+	// Customize schema to match requirements
+	// 1. Allow additional properties at root level (requirement: additionalProperties: true)
+	schema.AdditionalProperties = nil // nil means allow any additional properties
+
+	// 2. Set required fields: only hookSpecificOutput (continue is always output but not required for validation)
+	schema.Required = []string{"hookSpecificOutput"}
+
+	// 3. Add custom validation: hookEventName must be "SessionStart"
+	if hookSpecificProp, ok := schema.Properties.Get("hookSpecificOutput"); ok {
+		if hookSpecific := hookSpecificProp; hookSpecific != nil {
+			if hookEventNameProp, ok := hookSpecific.Properties.Get("hookEventName"); ok {
+				if hookEventName := hookEventNameProp; hookEventName != nil {
+					hookEventName.Enum = []interface{}{"SessionStart"}
+				}
+			}
+			// hookSpecificOutput.hookEventName is required
+			hookSpecific.Required = []string{"hookEventName"}
+			// hookSpecificOutput should not allow additional properties
+			hookSpecific.AdditionalProperties = &jsonschema.Schema{Not: &jsonschema.Schema{}} // false
+		}
+	}
+
+	// Convert schema to map for gojsonschema
+	schemaBytes, err := json.Marshal(schema)
+	if err != nil {
+		return fmt.Errorf("failed to marshal schema: %w", err)
+	}
+
+	var schemaMap map[string]interface{}
+	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
+		return fmt.Errorf("failed to unmarshal schema: %w", err)
+	}
+
+	schemaLoader := gojsonschema.NewGoLoader(schemaMap)
+	documentLoader := gojsonschema.NewBytesLoader(jsonData)
+
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return fmt.Errorf("schema validation error: %w", err)
+	}
+
+	if !result.Valid() {
+		var errMsgs []string
+		for _, validationErr := range result.Errors() {
+			errMsgs = append(errMsgs, validationErr.String())
+		}
+		return fmt.Errorf("schema validation failed: %s", strings.Join(errMsgs, "; "))
+	}
+
+	return nil
 }
