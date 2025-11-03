@@ -54,11 +54,8 @@ func runHooks(config *Config, eventType HookEventType) error {
 		_, err = executeSessionStartHooks(config, input, rawJSON)
 		return err
 	case UserPromptSubmit:
-		input, rawJSON, err := parseInput[*UserPromptSubmitInput](eventType)
-		if err != nil {
-			return err
-		}
-		return executeUserPromptSubmitHooks(config, input, rawJSON)
+		// TODO: Task 8 - Implement executeUserPromptSubmitHooks with JSON output
+		return fmt.Errorf("UserPromptSubmit JSON output not yet implemented (Task 8)")
 	case SessionEnd:
 		input, rawJSON, err := parseInput[*SessionEndInput](eventType)
 		if err != nil {
@@ -946,62 +943,6 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 	}
 
 	return finalOutput, nil
-}
-
-// executeUserPromptSubmitHooks executes all matching UserPromptSubmit hooks based on condition checks.
-// Returns an error to block prompt processing if any hook fails.
-func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, rawJSON interface{}) error {
-	executor := NewActionExecutor(nil)
-	var conditionErrors []error
-
-	for i, hook := range config.UserPromptSubmit {
-		// 条件チェック
-		shouldExecute := true
-		for _, condition := range hook.Conditions {
-			matched, err := checkUserPromptSubmitCondition(condition, input)
-			if err != nil {
-				conditionErrors = append(conditionErrors,
-					fmt.Errorf("hook[UserPromptSubmit][%d]: %w", i, err))
-				shouldExecute = false
-				break
-			}
-			if !matched {
-				shouldExecute = false
-				break
-			}
-		}
-		if !shouldExecute {
-			continue
-		}
-
-		for _, action := range hook.Actions {
-			if err := executor.ExecuteUserPromptSubmitAction(action, input, rawJSON); err != nil {
-				// UserPromptSubmitはブロッキング可能なので、エラーを返す
-				// ExitErrorの場合はメッセージを更新して返す
-				if exitErr, ok := err.(*ExitError); ok {
-					actionErr := &ExitError{
-						Code:    exitErr.Code,
-						Message: fmt.Sprintf("UserPromptSubmit hook %d failed: %s", i, exitErr.Message),
-						Stderr:  exitErr.Stderr,
-					}
-					if len(conditionErrors) > 0 {
-						return errors.Join(append(conditionErrors, actionErr)...)
-					}
-					return actionErr
-				}
-				actionErr := fmt.Errorf("UserPromptSubmit hook %d failed: %w", i, err)
-				if len(conditionErrors) > 0 {
-					return errors.Join(append(conditionErrors, actionErr)...)
-				}
-				return actionErr
-			}
-		}
-	}
-
-	if len(conditionErrors) > 0 {
-		return errors.Join(conditionErrors...)
-	}
-	return nil
 }
 
 // shouldExecutePreToolUseHook checks if a PreToolUse hook should be executed based on matcher and conditions.
