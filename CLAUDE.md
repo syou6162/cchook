@@ -347,6 +347,21 @@ UserPromptSubmit hooks **always exit with code 0**. The `decision` field control
 
 Errors are logged to stderr as warnings, but cchook continues to output JSON and exits successfully.
 
+**Empty stdout behavior**:
+When a command action returns empty stdout (e.g., validation tools that only output on failure):
+- The decision defaults to "allow"
+- This supports validation-type CLI tools following the Unix philosophy ("silence is golden")
+
+Example:
+```yaml
+UserPromptSubmit:
+  - actions:
+      - type: command
+        command: "lint-prompt.sh"  # No output on success → decision: "allow"
+```
+
+Best practice: For clarity, always return explicit JSON output from commands.
+
 **Example**:
 ```yaml
 UserPromptSubmit:
