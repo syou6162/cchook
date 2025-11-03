@@ -184,6 +184,132 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 	return nil, nil
 }
 
+// ExecuteUserPromptSubmitAction executes an action for the UserPromptSubmit event and returns JSON output.
+// This method implements Phase 2 JSON output functionality for UserPromptSubmit hooks.
+func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *UserPromptSubmitInput, rawJSON interface{}) (*ActionOutput, error) {
+	switch action.Type {
+	case "command":
+		cmd := unifiedTemplateReplace(action.Command, rawJSON)
+		stdout, stderr, exitCode, err := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
+
+		// Command failed with non-zero exit code
+		if exitCode != 0 {
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				HookEventName: "UserPromptSubmit",
+				SystemMessage: fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr),
+			}, nil
+		}
+
+		// Empty stdout - Allow for validation-type CLI tools
+		// Tools like linters exit 0 with no output when everything is OK.
+		// In this case, we return continue: true with decision: allow to proceed.
+		if strings.TrimSpace(stdout) == "" {
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "allow",
+				HookEventName: "UserPromptSubmit",
+			}, nil
+		}
+
+		// Parse JSON output
+		var cmdOutput UserPromptSubmitOutput
+		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				HookEventName: "UserPromptSubmit",
+				SystemMessage: fmt.Sprintf("Command output is not valid JSON: %s", stdout),
+			}, nil
+		}
+
+		// Check for required field: hookSpecificOutput.hookEventName
+		if cmdOutput.HookSpecificOutput == nil || cmdOutput.HookSpecificOutput.HookEventName == "" {
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				HookEventName: "UserPromptSubmit",
+				SystemMessage: "Command output is missing required field: hookSpecificOutput.hookEventName",
+			}, nil
+		}
+
+		// Validate hookEventName value
+		if cmdOutput.HookSpecificOutput.HookEventName != "UserPromptSubmit" {
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				HookEventName: "UserPromptSubmit",
+				SystemMessage: fmt.Sprintf("Invalid hookEventName: expected 'UserPromptSubmit', got '%s'", cmdOutput.HookSpecificOutput.HookEventName),
+			}, nil
+		}
+
+		// Validate decision field
+		decision := cmdOutput.Decision
+		if decision == "" {
+			// Default to "allow" if unspecified
+			decision = "allow"
+		} else if decision != "allow" && decision != "block" {
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				HookEventName: "UserPromptSubmit",
+				SystemMessage: "Invalid decision value: must be 'allow' or 'block'",
+			}, nil
+		}
+
+		// Build ActionOutput from parsed JSON
+		// After validation, hookSpecificOutput is guaranteed to exist
+		result := &ActionOutput{
+			Continue:      true,
+			Decision:      decision,
+			HookEventName: cmdOutput.HookSpecificOutput.HookEventName,
+			SystemMessage: cmdOutput.SystemMessage,
+		}
+
+		// Set AdditionalContext
+		result.AdditionalContext = cmdOutput.HookSpecificOutput.AdditionalContext
+
+		return result, err
+
+	case "output":
+		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
+
+		// Empty message check
+		if strings.TrimSpace(processedMessage) == "" {
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				HookEventName: "UserPromptSubmit",
+				SystemMessage: "Action output has no message",
+			}, nil
+		}
+
+		// Validate action.Decision if set
+		decision := "allow" // default
+		if action.Decision != nil {
+			if *action.Decision != "allow" && *action.Decision != "block" {
+				return &ActionOutput{
+					Continue:      true,
+					Decision:      "block",
+					HookEventName: "UserPromptSubmit",
+					SystemMessage: "Invalid decision value: must be 'allow' or 'block'",
+				}, nil
+			}
+			decision = *action.Decision
+		}
+
+		return &ActionOutput{
+			Continue:          true,
+			Decision:          decision,
+			HookEventName:     "UserPromptSubmit",
+			AdditionalContext: processedMessage,
+		}, nil
+	}
+
+	return nil, nil
+}
+
 // ExecutePreToolUseAction executes an action for the PreToolUse event.
 // Command failures result in exit status 2 to block tool execution.
 func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUseInput, rawJSON interface{}) error {
