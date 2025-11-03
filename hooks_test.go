@@ -355,7 +355,241 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 	}
 }
 
-// TODO: Task 7 - Implement executeUserPromptSubmitHooks tests with JSON output
+func TestExecuteUserPromptSubmitHooks(t *testing.T) {
+	tests := []struct {
+		name              string
+		config            *Config
+		input             *UserPromptSubmitInput
+		rawJSON           interface{}
+		wantContinue      bool
+		wantDecision      string
+		wantHookEventName string
+		wantAdditionalCtx string
+		wantSystemMessage string
+		wantErr           bool
+	}{
+		{
+			name: "Single type: output action",
+			config: &Config{
+				UserPromptSubmit: []UserPromptSubmitHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Output message",
+							},
+						},
+					},
+				},
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					HookEventName:  UserPromptSubmit,
+					TranscriptPath: "/path/to/transcript",
+					Cwd:            "/test/cwd",
+				},
+				Prompt: "test prompt",
+			},
+			rawJSON: map[string]interface{}{
+				"session_id":      "test-session",
+				"hook_event_name": "UserPromptSubmit",
+				"prompt":          "test prompt",
+			},
+			wantContinue:      true,
+			wantDecision:      "allow",
+			wantHookEventName: "UserPromptSubmit",
+			wantAdditionalCtx: "Output message",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Multiple actions - additionalContext concatenated",
+			config: &Config{
+				UserPromptSubmit: []UserPromptSubmitHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "First message",
+							},
+							{
+								Type:    "output",
+								Message: "Second message",
+							},
+						},
+					},
+				},
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "test prompt",
+			},
+			rawJSON: map[string]interface{}{
+				"session_id":      "test-session",
+				"hook_event_name": "UserPromptSubmit",
+				"prompt":          "test prompt",
+			},
+			wantContinue:      true,
+			wantDecision:      "allow",
+			wantHookEventName: "UserPromptSubmit",
+			wantAdditionalCtx: "First message\nSecond message",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "First action decision: block - early return",
+			config: &Config{
+				UserPromptSubmit: []UserPromptSubmitHook{
+					{
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "Blocked",
+								Decision: stringPtr("block"),
+							},
+							{
+								Type:    "output",
+								Message: "Should not execute",
+							},
+						},
+					},
+				},
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "test prompt",
+			},
+			rawJSON: map[string]interface{}{
+				"session_id":      "test-session",
+				"hook_event_name": "UserPromptSubmit",
+				"prompt":          "test prompt",
+			},
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantHookEventName: "UserPromptSubmit",
+			wantAdditionalCtx: "Blocked",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Second action decision: block - first results preserved",
+			config: &Config{
+				UserPromptSubmit: []UserPromptSubmitHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "First message",
+							},
+							{
+								Type:     "output",
+								Message:  "Blocked",
+								Decision: stringPtr("block"),
+							},
+						},
+					},
+				},
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "test prompt",
+			},
+			rawJSON: map[string]interface{}{
+				"session_id":      "test-session",
+				"hook_event_name": "UserPromptSubmit",
+				"prompt":          "test prompt",
+			},
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantHookEventName: "UserPromptSubmit",
+			wantAdditionalCtx: "First message\nBlocked",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Continue always true",
+			config: &Config{
+				UserPromptSubmit: []UserPromptSubmitHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Test message",
+							},
+						},
+					},
+				},
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "test prompt",
+			},
+			rawJSON: map[string]interface{}{
+				"session_id":      "test-session",
+				"hook_event_name": "UserPromptSubmit",
+				"prompt":          "test prompt",
+			},
+			wantContinue:      true,
+			wantDecision:      "allow",
+			wantHookEventName: "UserPromptSubmit",
+			wantAdditionalCtx: "Test message",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := executeUserPromptSubmitHooks(tt.config, tt.input, tt.rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("executeUserPromptSubmitHooks() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if got == nil {
+				t.Fatal("executeUserPromptSubmitHooks() returned nil output")
+			}
+
+			if got.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", got.Continue, tt.wantContinue)
+			}
+
+			if got.Decision != tt.wantDecision {
+				t.Errorf("Decision = %v, want %v", got.Decision, tt.wantDecision)
+			}
+
+			if got.HookSpecificOutput == nil {
+				t.Fatal("HookSpecificOutput is nil")
+			}
+
+			if got.HookSpecificOutput.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName = %v, want %v", got.HookSpecificOutput.HookEventName, tt.wantHookEventName)
+			}
+
+			if got.HookSpecificOutput.AdditionalContext != tt.wantAdditionalCtx {
+				t.Errorf("AdditionalContext = %v, want %v", got.HookSpecificOutput.AdditionalContext, tt.wantAdditionalCtx)
+			}
+
+			if got.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %v, want %v", got.SystemMessage, tt.wantSystemMessage)
+			}
+		})
+	}
+}
 
 func TestShouldExecutePostToolUseHook(t *testing.T) {
 	tests := []struct {
