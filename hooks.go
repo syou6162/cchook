@@ -54,8 +54,13 @@ func runHooks(config *Config, eventType HookEventType) error {
 		_, err = executeSessionStartHooks(config, input, rawJSON)
 		return err
 	case UserPromptSubmit:
-		// TODO: Task 8 - Implement executeUserPromptSubmitHooks with JSON output
-		return fmt.Errorf("UserPromptSubmit JSON output not yet implemented (Task 8)")
+		input, rawJSON, err := parseInput[*UserPromptSubmitInput](eventType)
+		if err != nil {
+			return err
+		}
+		// TODO: Task 9 will handle JSON serialization and output
+		_, err = executeUserPromptSubmitHooks(config, input, rawJSON)
+		return err
 	case SessionEnd:
 		input, rawJSON, err := parseInput[*SessionEndInput](eventType)
 		if err != nil {
@@ -75,6 +80,16 @@ func RunSessionStartHooks(config *Config) (*SessionStartOutput, error) {
 		return nil, err
 	}
 	return executeSessionStartHooks(config, input, rawJSON)
+}
+
+// RunUserPromptSubmitHooks is a wrapper function that parses UserPromptSubmit input and executes hooks.
+// This function is called from main.go to handle UserPromptSubmit events with JSON output.
+func RunUserPromptSubmitHooks(config *Config) (*UserPromptSubmitOutput, error) {
+	input, rawJSON, err := parseInput[*UserPromptSubmitInput](UserPromptSubmit)
+	if err != nil {
+		return nil, err
+	}
+	return executeUserPromptSubmitHooks(config, input, rawJSON)
 }
 
 // dryRunHooks parses input and performs a dry-run of hooks for the specified event type.
