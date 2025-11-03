@@ -306,6 +306,59 @@ SessionStart:
         command: "get-project-info.sh"  # Returns JSON
 ```
 
+### UserPromptSubmit JSON Output
+
+UserPromptSubmit hooks support JSON output format for Claude Code integration. Actions can return structured output with decision control:
+
+**Output Action** (type: `output`):
+```yaml
+UserPromptSubmit:
+  - actions:
+      - type: output
+        message: "Prompt validation message"
+        decision: "allow"  # optional: "allow" or "block", defaults to "allow"
+```
+
+**Command Action** (type: `command`):
+Commands must output JSON with the following structure:
+```json
+{
+  "continue": true,
+  "decision": "allow",
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "Message to display"
+  },
+  "systemMessage": "Optional system message"
+}
+```
+
+**Field Merging**:
+When multiple actions execute:
+- `continue`: Always `true` (cannot be changed for UserPromptSubmit)
+- `decision`: Last value wins (early return on `"block"`)
+- `hookEventName`: Set once by first action
+- `additionalContext` and `systemMessage`: Concatenated with newline separator
+
+**Exit Code Behavior**:
+UserPromptSubmit hooks **always exit with code 0**. The `decision` field controls whether the prompt is allowed or blocked:
+- `"allow"`: Prompt processing continues normally
+- `"block"`: Prompt processing is blocked (early return)
+
+Errors are logged to stderr as warnings, but cchook continues to output JSON and exits successfully.
+
+**Example**:
+```yaml
+UserPromptSubmit:
+  - conditions:
+      - type: prompt_regex
+        value: "delete|rm -rf"
+    actions:
+      - type: output
+        message: "Dangerous command detected"
+        decision: "block"
+```
+
 ## Common Workflows
 
 ### Adding a New Hook Type
