@@ -242,7 +242,7 @@ func TestExecuteSessionStartAction_TypeCommand(t *testing.T) {
 			wantErr:           false,
 		},
 		{
-			name: "Empty stdout",
+			name: "Empty stdout - validation tool success (requirement 1.6, 3.7)",
 			action: Action{
 				Type:    "command",
 				Command: "empty-output.sh",
@@ -250,10 +250,10 @@ func TestExecuteSessionStartAction_TypeCommand(t *testing.T) {
 			stdout:            "",
 			stderr:            "",
 			exitCode:          0,
-			wantContinue:      false,
-			wantHookEventName: "",
-			wantAdditionalCtx: "",
-			wantSystemMessage: "Command produced no output",
+			wantContinue:      true, // Allow for validation-type CLI tools
+			wantHookEventName: "SessionStart",
+			wantAdditionalCtx: "", // No context provided to Claude
+			wantSystemMessage: "",
 			wantErr:           false,
 		},
 		{
