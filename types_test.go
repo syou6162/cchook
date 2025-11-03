@@ -531,3 +531,216 @@ message: "Test message"
 		})
 	}
 }
+
+func TestSessionStartOutput_JSONSerialization(t *testing.T) {
+	tests := []struct {
+		name           string
+		output         SessionStartOutput
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name: "Full output with all Phase 1 used fields",
+			output: SessionStartOutput{
+				Continue:      true,
+				SystemMessage: "Test message",
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName:     "SessionStart",
+					AdditionalContext: "Additional info",
+				},
+			},
+			wantContains:   []string{"\"continue\":true", "\"systemMessage\":\"Test message\"", "\"hookEventName\":\"SessionStart\"", "\"additionalContext\":\"Additional info\""},
+			wantNotContain: []string{"stopReason", "suppressOutput"},
+		},
+		{
+			name: "Phase 1 unused fields (stopReason, suppressOutput) are omitted when zero",
+			output: SessionStartOutput{
+				Continue:       true,
+				StopReason:     "",    // zero value
+				SuppressOutput: false, // zero value
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName: "SessionStart",
+				},
+			},
+			wantContains:   []string{"\"continue\":true", "\"hookEventName\":\"SessionStart\""},
+			wantNotContain: []string{"stopReason", "suppressOutput"},
+		},
+		{
+			name: "HookEventName is always SessionStart",
+			output: SessionStartOutput{
+				Continue: true,
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName:     "SessionStart",
+					AdditionalContext: "Context",
+				},
+			},
+			wantContains: []string{"\"hookEventName\":\"SessionStart\""},
+		},
+		{
+			name: "Empty additionalContext is omitted",
+			output: SessionStartOutput{
+				Continue: true,
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName:     "SessionStart",
+					AdditionalContext: "",
+				},
+			},
+			wantContains:   []string{"\"hookEventName\":\"SessionStart\""},
+			wantNotContain: []string{"additionalContext"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Marshal
+			jsonBytes, err := json.Marshal(tt.output)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+			jsonStr := string(jsonBytes)
+
+			// Check expected content
+			for _, want := range tt.wantContains {
+				if !stringContains(jsonStr, want) {
+					t.Errorf("JSON does not contain expected string %q. JSON: %s", want, jsonStr)
+				}
+			}
+
+			// Check unexpected content
+			for _, notWant := range tt.wantNotContain {
+				if stringContains(jsonStr, notWant) {
+					t.Errorf("JSON contains unexpected string %q. JSON: %s", notWant, jsonStr)
+				}
+			}
+
+			// Unmarshal (round-trip)
+			var unmarshaled SessionStartOutput
+			if err := json.Unmarshal(jsonBytes, &unmarshaled); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+
+			// Verify round-trip preserves data
+			if unmarshaled.Continue != tt.output.Continue {
+				t.Errorf("Round-trip: Continue mismatch. Got %v, want %v", unmarshaled.Continue, tt.output.Continue)
+			}
+			if unmarshaled.SystemMessage != tt.output.SystemMessage {
+				t.Errorf("Round-trip: SystemMessage mismatch. Got %q, want %q", unmarshaled.SystemMessage, tt.output.SystemMessage)
+			}
+			if tt.output.HookSpecificOutput != nil {
+				if unmarshaled.HookSpecificOutput == nil {
+					t.Errorf("Round-trip: HookSpecificOutput is nil")
+				} else {
+					if unmarshaled.HookSpecificOutput.HookEventName != tt.output.HookSpecificOutput.HookEventName {
+						t.Errorf("Round-trip: HookEventName mismatch. Got %q, want %q",
+							unmarshaled.HookSpecificOutput.HookEventName, tt.output.HookSpecificOutput.HookEventName)
+					}
+					if unmarshaled.HookSpecificOutput.AdditionalContext != tt.output.HookSpecificOutput.AdditionalContext {
+						t.Errorf("Round-trip: AdditionalContext mismatch. Got %q, want %q",
+							unmarshaled.HookSpecificOutput.AdditionalContext, tt.output.HookSpecificOutput.AdditionalContext)
+					}
+				}
+			}
+		})
+	}
+}
+
+// Helper function to check if a string contains a substring
+func stringContains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
+func TestSessionStartOutputSchemaValidation(t *testing.T) {
+	tests := []struct {
+		name      string
+		output    SessionStartOutput
+		wantValid bool
+		wantError string
+	}{
+		{
+			name: "Valid full output with all fields",
+			output: SessionStartOutput{
+				Continue:       true,
+				StopReason:     "test",
+				SuppressOutput: false,
+				SystemMessage:  "Test message",
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName:     "SessionStart",
+					AdditionalContext: "Additional info",
+				},
+			},
+			wantValid: true,
+		},
+		{
+			name: "Valid minimal output with only hookEventName",
+			output: SessionStartOutput{
+				Continue: false,
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName: "SessionStart",
+				},
+			},
+			wantValid: true,
+		},
+		{
+			name: "Invalid: wrong hookEventName value",
+			output: SessionStartOutput{
+				Continue: true,
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName:     "WrongEvent",
+					AdditionalContext: "Context",
+				},
+			},
+			wantValid: false,
+			wantError: "hookEventName",
+		},
+		{
+			name: "Valid: Phase 1 unused fields omitted (omitempty)",
+			output: SessionStartOutput{
+				Continue: true,
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName: "SessionStart",
+				},
+			},
+			wantValid: true,
+		},
+		{
+			name: "Valid: continue field with different boolean values",
+			output: SessionStartOutput{
+				Continue: false,
+				HookSpecificOutput: &SessionStartHookSpecificOutput{
+					HookEventName: "SessionStart",
+				},
+			},
+			wantValid: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Marshal to JSON
+			jsonBytes, err := json.Marshal(tt.output)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+
+			// Validate against schema
+			err = validateSessionStartOutput(jsonBytes)
+
+			if tt.wantValid {
+				if err != nil {
+					t.Errorf("Expected valid, but got error: %v\nJSON: %s", err, string(jsonBytes))
+				}
+			} else {
+				if err == nil {
+					t.Errorf("Expected invalid, but validation passed\nJSON: %s", string(jsonBytes))
+				} else if tt.wantError != "" && !stringContains(err.Error(), tt.wantError) {
+					t.Errorf("Error message should contain %q, but got: %v", tt.wantError, err)
+				}
+			}
+		})
+	}
+}

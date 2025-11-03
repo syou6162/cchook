@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 )
 
 // ActionExecutor executes actions with a specified CommandRunner.
@@ -83,24 +86,102 @@ func (e *ActionExecutor) ExecutePreCompactAction(action Action, input *PreCompac
 }
 
 // ExecuteSessionStartAction executes an action for the SessionStart event.
-// Errors are logged but do not block session startup.
-func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *SessionStartInput, rawJSON interface{}) error {
+// Returns ActionOutput for JSON serialization.
+func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *SessionStartInput, rawJSON interface{}) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := e.runner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			return err
+		stdout, stderr, exitCode, err := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
+
+		// Command failed with non-zero exit code
+		if exitCode != 0 {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr),
+			}, nil
 		}
+
+		// Empty stdout - Allow for validation-type CLI tools (requirement 1.6, 3.7)
+		// Tools like fmt, linter, and pre-commit exit 0 with no output when everything is OK.
+		// In this case, we return continue: true to allow the session to proceed.
+		// Note: additionalContext will be empty, so no information is provided to Claude.
+		if strings.TrimSpace(stdout) == "" {
+			return &ActionOutput{
+				Continue:      true,
+				HookEventName: "SessionStart",
+			}, nil
+		}
+
+		// Parse JSON output
+		var cmdOutput SessionStartOutput
+		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: fmt.Sprintf("Command output is not valid JSON: %s", stdout),
+			}, nil
+		}
+
+		// Check for required field: hookSpecificOutput.hookEventName (requirement 3.4)
+		if cmdOutput.HookSpecificOutput == nil || cmdOutput.HookSpecificOutput.HookEventName == "" {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: "Command output is missing required field: hookSpecificOutput.hookEventName",
+			}, nil
+		}
+
+		// Validate against JSON Schema
+		// This checks:
+		// - hookSpecificOutput exists (required field)
+		// - hookEventName is "SessionStart" (enum validation)
+		// - All field types match the schema
+		if err := validateSessionStartOutput([]byte(stdout)); err != nil {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: fmt.Sprintf("Command output validation failed: %s", err.Error()),
+			}, nil
+		}
+
+		// Check for unsupported fields and log warnings to stderr
+		checkUnsupportedFieldsSessionStart(stdout)
+
+		// Build ActionOutput from parsed JSON
+		// After schema validation, hookSpecificOutput is guaranteed to exist
+		result := &ActionOutput{
+			Continue:      cmdOutput.Continue,
+			HookEventName: cmdOutput.HookSpecificOutput.HookEventName,
+			SystemMessage: cmdOutput.SystemMessage,
+		}
+
+		// Set AdditionalContext
+		result.AdditionalContext = cmdOutput.HookSpecificOutput.AdditionalContext
+
+		return result, err
+
 	case "output":
-		// SessionStartはブロッキング不要なので、exitStatusが指定されていない場合は通常出力
 		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
-		if action.ExitStatus != nil && *action.ExitStatus != 0 {
-			stderr := *action.ExitStatus == 2
-			return NewExitError(*action.ExitStatus, processedMessage, stderr)
+
+		// Empty message check
+		if strings.TrimSpace(processedMessage) == "" {
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: "Action output has no message",
+			}, nil
 		}
-		fmt.Println(processedMessage)
+
+		// Determine continue value: default to true if unspecified
+		continueValue := true
+		if action.Continue != nil {
+			continueValue = *action.Continue
+		}
+
+		return &ActionOutput{
+			Continue:          continueValue,
+			HookEventName:     "SessionStart",
+			AdditionalContext: processedMessage,
+		}, nil
 	}
-	return nil
+
+	return nil, nil
 }
 
 // ExecuteUserPromptSubmitAction executes an action for the UserPromptSubmit event.
@@ -175,4 +256,29 @@ func (e *ActionExecutor) ExecuteSessionEndAction(action Action, input *SessionEn
 		fmt.Println(processedMessage)
 	}
 	return nil
+}
+
+// checkUnsupportedFieldsSessionStart checks for unsupported fields in SessionStart JSON output
+// and logs warnings to stderr. Supported fields are: continue, stopReason, suppressOutput,
+// systemMessage, and hookSpecificOutput.
+func checkUnsupportedFieldsSessionStart(stdout string) {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+		// JSON parsing failed - this will be caught by the main validation
+		return
+	}
+
+	supportedFields := map[string]bool{
+		"continue":           true,
+		"stopReason":         true,
+		"suppressOutput":     true,
+		"systemMessage":      true,
+		"hookSpecificOutput": true,
+	}
+
+	for field := range data {
+		if !supportedFields[field] {
+			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for SessionStart hooks\n", field)
+		}
+	}
 }
