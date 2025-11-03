@@ -1681,10 +1681,11 @@ func TestExecuteSessionStartHooks_ErrorHandling(t *testing.T) {
 		input             *SessionStartInput
 		wantContinue      bool
 		wantHookEventName string
+		wantSystemMessage string // Expected substring in SystemMessage
 		wantErr           bool
 	}{
 		{
-			name: "Condition error sets continue to false",
+			name: "Condition error sets continue to false and includes error in SystemMessage",
 			config: &Config{
 				SessionStart: []SessionStartHook{
 					{
@@ -1712,9 +1713,10 @@ func TestExecuteSessionStartHooks_ErrorHandling(t *testing.T) {
 				},
 				Source: "startup",
 			},
-			wantContinue:      false, // Safe side default: error sets continue to false
-			wantHookEventName: "SessionStart",
-			wantErr:           true, // Error is returned
+			wantContinue:      false,                                     // Safe side default: error sets continue to false
+			wantHookEventName: "SessionStart",                            // Always set for SessionStart
+			wantSystemMessage: "unknown condition type for SessionStart", // Error message should be in SystemMessage (graceful degradation)
+			wantErr:           true,                                      // Error is returned
 		},
 	}
 
@@ -1746,6 +1748,15 @@ func TestExecuteSessionStartHooks_ErrorHandling(t *testing.T) {
 			if output.HookSpecificOutput != nil {
 				if output.HookSpecificOutput.HookEventName != tt.wantHookEventName {
 					t.Errorf("HookEventName = %v, want %v", output.HookSpecificOutput.HookEventName, tt.wantHookEventName)
+				}
+			}
+
+			// SystemMessage check (graceful degradation: error should be included in JSON output)
+			if tt.wantSystemMessage != "" {
+				if output.SystemMessage == "" {
+					t.Errorf("Expected SystemMessage to contain error, but got empty string")
+				} else if !strings.Contains(output.SystemMessage, tt.wantSystemMessage) {
+					t.Errorf("SystemMessage = %q, want to contain %q", output.SystemMessage, tt.wantSystemMessage)
 				}
 			}
 		})

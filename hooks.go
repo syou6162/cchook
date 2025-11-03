@@ -932,6 +932,16 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 	if len(allErrors) > 0 {
 		// Safe side default: エラー時は必ず continue: false を設定
 		finalOutput.Continue = false
+
+		// エラー内容をSystemMessageに追加（グレースフルデグラデーション）
+		// Codex指摘: JSON出力にエラー情報を含めることで、ユーザーに原因を伝える
+		errorMsg := errors.Join(allErrors...).Error()
+		if finalOutput.SystemMessage != "" {
+			finalOutput.SystemMessage += "\n" + errorMsg
+		} else {
+			finalOutput.SystemMessage = errorMsg
+		}
+
 		return finalOutput, errors.Join(allErrors...)
 	}
 
