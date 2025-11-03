@@ -172,6 +172,7 @@ type SessionStartHookSpecificOutput struct {
 // ActionOutput はアクション実行結果を表す内部型（JSONには直接出力されない）
 type ActionOutput struct {
 	Continue          bool
+	Decision          string // "allow" or "block" (UserPromptSubmit only, empty for SessionStart)
 	StopReason        string
 	SuppressOutput    bool
 	SystemMessage     string
