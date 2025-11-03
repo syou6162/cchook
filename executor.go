@@ -101,11 +101,14 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 			}, nil
 		}
 
-		// Empty stdout
+		// Empty stdout - Allow for validation-type CLI tools (requirement 1.6, 3.7)
+		// Tools like fmt, linter, and pre-commit exit 0 with no output when everything is OK.
+		// In this case, we return continue: true to allow the session to proceed.
+		// Note: additionalContext will be empty, so no information is provided to Claude.
 		if strings.TrimSpace(stdout) == "" {
 			return &ActionOutput{
-				Continue:      false,
-				SystemMessage: "Command produced no output",
+				Continue:      true,
+				HookEventName: "SessionStart",
 			}, nil
 		}
 
