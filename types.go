@@ -191,6 +191,22 @@ func (u *UserPromptSubmitInput) GetToolName() string {
 	return ""
 }
 
+// UserPromptSubmitOutput はUserPromptSubmitフックのJSON出力全体を表す（Claude Code共通フィールド含む）
+type UserPromptSubmitOutput struct {
+	Continue           bool                                `json:"continue"`
+	Decision           string                              `json:"decision"` // "allow" or "block" (required, no omitempty)
+	StopReason         string                              `json:"stopReason,omitempty"`
+	SuppressOutput     bool                                `json:"suppressOutput,omitempty"`
+	SystemMessage      string                              `json:"systemMessage,omitempty"`
+	HookSpecificOutput *UserPromptSubmitHookSpecificOutput `json:"hookSpecificOutput,omitempty"`
+}
+
+// UserPromptSubmitHookSpecificOutput はUserPromptSubmit固有の出力フィールド
+type UserPromptSubmitHookSpecificOutput struct {
+	HookEventName     string `json:"hookEventName"`
+	AdditionalContext string `json:"additionalContext,omitempty"`
+}
+
 // SessionEnd用
 type SessionEndInput struct {
 	BaseInput
