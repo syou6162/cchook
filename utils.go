@@ -717,3 +717,69 @@ func validateSessionStartOutput(jsonData []byte) error {
 
 	return nil
 }
+
+func validateUserPromptSubmitOutput(jsonData []byte) error {
+	// Generate schema from UserPromptSubmitOutput struct
+	reflector := jsonschema.Reflector{
+		DoNotReference: true, // Inline all definitions
+	}
+	schema := reflector.Reflect(&UserPromptSubmitOutput{})
+
+	// Customize schema to match requirements
+	// 1. Allow additional properties at root level (requirement: additionalProperties: true)
+	schema.AdditionalProperties = nil // nil means allow any additional properties
+
+	// 2. Set required fields: decision and hookSpecificOutput
+	schema.Required = []string{"decision", "hookSpecificOutput"}
+
+	// 3. Add custom validation: decision must be "allow" or "block"
+	if decisionProp, ok := schema.Properties.Get("decision"); ok {
+		if decision := decisionProp; decision != nil {
+			decision.Enum = []interface{}{"allow", "block"}
+		}
+	}
+
+	// 4. Add custom validation: hookEventName must be "UserPromptSubmit"
+	if hookSpecificProp, ok := schema.Properties.Get("hookSpecificOutput"); ok {
+		if hookSpecific := hookSpecificProp; hookSpecific != nil {
+			if hookEventNameProp, ok := hookSpecific.Properties.Get("hookEventName"); ok {
+				if hookEventName := hookEventNameProp; hookEventName != nil {
+					hookEventName.Enum = []interface{}{"UserPromptSubmit"}
+				}
+			}
+			// hookSpecificOutput.hookEventName is required
+			hookSpecific.Required = []string{"hookEventName"}
+			// hookSpecificOutput should not allow additional properties
+			hookSpecific.AdditionalProperties = &jsonschema.Schema{Not: &jsonschema.Schema{}} // false
+		}
+	}
+
+	// Convert schema to map for gojsonschema
+	schemaBytes, err := json.Marshal(schema)
+	if err != nil {
+		return fmt.Errorf("failed to marshal schema: %w", err)
+	}
+
+	var schemaMap map[string]interface{}
+	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
+		return fmt.Errorf("failed to unmarshal schema: %w", err)
+	}
+
+	schemaLoader := gojsonschema.NewGoLoader(schemaMap)
+	documentLoader := gojsonschema.NewBytesLoader(jsonData)
+
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return fmt.Errorf("schema validation error: %w", err)
+	}
+
+	if !result.Valid() {
+		var errMsgs []string
+		for _, validationErr := range result.Errors() {
+			errMsgs = append(errMsgs, validationErr.String())
+		}
+		return fmt.Errorf("schema validation failed: %s", strings.Join(errMsgs, "; "))
+	}
+
+	return nil
+}

@@ -356,76 +356,236 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 }
 
 func TestExecuteUserPromptSubmitHooks(t *testing.T) {
-	config := &Config{
-		UserPromptSubmit: []UserPromptSubmitHook{
-			{
-				Conditions: []Condition{
-					{Type: ConditionPromptRegex, Value: "block"},
-				},
-				Actions: []Action{
+	tests := []struct {
+		name              string
+		config            *Config
+		input             *UserPromptSubmitInput
+		rawJSON           interface{}
+		wantContinue      bool
+		wantDecision      string
+		wantHookEventName string
+		wantAdditionalCtx string
+		wantSystemMessage string
+		wantErr           bool
+	}{
+		{
+			name: "Single type: output action",
+			config: &Config{
+				UserPromptSubmit: []UserPromptSubmitHook{
 					{
-						Type:       "output",
-						Message:    "Blocked prompt",
-						ExitStatus: intPtr(2),
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Output message",
+							},
+						},
 					},
 				},
 			},
-		},
-	}
-
-	tests := []struct {
-		name        string
-		input       *UserPromptSubmitInput
-		shouldError bool
-	}{
-		{
-			name: "Blocked prompt",
 			input: &UserPromptSubmitInput{
 				BaseInput: BaseInput{
-					SessionID:     "test123",
-					HookEventName: UserPromptSubmit,
+					SessionID:      "test-session",
+					HookEventName:  UserPromptSubmit,
+					TranscriptPath: "/path/to/transcript",
+					Cwd:            "/test/cwd",
 				},
-				Prompt: "This contains block keyword",
+				Prompt: "test prompt",
 			},
-			shouldError: true,
+			rawJSON: map[string]interface{}{
+				"session_id":      "test-session",
+				"hook_event_name": "UserPromptSubmit",
+				"prompt":          "test prompt",
+			},
+			wantContinue:      true,
+			wantDecision:      "allow",
+			wantHookEventName: "UserPromptSubmit",
+			wantAdditionalCtx: "Output message",
+			wantSystemMessage: "",
+			wantErr:           false,
 		},
 		{
-			name: "Allowed prompt",
+			name: "Multiple actions - additionalContext concatenated",
+			config: &Config{
+				UserPromptSubmit: []UserPromptSubmitHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "First message",
+							},
+							{
+								Type:    "output",
+								Message: "Second message",
+							},
+						},
+					},
+				},
+			},
 			input: &UserPromptSubmitInput{
 				BaseInput: BaseInput{
-					SessionID:     "test456",
+					SessionID:     "test-session",
 					HookEventName: UserPromptSubmit,
 				},
-				Prompt: "This is allowed",
+				Prompt: "test prompt",
 			},
-			shouldError: false,
+			rawJSON: map[string]interface{}{
+				"session_id":      "test-session",
+				"hook_event_name": "UserPromptSubmit",
+				"prompt":          "test prompt",
+			},
+			wantContinue:      true,
+			wantDecision:      "allow",
+			wantHookEventName: "UserPromptSubmit",
+			wantAdditionalCtx: "First message\nSecond message",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "First action decision: block - early return",
+			config: &Config{
+				UserPromptSubmit: []UserPromptSubmitHook{
+					{
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "Blocked",
+								Decision: stringPtr("block"),
+							},
+							{
+								Type:    "output",
+								Message: "Should not execute",
+							},
+						},
+					},
+				},
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "test prompt",
+			},
+			rawJSON: map[string]interface{}{
+				"session_id":      "test-session",
+				"hook_event_name": "UserPromptSubmit",
+				"prompt":          "test prompt",
+			},
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantHookEventName: "UserPromptSubmit",
+			wantAdditionalCtx: "Blocked",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Second action decision: block - first results preserved",
+			config: &Config{
+				UserPromptSubmit: []UserPromptSubmitHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "First message",
+							},
+							{
+								Type:     "output",
+								Message:  "Blocked",
+								Decision: stringPtr("block"),
+							},
+						},
+					},
+				},
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "test prompt",
+			},
+			rawJSON: map[string]interface{}{
+				"session_id":      "test-session",
+				"hook_event_name": "UserPromptSubmit",
+				"prompt":          "test prompt",
+			},
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantHookEventName: "UserPromptSubmit",
+			wantAdditionalCtx: "First message\nBlocked",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Continue always true",
+			config: &Config{
+				UserPromptSubmit: []UserPromptSubmitHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Test message",
+							},
+						},
+					},
+				},
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session",
+					HookEventName: UserPromptSubmit,
+				},
+				Prompt: "test prompt",
+			},
+			rawJSON: map[string]interface{}{
+				"session_id":      "test-session",
+				"hook_event_name": "UserPromptSubmit",
+				"prompt":          "test prompt",
+			},
+			wantContinue:      true,
+			wantDecision:      "allow",
+			wantHookEventName: "UserPromptSubmit",
+			wantAdditionalCtx: "Test message",
+			wantSystemMessage: "",
+			wantErr:           false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rawJSON := map[string]interface{}{
-				"session_id":      tt.input.SessionID,
-				"hook_event_name": string(tt.input.HookEventName),
-				"prompt":          tt.input.Prompt,
+			got, err := executeUserPromptSubmitHooks(tt.config, tt.input, tt.rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("executeUserPromptSubmitHooks() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
 
-			err := executeUserPromptSubmitHooks(config, tt.input, rawJSON)
-
-			if tt.shouldError && err == nil {
-				t.Errorf("Expected error, got nil")
-			}
-			if !tt.shouldError && err != nil {
-				t.Errorf("Expected no error, got %v", err)
+			if got == nil {
+				t.Fatal("executeUserPromptSubmitHooks() returned nil output")
 			}
 
-			if tt.shouldError && err != nil {
-				exitErr, ok := err.(*ExitError)
-				if !ok {
-					t.Errorf("Expected ExitError, got %T", err)
-				} else if exitErr.Code != 2 {
-					t.Errorf("Expected exit code 2, got %d", exitErr.Code)
-				}
+			if got.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", got.Continue, tt.wantContinue)
+			}
+
+			if got.Decision != tt.wantDecision {
+				t.Errorf("Decision = %v, want %v", got.Decision, tt.wantDecision)
+			}
+
+			if got.HookSpecificOutput == nil {
+				t.Fatal("HookSpecificOutput is nil")
+			}
+
+			if got.HookSpecificOutput.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName = %v, want %v", got.HookSpecificOutput.HookEventName, tt.wantHookEventName)
+			}
+
+			if got.HookSpecificOutput.AdditionalContext != tt.wantAdditionalCtx {
+				t.Errorf("AdditionalContext = %v, want %v", got.HookSpecificOutput.AdditionalContext, tt.wantAdditionalCtx)
+			}
+
+			if got.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %v, want %v", got.SystemMessage, tt.wantSystemMessage)
 			}
 		})
 	}
@@ -608,41 +768,7 @@ func TestExecutePreToolUseHook_FailingCommandReturnsExit2(t *testing.T) {
 	}
 }
 
-func TestExecuteUserPromptSubmitHook_FailingCommandReturnsExit2(t *testing.T) {
-	config := &Config{
-		UserPromptSubmit: []UserPromptSubmitHook{
-			{
-				Actions: []Action{
-					{Type: "command", Command: "false"}, // 失敗するコマンド
-				},
-			},
-		},
-	}
-
-	input := &UserPromptSubmitInput{
-		BaseInput: BaseInput{
-			SessionID:     "test123",
-			HookEventName: UserPromptSubmit,
-		},
-		Prompt: "test prompt",
-	}
-
-	err := executeUserPromptSubmitHooks(config, input, nil)
-
-	// ExitError型でexit code 2であることを確認
-	if err == nil {
-		t.Fatal("Expected error for failing command, got nil")
-	}
-
-	exitErr, ok := err.(*ExitError)
-	if !ok {
-		t.Fatalf("Expected ExitError, got %T", err)
-	}
-
-	if exitErr.Code != 2 {
-		t.Errorf("Expected exit code 2, got %d", exitErr.Code)
-	}
-}
+// TODO: Task 7 - Implement UserPromptSubmit integration tests with JSON output
 
 func TestExecuteStopHook_FailingCommandReturnsExit2(t *testing.T) {
 	config := &Config{
@@ -1760,5 +1886,232 @@ func TestExecuteSessionStartHooks_ErrorHandling(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestExecuteUserPromptSubmitHooks_ConditionErrorAggregation(t *testing.T) {
+	// Test that condition errors are aggregated and other hooks continue to execute
+	config := &Config{
+		UserPromptSubmit: []UserPromptSubmitHook{
+			{
+				// This hook will fail at condition check
+				Conditions: []Condition{
+					{
+						Type:  ConditionReasonIs, // Invalid for UserPromptSubmit
+						Value: "test",
+					},
+				},
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "Should not execute due to condition error",
+					},
+				},
+			},
+			{
+				// This hook should still execute after the first one's condition fails
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "Second hook executed",
+					},
+				},
+			},
+		},
+	}
+
+	input := &UserPromptSubmitInput{
+		BaseInput: BaseInput{
+			SessionID:     "test-session",
+			HookEventName: UserPromptSubmit,
+		},
+		Prompt: "test prompt",
+	}
+
+	rawJSON := map[string]interface{}{
+		"session_id":      "test-session",
+		"hook_event_name": "UserPromptSubmit",
+		"prompt":          "test prompt",
+	}
+
+	output, err := executeUserPromptSubmitHooks(config, input, rawJSON)
+
+	// Should return an error (from first hook's condition)
+	if err == nil {
+		t.Error("Expected error from condition check, got nil")
+	}
+
+	// Error message should contain condition error
+	if !strings.Contains(err.Error(), "unknown condition type") {
+		t.Errorf("Expected 'unknown condition type' in error message, got: %s", err.Error())
+	}
+
+	// Should still have output (from second hook)
+	if output == nil {
+		t.Fatal("Expected output despite error, got nil")
+	}
+
+	// Second hook should have executed
+	if output.HookSpecificOutput == nil {
+		t.Fatal("HookSpecificOutput is nil - second hook did not execute")
+	}
+
+	if !strings.Contains(output.HookSpecificOutput.AdditionalContext, "Second hook executed") {
+		t.Errorf("Expected 'Second hook executed' in AdditionalContext, got: %s", output.HookSpecificOutput.AdditionalContext)
+	}
+}
+
+func TestExecuteUserPromptSubmitHooks_MultipleConditionErrors(t *testing.T) {
+	// Test that multiple condition errors are collected and joined with errors.Join
+	config := &Config{
+		UserPromptSubmit: []UserPromptSubmitHook{
+			{
+				// This hook will fail at condition check
+				Conditions: []Condition{
+					{
+						Type:  ConditionReasonIs, // Invalid for UserPromptSubmit
+						Value: "test",
+					},
+				},
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "Should not execute",
+					},
+				},
+			},
+			{
+				// This hook will also fail at condition check
+				Conditions: []Condition{
+					{
+						Type:  ConditionEveryNPrompts, // Requires transcript file
+						Value: "5",
+					},
+				},
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "Should also not execute",
+					},
+				},
+			},
+			{
+				// This hook should execute successfully
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "Third hook executed",
+					},
+				},
+			},
+		},
+	}
+
+	input := &UserPromptSubmitInput{
+		BaseInput: BaseInput{
+			SessionID:      "test-session",
+			HookEventName:  UserPromptSubmit,
+			TranscriptPath: "/nonexistent/transcript.jsonl", // Will cause error in every_n_prompts
+		},
+		Prompt: "test prompt",
+	}
+
+	rawJSON := map[string]interface{}{
+		"session_id":      "test-session",
+		"hook_event_name": "UserPromptSubmit",
+		"transcript_path": "/nonexistent/transcript.jsonl",
+		"prompt":          "test prompt",
+	}
+
+	output, err := executeUserPromptSubmitHooks(config, input, rawJSON)
+
+	// Should return an error containing both condition errors
+	if err == nil {
+		t.Fatal("Expected errors from multiple conditions, got nil")
+	}
+
+	errMsg := err.Error()
+
+	// Should contain first condition error (unknown condition type)
+	if !strings.Contains(errMsg, "unknown condition type") {
+		t.Errorf("Expected 'unknown condition type' in error message, got: %s", errMsg)
+	}
+
+	// Should contain second condition error (transcript file error)
+	if !strings.Contains(errMsg, "transcript") || !strings.Contains(errMsg, "hook[UserPromptSubmit][1]") {
+		t.Errorf("Expected second condition error about transcript in error message, got: %s", errMsg)
+	}
+
+	// Output should still be returned (graceful degradation)
+	if output == nil {
+		t.Fatal("Expected output despite errors, got nil")
+	}
+
+	// Third hook should have executed
+	if output.HookSpecificOutput == nil {
+		t.Fatal("HookSpecificOutput is nil")
+	}
+
+	if !strings.Contains(output.HookSpecificOutput.AdditionalContext, "Third hook executed") {
+		t.Errorf("Expected 'Third hook executed' in AdditionalContext, got: %s", output.HookSpecificOutput.AdditionalContext)
+	}
+}
+
+func TestExecuteUserPromptSubmitHooks_AdditionalContextConcatenation(t *testing.T) {
+	// Test that AdditionalContext from multiple actions is concatenated with newline
+	// Note: SystemMessage concatenation is covered in integration tests
+	config := &Config{
+		UserPromptSubmit: []UserPromptSubmitHook{
+			{
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "First context",
+					},
+					{
+						Type:    "output",
+						Message: "Second context",
+					},
+					{
+						Type:    "output",
+						Message: "Third context",
+					},
+				},
+			},
+		},
+	}
+
+	input := &UserPromptSubmitInput{
+		BaseInput: BaseInput{
+			SessionID:     "test-session",
+			HookEventName: UserPromptSubmit,
+		},
+		Prompt: "test prompt",
+	}
+
+	rawJSON := map[string]interface{}{
+		"session_id":      "test-session",
+		"hook_event_name": "UserPromptSubmit",
+		"prompt":          "test prompt",
+	}
+
+	output, err := executeUserPromptSubmitHooks(config, input, rawJSON)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if output == nil {
+		t.Fatal("Expected output, got nil")
+	}
+
+	// AdditionalContext should be concatenated with newline
+	if output.HookSpecificOutput == nil {
+		t.Fatal("HookSpecificOutput is nil")
+	}
+
+	expectedAdditionalContext := "First context\nSecond context\nThird context"
+	if output.HookSpecificOutput.AdditionalContext != expectedAdditionalContext {
+		t.Errorf("AdditionalContext = %q, want %q", output.HookSpecificOutput.AdditionalContext, expectedAdditionalContext)
 	}
 }

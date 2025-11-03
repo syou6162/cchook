@@ -73,6 +73,45 @@ func main() {
 			// Always exit 0 for SessionStart (continue field controls behavior)
 			os.Exit(0)
 		}
+
+		if HookEventType(*eventType) == UserPromptSubmit {
+			// UserPromptSubmit special handling with JSON output
+			output, err := RunUserPromptSubmitHooks(config)
+			if err != nil {
+				// Log error to stderr
+				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+				// Ensure output has decision field and hookSpecificOutput even on error
+				if output == nil {
+					output = &UserPromptSubmitOutput{
+						Continue:      true,
+						Decision:      "block",
+						SystemMessage: fmt.Sprintf("Failed to process UserPromptSubmit: %v", err),
+						HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+							HookEventName: "UserPromptSubmit",
+						},
+					}
+				}
+			}
+
+			// Marshal JSON with 2-space indent
+			jsonBytes, err := json.MarshalIndent(output, "", "  ")
+			if err != nil {
+				// Marshal failure is fatal
+				fmt.Fprintf(os.Stderr, "Error marshaling JSON: %v\n", err)
+				os.Exit(1)
+			}
+
+			// Validate final JSON output against schema (non-functional requirement)
+			if err := validateUserPromptSubmitOutput(jsonBytes); err != nil {
+				fmt.Fprintf(os.Stderr, "Final JSON output validation failed: %v\n", err)
+				os.Exit(1)
+			}
+
+			// Output JSON to stdout
+			fmt.Println(string(jsonBytes))
+			// Always exit 0 for UserPromptSubmit (decision field controls behavior)
+			os.Exit(0)
+		}
 		err = runHooks(config, HookEventType(*eventType))
 	case "dry-run":
 		err = dryRunHooks(config, HookEventType(*eventType))
