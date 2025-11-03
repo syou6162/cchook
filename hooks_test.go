@@ -1888,3 +1888,230 @@ func TestExecuteSessionStartHooks_ErrorHandling(t *testing.T) {
 		})
 	}
 }
+
+func TestExecuteUserPromptSubmitHooks_ConditionErrorAggregation(t *testing.T) {
+	// Test that condition errors are aggregated and other hooks continue to execute
+	config := &Config{
+		UserPromptSubmit: []UserPromptSubmitHook{
+			{
+				// This hook will fail at condition check
+				Conditions: []Condition{
+					{
+						Type:  ConditionReasonIs, // Invalid for UserPromptSubmit
+						Value: "test",
+					},
+				},
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "Should not execute due to condition error",
+					},
+				},
+			},
+			{
+				// This hook should still execute after the first one's condition fails
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "Second hook executed",
+					},
+				},
+			},
+		},
+	}
+
+	input := &UserPromptSubmitInput{
+		BaseInput: BaseInput{
+			SessionID:     "test-session",
+			HookEventName: UserPromptSubmit,
+		},
+		Prompt: "test prompt",
+	}
+
+	rawJSON := map[string]interface{}{
+		"session_id":      "test-session",
+		"hook_event_name": "UserPromptSubmit",
+		"prompt":          "test prompt",
+	}
+
+	output, err := executeUserPromptSubmitHooks(config, input, rawJSON)
+
+	// Should return an error (from first hook's condition)
+	if err == nil {
+		t.Error("Expected error from condition check, got nil")
+	}
+
+	// Error message should contain condition error
+	if !strings.Contains(err.Error(), "unknown condition type") {
+		t.Errorf("Expected 'unknown condition type' in error message, got: %s", err.Error())
+	}
+
+	// Should still have output (from second hook)
+	if output == nil {
+		t.Fatal("Expected output despite error, got nil")
+	}
+
+	// Second hook should have executed
+	if output.HookSpecificOutput == nil {
+		t.Fatal("HookSpecificOutput is nil - second hook did not execute")
+	}
+
+	if !strings.Contains(output.HookSpecificOutput.AdditionalContext, "Second hook executed") {
+		t.Errorf("Expected 'Second hook executed' in AdditionalContext, got: %s", output.HookSpecificOutput.AdditionalContext)
+	}
+}
+
+func TestExecuteUserPromptSubmitHooks_MultipleConditionErrors(t *testing.T) {
+	// Test that multiple condition errors are collected and joined with errors.Join
+	config := &Config{
+		UserPromptSubmit: []UserPromptSubmitHook{
+			{
+				// This hook will fail at condition check
+				Conditions: []Condition{
+					{
+						Type:  ConditionReasonIs, // Invalid for UserPromptSubmit
+						Value: "test",
+					},
+				},
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "Should not execute",
+					},
+				},
+			},
+			{
+				// This hook will also fail at condition check
+				Conditions: []Condition{
+					{
+						Type:  ConditionEveryNPrompts, // Requires transcript file
+						Value: "5",
+					},
+				},
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "Should also not execute",
+					},
+				},
+			},
+			{
+				// This hook should execute successfully
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "Third hook executed",
+					},
+				},
+			},
+		},
+	}
+
+	input := &UserPromptSubmitInput{
+		BaseInput: BaseInput{
+			SessionID:      "test-session",
+			HookEventName:  UserPromptSubmit,
+			TranscriptPath: "/nonexistent/transcript.jsonl", // Will cause error in every_n_prompts
+		},
+		Prompt: "test prompt",
+	}
+
+	rawJSON := map[string]interface{}{
+		"session_id":      "test-session",
+		"hook_event_name": "UserPromptSubmit",
+		"transcript_path": "/nonexistent/transcript.jsonl",
+		"prompt":          "test prompt",
+	}
+
+	output, err := executeUserPromptSubmitHooks(config, input, rawJSON)
+
+	// Should return an error containing both condition errors
+	if err == nil {
+		t.Fatal("Expected errors from multiple conditions, got nil")
+	}
+
+	errMsg := err.Error()
+
+	// Should contain first condition error (unknown condition type)
+	if !strings.Contains(errMsg, "unknown condition type") {
+		t.Errorf("Expected 'unknown condition type' in error message, got: %s", errMsg)
+	}
+
+	// Should contain second condition error (transcript file error)
+	if !strings.Contains(errMsg, "transcript") || !strings.Contains(errMsg, "hook[UserPromptSubmit][1]") {
+		t.Errorf("Expected second condition error about transcript in error message, got: %s", errMsg)
+	}
+
+	// Output should still be returned (graceful degradation)
+	if output == nil {
+		t.Fatal("Expected output despite errors, got nil")
+	}
+
+	// Third hook should have executed
+	if output.HookSpecificOutput == nil {
+		t.Fatal("HookSpecificOutput is nil")
+	}
+
+	if !strings.Contains(output.HookSpecificOutput.AdditionalContext, "Third hook executed") {
+		t.Errorf("Expected 'Third hook executed' in AdditionalContext, got: %s", output.HookSpecificOutput.AdditionalContext)
+	}
+}
+
+func TestExecuteUserPromptSubmitHooks_AdditionalContextConcatenation(t *testing.T) {
+	// Test that AdditionalContext from multiple actions is concatenated with newline
+	// Note: SystemMessage concatenation is covered in integration tests
+	config := &Config{
+		UserPromptSubmit: []UserPromptSubmitHook{
+			{
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "First context",
+					},
+					{
+						Type:    "output",
+						Message: "Second context",
+					},
+					{
+						Type:    "output",
+						Message: "Third context",
+					},
+				},
+			},
+		},
+	}
+
+	input := &UserPromptSubmitInput{
+		BaseInput: BaseInput{
+			SessionID:     "test-session",
+			HookEventName: UserPromptSubmit,
+		},
+		Prompt: "test prompt",
+	}
+
+	rawJSON := map[string]interface{}{
+		"session_id":      "test-session",
+		"hook_event_name": "UserPromptSubmit",
+		"prompt":          "test prompt",
+	}
+
+	output, err := executeUserPromptSubmitHooks(config, input, rawJSON)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if output == nil {
+		t.Fatal("Expected output, got nil")
+	}
+
+	// AdditionalContext should be concatenated with newline
+	if output.HookSpecificOutput == nil {
+		t.Fatal("HookSpecificOutput is nil")
+	}
+
+	expectedAdditionalContext := "First context\nSecond context\nThird context"
+	if output.HookSpecificOutput.AdditionalContext != expectedAdditionalContext {
+		t.Errorf("AdditionalContext = %q, want %q", output.HookSpecificOutput.AdditionalContext, expectedAdditionalContext)
+	}
+}
