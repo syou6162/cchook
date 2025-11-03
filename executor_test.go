@@ -1,6 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"io"
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -775,6 +779,132 @@ func TestExecuteUserPromptSubmitAction_TypeCommand(t *testing.T) {
 			}
 			if got.SystemMessage != tt.wantSystemMessage {
 				t.Errorf("ExecuteUserPromptSubmitAction() SystemMessage = %v, want %v", got.SystemMessage, tt.wantSystemMessage)
+			}
+		})
+	}
+}
+
+func TestCheckUnsupportedFieldsSessionStart(t *testing.T) {
+	tests := []struct {
+		name           string
+		stdout         string
+		wantStderr     string
+		wantStderrNone bool
+	}{
+		{
+			name:           "Valid JSON with supported fields only",
+			stdout:         `{"continue": true, "systemMessage": "test"}`,
+			wantStderrNone: true,
+		},
+		{
+			name:       "Valid JSON with unsupported field",
+			stdout:     `{"continue": true, "unsupportedField": "value"}`,
+			wantStderr: "Warning: Field 'unsupportedField' is not supported for SessionStart hooks\n",
+		},
+		{
+			name:       "Valid JSON with multiple unsupported fields",
+			stdout:     `{"continue": true, "field1": "value1", "field2": "value2"}`,
+			wantStderr: "Warning: Field 'field", // Should contain warnings for both fields
+		},
+		{
+			name:           "Invalid JSON (should not panic)",
+			stdout:         `{invalid json}`,
+			wantStderrNone: true,
+		},
+		{
+			name:           "Empty string",
+			stdout:         "",
+			wantStderrNone: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Capture stderr
+			oldStderr := os.Stderr
+			r, w, _ := os.Pipe()
+			os.Stderr = w
+
+			checkUnsupportedFieldsSessionStart(tt.stdout)
+
+			_ = w.Close()
+			os.Stderr = oldStderr
+
+			var buf bytes.Buffer
+			_, _ = io.Copy(&buf, r)
+			stderr := buf.String()
+
+			if tt.wantStderrNone {
+				if stderr != "" {
+					t.Errorf("Expected no stderr output, got: %s", stderr)
+				}
+			} else {
+				if !strings.Contains(stderr, tt.wantStderr) {
+					t.Errorf("Expected stderr to contain %q, got: %s", tt.wantStderr, stderr)
+				}
+			}
+		})
+	}
+}
+
+func TestCheckUnsupportedFieldsUserPromptSubmit(t *testing.T) {
+	tests := []struct {
+		name           string
+		stdout         string
+		wantStderr     string
+		wantStderrNone bool
+	}{
+		{
+			name:           "Valid JSON with supported fields only",
+			stdout:         `{"continue": true, "decision": "allow", "systemMessage": "test"}`,
+			wantStderrNone: true,
+		},
+		{
+			name:       "Valid JSON with unsupported field",
+			stdout:     `{"continue": true, "decision": "allow", "unsupportedField": "value"}`,
+			wantStderr: "Warning: Field 'unsupportedField' is not supported for UserPromptSubmit hooks\n",
+		},
+		{
+			name:       "Valid JSON with multiple unsupported fields",
+			stdout:     `{"decision": "allow", "field1": "value1", "field2": "value2"}`,
+			wantStderr: "Warning: Field 'field", // Should contain warnings for both fields
+		},
+		{
+			name:           "Invalid JSON (should not panic)",
+			stdout:         `{invalid json}`,
+			wantStderrNone: true,
+		},
+		{
+			name:           "Empty string",
+			stdout:         "",
+			wantStderrNone: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Capture stderr
+			oldStderr := os.Stderr
+			r, w, _ := os.Pipe()
+			os.Stderr = w
+
+			checkUnsupportedFieldsUserPromptSubmit(tt.stdout)
+
+			_ = w.Close()
+			os.Stderr = oldStderr
+
+			var buf bytes.Buffer
+			_, _ = io.Copy(&buf, r)
+			stderr := buf.String()
+
+			if tt.wantStderrNone {
+				if stderr != "" {
+					t.Errorf("Expected no stderr output, got: %s", stderr)
+				}
+			} else {
+				if !strings.Contains(stderr, tt.wantStderr) {
+					t.Errorf("Expected stderr to contain %q, got: %s", tt.wantStderr, stderr)
+				}
 			}
 		})
 	}
