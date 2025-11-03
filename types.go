@@ -366,12 +366,13 @@ type Condition struct {
 
 // Action - 全てのイベントタイプで共通のアクション構造体
 type Action struct {
-	Type       string `yaml:"type"`
-	Command    string `yaml:"command,omitempty"`
-	Message    string `yaml:"message,omitempty"`
-	UseStdin   bool   `yaml:"use_stdin,omitempty"`
-	ExitStatus *int   `yaml:"exit_status,omitempty"`
-	Continue   *bool  `yaml:"continue,omitempty"`
+	Type       string  `yaml:"type"`
+	Command    string  `yaml:"command,omitempty"`
+	Message    string  `yaml:"message,omitempty"`
+	UseStdin   bool    `yaml:"use_stdin,omitempty"`
+	ExitStatus *int    `yaml:"exit_status,omitempty"`
+	Continue   *bool   `yaml:"continue,omitempty"`
+	Decision   *string `yaml:"decision,omitempty"` // "allow" or "block" (UserPromptSubmit only)
 }
 
 // 設定ファイル構造
