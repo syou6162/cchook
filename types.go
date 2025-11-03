@@ -172,6 +172,7 @@ type SessionStartHookSpecificOutput struct {
 // ActionOutput はアクション実行結果を表す内部型（JSONには直接出力されない）
 type ActionOutput struct {
 	Continue          bool
+	Decision          string // "allow" or "block" (UserPromptSubmit only, empty for SessionStart)
 	StopReason        string
 	SuppressOutput    bool
 	SystemMessage     string
@@ -188,6 +189,22 @@ type UserPromptSubmitInput struct {
 // GetToolName returns an empty string as UserPromptSubmit events have no associated tool.
 func (u *UserPromptSubmitInput) GetToolName() string {
 	return ""
+}
+
+// UserPromptSubmitOutput はUserPromptSubmitフックのJSON出力全体を表す（Claude Code共通フィールド含む）
+type UserPromptSubmitOutput struct {
+	Continue           bool                                `json:"continue"`
+	Decision           string                              `json:"decision"` // "allow" or "block" (required, no omitempty)
+	StopReason         string                              `json:"stopReason,omitempty"`
+	SuppressOutput     bool                                `json:"suppressOutput,omitempty"`
+	SystemMessage      string                              `json:"systemMessage,omitempty"`
+	HookSpecificOutput *UserPromptSubmitHookSpecificOutput `json:"hookSpecificOutput,omitempty"`
+}
+
+// UserPromptSubmitHookSpecificOutput はUserPromptSubmit固有の出力フィールド
+type UserPromptSubmitHookSpecificOutput struct {
+	HookEventName     string `json:"hookEventName"`
+	AdditionalContext string `json:"additionalContext,omitempty"`
 }
 
 // SessionEnd用
@@ -365,12 +382,13 @@ type Condition struct {
 
 // Action - 全てのイベントタイプで共通のアクション構造体
 type Action struct {
-	Type       string `yaml:"type"`
-	Command    string `yaml:"command,omitempty"`
-	Message    string `yaml:"message,omitempty"`
-	UseStdin   bool   `yaml:"use_stdin,omitempty"`
-	ExitStatus *int   `yaml:"exit_status,omitempty"`
-	Continue   *bool  `yaml:"continue,omitempty"`
+	Type       string  `yaml:"type"`
+	Command    string  `yaml:"command,omitempty"`
+	Message    string  `yaml:"message,omitempty"`
+	UseStdin   bool    `yaml:"use_stdin,omitempty"`
+	ExitStatus *int    `yaml:"exit_status,omitempty"`
+	Continue   *bool   `yaml:"continue,omitempty"`
+	Decision   *string `yaml:"decision,omitempty"` // "allow" or "block" (UserPromptSubmit only)
 }
 
 // 設定ファイル構造

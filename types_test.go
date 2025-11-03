@@ -744,3 +744,286 @@ func TestSessionStartOutputSchemaValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestUserPromptSubmitOutput_JSONSerialization(t *testing.T) {
+	tests := []struct {
+		name           string
+		output         UserPromptSubmitOutput
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name: "Full output with all Phase 2 used fields",
+			output: UserPromptSubmitOutput{
+				Continue:      true,
+				Decision:      "allow",
+				SystemMessage: "Test message",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName:     "UserPromptSubmit",
+					AdditionalContext: "Additional info",
+				},
+			},
+			wantContains:   []string{"\"continue\":true", "\"decision\":\"allow\"", "\"systemMessage\":\"Test message\"", "\"hookEventName\":\"UserPromptSubmit\"", "\"additionalContext\":\"Additional info\""},
+			wantNotContain: []string{"stopReason", "suppressOutput"},
+		},
+		{
+			name: "Phase 2 unused fields (stopReason, suppressOutput) are omitted when zero",
+			output: UserPromptSubmitOutput{
+				Continue:       true,
+				Decision:       "block",
+				StopReason:     "",    // zero value
+				SuppressOutput: false, // zero value
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName: "UserPromptSubmit",
+				},
+			},
+			wantContains:   []string{"\"continue\":true", "\"decision\":\"block\"", "\"hookEventName\":\"UserPromptSubmit\""},
+			wantNotContain: []string{"stopReason", "suppressOutput"},
+		},
+		{
+			name: "HookEventName is always UserPromptSubmit",
+			output: UserPromptSubmitOutput{
+				Continue: true,
+				Decision: "allow",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName:     "UserPromptSubmit",
+					AdditionalContext: "Context",
+				},
+			},
+			wantContains: []string{"\"hookEventName\":\"UserPromptSubmit\""},
+		},
+		{
+			name: "Empty additionalContext is omitted",
+			output: UserPromptSubmitOutput{
+				Continue: true,
+				Decision: "allow",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName:     "UserPromptSubmit",
+					AdditionalContext: "",
+				},
+			},
+			wantContains:   []string{"\"hookEventName\":\"UserPromptSubmit\""},
+			wantNotContain: []string{"additionalContext"},
+		},
+		{
+			name: "Decision field is required and not omitted even when empty",
+			output: UserPromptSubmitOutput{
+				Continue: true,
+				Decision: "",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName: "UserPromptSubmit",
+				},
+			},
+			wantContains: []string{"\"decision\":\"\""},
+		},
+		{
+			name: "Decision field accepts 'allow'",
+			output: UserPromptSubmitOutput{
+				Continue: true,
+				Decision: "allow",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName: "UserPromptSubmit",
+				},
+			},
+			wantContains: []string{"\"decision\":\"allow\""},
+		},
+		{
+			name: "Decision field accepts 'block'",
+			output: UserPromptSubmitOutput{
+				Continue: true,
+				Decision: "block",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName: "UserPromptSubmit",
+				},
+			},
+			wantContains: []string{"\"decision\":\"block\""},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Marshal
+			jsonBytes, err := json.Marshal(tt.output)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+			jsonStr := string(jsonBytes)
+
+			// Check expected content
+			for _, want := range tt.wantContains {
+				if !stringContains(jsonStr, want) {
+					t.Errorf("JSON does not contain expected string %q. JSON: %s", want, jsonStr)
+				}
+			}
+
+			// Check unexpected content
+			for _, notWant := range tt.wantNotContain {
+				if stringContains(jsonStr, notWant) {
+					t.Errorf("JSON contains unexpected string %q. JSON: %s", notWant, jsonStr)
+				}
+			}
+
+			// Unmarshal (round-trip)
+			var unmarshaled UserPromptSubmitOutput
+			if err := json.Unmarshal(jsonBytes, &unmarshaled); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+
+			// Verify round-trip preserves data
+			if unmarshaled.Continue != tt.output.Continue {
+				t.Errorf("Round-trip: Continue mismatch. Got %v, want %v", unmarshaled.Continue, tt.output.Continue)
+			}
+			if unmarshaled.Decision != tt.output.Decision {
+				t.Errorf("Round-trip: Decision mismatch. Got %q, want %q", unmarshaled.Decision, tt.output.Decision)
+			}
+			if unmarshaled.SystemMessage != tt.output.SystemMessage {
+				t.Errorf("Round-trip: SystemMessage mismatch. Got %q, want %q", unmarshaled.SystemMessage, tt.output.SystemMessage)
+			}
+			if tt.output.HookSpecificOutput != nil {
+				if unmarshaled.HookSpecificOutput == nil {
+					t.Errorf("Round-trip: HookSpecificOutput is nil")
+				} else {
+					if unmarshaled.HookSpecificOutput.HookEventName != tt.output.HookSpecificOutput.HookEventName {
+						t.Errorf("Round-trip: HookEventName mismatch. Got %q, want %q",
+							unmarshaled.HookSpecificOutput.HookEventName, tt.output.HookSpecificOutput.HookEventName)
+					}
+					if unmarshaled.HookSpecificOutput.AdditionalContext != tt.output.HookSpecificOutput.AdditionalContext {
+						t.Errorf("Round-trip: AdditionalContext mismatch. Got %q, want %q",
+							unmarshaled.HookSpecificOutput.AdditionalContext, tt.output.HookSpecificOutput.AdditionalContext)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestUserPromptSubmitOutputSchemaValidation(t *testing.T) {
+	tests := []struct {
+		name      string
+		output    UserPromptSubmitOutput
+		wantValid bool
+		wantError string
+	}{
+		{
+			name: "Valid full output with all fields",
+			output: UserPromptSubmitOutput{
+				Continue:       true,
+				Decision:       "allow",
+				StopReason:     "test",
+				SuppressOutput: false,
+				SystemMessage:  "Test message",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName:     "UserPromptSubmit",
+					AdditionalContext: "Additional info",
+				},
+			},
+			wantValid: true,
+		},
+		{
+			name: "Valid minimal output with only required fields",
+			output: UserPromptSubmitOutput{
+				Continue: true,
+				Decision: "block",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName: "UserPromptSubmit",
+				},
+			},
+			wantValid: true,
+		},
+		{
+			name: "Invalid: missing decision field",
+			output: UserPromptSubmitOutput{
+				Continue: true,
+				Decision: "", // empty decision
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName: "UserPromptSubmit",
+				},
+			},
+			wantValid: false,
+			wantError: "decision",
+		},
+		{
+			name: "Invalid: wrong hookEventName value",
+			output: UserPromptSubmitOutput{
+				Continue: true,
+				Decision: "allow",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName:     "WrongEvent",
+					AdditionalContext: "Context",
+				},
+			},
+			wantValid: false,
+			wantError: "hookEventName",
+		},
+		{
+			name: "Invalid: wrong decision value",
+			output: UserPromptSubmitOutput{
+				Continue: true,
+				Decision: "invalid_decision",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName: "UserPromptSubmit",
+				},
+			},
+			wantValid: false,
+			wantError: "decision",
+		},
+		{
+			name: "Valid: Phase 2 unused fields omitted (omitempty)",
+			output: UserPromptSubmitOutput{
+				Continue: true,
+				Decision: "allow",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName: "UserPromptSubmit",
+				},
+			},
+			wantValid: true,
+		},
+		{
+			name: "Valid: decision 'allow'",
+			output: UserPromptSubmitOutput{
+				Continue: true,
+				Decision: "allow",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName: "UserPromptSubmit",
+				},
+			},
+			wantValid: true,
+		},
+		{
+			name: "Valid: decision 'block'",
+			output: UserPromptSubmitOutput{
+				Continue: false,
+				Decision: "block",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName: "UserPromptSubmit",
+				},
+			},
+			wantValid: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Marshal to JSON
+			jsonBytes, err := json.Marshal(tt.output)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+
+			// Validate against schema
+			err = validateUserPromptSubmitOutput(jsonBytes)
+
+			if tt.wantValid {
+				if err != nil {
+					t.Errorf("Expected valid, but got error: %v\nJSON: %s", err, string(jsonBytes))
+				}
+			} else {
+				if err == nil {
+					t.Errorf("Expected invalid, but validation passed\nJSON: %s", string(jsonBytes))
+				} else if tt.wantError != "" && !stringContains(err.Error(), tt.wantError) {
+					t.Errorf("Error message should contain %q, but got: %v", tt.wantError, err)
+				}
+			}
+		})
+	}
+}

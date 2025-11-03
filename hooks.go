@@ -58,7 +58,9 @@ func runHooks(config *Config, eventType HookEventType) error {
 		if err != nil {
 			return err
 		}
-		return executeUserPromptSubmitHooks(config, input, rawJSON)
+		// TODO: Task 9 will handle JSON serialization and output
+		_, err = executeUserPromptSubmitHooks(config, input, rawJSON)
+		return err
 	case SessionEnd:
 		input, rawJSON, err := parseInput[*SessionEndInput](eventType)
 		if err != nil {
@@ -78,6 +80,16 @@ func RunSessionStartHooks(config *Config) (*SessionStartOutput, error) {
 		return nil, err
 	}
 	return executeSessionStartHooks(config, input, rawJSON)
+}
+
+// RunUserPromptSubmitHooks is a wrapper function that parses UserPromptSubmit input and executes hooks.
+// This function is called from main.go to handle UserPromptSubmit events with JSON output.
+func RunUserPromptSubmitHooks(config *Config) (*UserPromptSubmitOutput, error) {
+	input, rawJSON, err := parseInput[*UserPromptSubmitInput](UserPromptSubmit)
+	if err != nil {
+		return nil, err
+	}
+	return executeUserPromptSubmitHooks(config, input, rawJSON)
 }
 
 // dryRunHooks parses input and performs a dry-run of hooks for the specified event type.
@@ -948,11 +960,22 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 	return finalOutput, nil
 }
 
-// executeUserPromptSubmitHooks executes all matching UserPromptSubmit hooks based on condition checks.
-// Returns an error to block prompt processing if any hook fails.
-func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, rawJSON interface{}) error {
+// executeUserPromptSubmitHooks executes all matching UserPromptSubmit hooks and returns JSON output.
+// This implements Phase 2 JSON output functionality for UserPromptSubmit hooks.
+func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, rawJSON interface{}) (*UserPromptSubmitOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
+	var actionErrors []error
+
+	// Initialize finalOutput with Continue: true, Decision: "allow"
+	finalOutput := &UserPromptSubmitOutput{
+		Continue: true,
+		Decision: "allow",
+	}
+
+	var additionalContextBuilder strings.Builder
+	var systemMessageBuilder strings.Builder
+	hookEventName := ""
 
 	for i, hook := range config.UserPromptSubmit {
 		// 条件チェック
@@ -975,33 +998,81 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 		}
 
 		for _, action := range hook.Actions {
-			if err := executor.ExecuteUserPromptSubmitAction(action, input, rawJSON); err != nil {
-				// UserPromptSubmitはブロッキング可能なので、エラーを返す
-				// ExitErrorの場合はメッセージを更新して返す
-				if exitErr, ok := err.(*ExitError); ok {
-					actionErr := &ExitError{
-						Code:    exitErr.Code,
-						Message: fmt.Sprintf("UserPromptSubmit hook %d failed: %s", i, exitErr.Message),
-						Stderr:  exitErr.Stderr,
-					}
-					if len(conditionErrors) > 0 {
-						return errors.Join(append(conditionErrors, actionErr)...)
-					}
-					return actionErr
-				}
-				actionErr := fmt.Errorf("UserPromptSubmit hook %d failed: %w", i, err)
-				if len(conditionErrors) > 0 {
-					return errors.Join(append(conditionErrors, actionErr)...)
-				}
-				return actionErr
+			actionOutput, err := executor.ExecuteUserPromptSubmitAction(action, input, rawJSON)
+			if err != nil {
+				actionErrors = append(actionErrors, fmt.Errorf("UserPromptSubmit hook %d action failed: %w", i, err))
+				continue
 			}
+
+			if actionOutput == nil {
+				continue
+			}
+
+			// Update finalOutput fields following merge rules
+
+			// Continue: always true (do not overwrite from actionOutput)
+			// finalOutput.Continue remains true
+
+			// Decision: overwrite (last one wins)
+			finalOutput.Decision = actionOutput.Decision
+
+			// HookEventName: set once and preserve
+			if hookEventName == "" && actionOutput.HookEventName != "" {
+				hookEventName = actionOutput.HookEventName
+			}
+
+			// AdditionalContext: concatenate with "\n"
+			if actionOutput.AdditionalContext != "" {
+				if additionalContextBuilder.Len() > 0 {
+					additionalContextBuilder.WriteString("\n")
+				}
+				additionalContextBuilder.WriteString(actionOutput.AdditionalContext)
+			}
+
+			// SystemMessage: concatenate with "\n"
+			if actionOutput.SystemMessage != "" {
+				if systemMessageBuilder.Len() > 0 {
+					systemMessageBuilder.WriteString("\n")
+				}
+				systemMessageBuilder.WriteString(actionOutput.SystemMessage)
+			}
+
+			// Phase 2: Do NOT update StopReason or SuppressOutput (remain zero values)
+
+			// Early return check AFTER collecting this action's data
+			if actionOutput.Decision == "block" {
+				break
+			}
+		}
+
+		// Early return if decision is "block"
+		if finalOutput.Decision == "block" {
+			break
 		}
 	}
 
-	if len(conditionErrors) > 0 {
-		return errors.Join(conditionErrors...)
+	// Build final output
+	// Always set hookEventName to "UserPromptSubmit"
+	if hookEventName == "" {
+		hookEventName = "UserPromptSubmit"
 	}
-	return nil
+	finalOutput.HookSpecificOutput = &UserPromptSubmitHookSpecificOutput{
+		HookEventName:     hookEventName,
+		AdditionalContext: additionalContextBuilder.String(),
+	}
+
+	finalOutput.SystemMessage = systemMessageBuilder.String()
+
+	// Collect all errors
+	var allErrors []error
+	allErrors = append(allErrors, conditionErrors...)
+	allErrors = append(allErrors, actionErrors...)
+
+	if len(allErrors) > 0 {
+		return finalOutput, errors.Join(allErrors...)
+	}
+
+	return finalOutput, nil
 }
 
 // shouldExecutePreToolUseHook checks if a PreToolUse hook should be executed based on matcher and conditions.
