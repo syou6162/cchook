@@ -98,7 +98,7 @@ func TestExecutePreToolUseAction_WithUseStdin(t *testing.T) {
 			os.Stdout = w
 
 			executor := NewActionExecutor(nil)
-			err := executor.ExecutePreToolUseAction(tt.action, tt.input, tt.rawJSON)
+			_, err := executor.ExecutePreToolUseAction(tt.action, tt.input, tt.rawJSON)
 
 			// 標準出力を復元
 			_ = w.Close()
