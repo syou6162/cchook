@@ -788,7 +788,7 @@ cat <<'EOF'
     "hookEventName": "SessionStart",
     "additionalContext": "Valid context"
   },
-  "permissionDecision": "allow",
+  "permissionDecision": "approve",
   "decision": "block"
 }
 EOF

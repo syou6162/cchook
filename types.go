@@ -204,7 +204,7 @@ type UserPromptSubmitOutput struct {
 // UserPromptSubmitHookSpecificOutput はUserPromptSubmit固有の出力フィールド
 type UserPromptSubmitHookSpecificOutput struct {
 	HookEventName     string `json:"hookEventName"`
-	AdditionalContext string `json:"additionalContext,omitempty"`
+	AdditionalContext string `json:"additionalContext"`
 }
 
 // SessionEnd用

@@ -732,10 +732,10 @@ func validateUserPromptSubmitOutput(jsonData []byte) error {
 	// 2. Set required fields: decision and hookSpecificOutput
 	schema.Required = []string{"decision", "hookSpecificOutput"}
 
-	// 3. Add custom validation: decision must be "allow" or "block"
+	// 3. Add custom validation: decision must be "approve" or "block"
 	if decisionProp, ok := schema.Properties.Get("decision"); ok {
 		if decision := decisionProp; decision != nil {
-			decision.Enum = []interface{}{"allow", "block"}
+			decision.Enum = []interface{}{"approve", "block"}
 		}
 	}
 

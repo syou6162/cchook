@@ -208,7 +208,7 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 		if strings.TrimSpace(stdout) == "" {
 			return &ActionOutput{
 				Continue:      true,
-				Decision:      "allow",
+				Decision:      "approve",
 				HookEventName: "UserPromptSubmit",
 			}, nil
 		}
@@ -247,14 +247,14 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 		// Validate decision field
 		decision := cmdOutput.Decision
 		if decision == "" {
-			// Default to "allow" if unspecified
-			decision = "allow"
-		} else if decision != "allow" && decision != "block" {
+			// Default to "approve" if unspecified
+			decision = "approve"
+		} else if decision != "approve" && decision != "block" {
 			return &ActionOutput{
 				Continue:      true,
 				Decision:      "block",
 				HookEventName: "UserPromptSubmit",
-				SystemMessage: "Invalid decision value: must be 'allow' or 'block'",
+				SystemMessage: "Invalid decision value: must be 'approve' or 'block'",
 			}, nil
 		}
 
@@ -289,14 +289,14 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 		}
 
 		// Validate action.Decision if set
-		decision := "allow" // default
+		decision := "approve" // default
 		if action.Decision != nil {
-			if *action.Decision != "allow" && *action.Decision != "block" {
+			if *action.Decision != "approve" && *action.Decision != "block" {
 				return &ActionOutput{
 					Continue:      true,
 					Decision:      "block",
 					HookEventName: "UserPromptSubmit",
-					SystemMessage: "Invalid decision value: must be 'allow' or 'block'",
+					SystemMessage: "Invalid decision value: must be 'approve' or 'block'",
 				}, nil
 			}
 			decision = *action.Decision
