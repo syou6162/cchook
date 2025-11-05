@@ -1118,9 +1118,11 @@ func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput)
 }
 
 // executePreToolUseHook executes all actions for a single PreToolUse hook.
+// TODO: Task 8 will update this to handle JSON output properly
 func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input *PreToolUseInput, rawJSON interface{}) error {
 	for _, action := range hook.Actions {
-		if err := executor.ExecutePreToolUseAction(action, input, rawJSON); err != nil {
+		_, err := executor.ExecutePreToolUseAction(action, input, rawJSON)
+		if err != nil {
 			return err
 		}
 	}
