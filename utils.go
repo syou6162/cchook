@@ -783,3 +783,70 @@ func validateUserPromptSubmitOutput(jsonData []byte) error {
 
 	return nil
 }
+
+// validatePreToolUseOutput validates PreToolUseOutput against JSON schema (Phase 3)
+func validatePreToolUseOutput(jsonData []byte) error {
+	// Generate schema from PreToolUseOutput struct
+	reflector := jsonschema.Reflector{
+		DoNotReference: true, // Inline all definitions
+	}
+	schema := reflector.Reflect(&PreToolUseOutput{})
+
+	// Customize schema to match requirements
+	// 1. Allow additional properties at root level
+	schema.AdditionalProperties = nil // nil means allow any additional properties
+
+	// 2. Set required fields: hookSpecificOutput
+	schema.Required = []string{"hookSpecificOutput"}
+
+	// 3. Configure hookSpecificOutput
+	if hookSpecificProp, ok := schema.Properties.Get("hookSpecificOutput"); ok {
+		if hookSpecific := hookSpecificProp; hookSpecific != nil {
+			// hookEventName must be "PreToolUse"
+			if hookEventNameProp, ok := hookSpecific.Properties.Get("hookEventName"); ok {
+				if hookEventName := hookEventNameProp; hookEventName != nil {
+					hookEventName.Enum = []interface{}{"PreToolUse"}
+				}
+			}
+			// permissionDecision must be "allow", "deny", or "ask"
+			if permissionDecisionProp, ok := hookSpecific.Properties.Get("permissionDecision"); ok {
+				if permissionDecision := permissionDecisionProp; permissionDecision != nil {
+					permissionDecision.Enum = []interface{}{"allow", "deny", "ask"}
+				}
+			}
+			// hookSpecificOutput.hookEventName and permissionDecision are required
+			hookSpecific.Required = []string{"hookEventName", "permissionDecision"}
+			// hookSpecificOutput should not allow additional properties
+			hookSpecific.AdditionalProperties = &jsonschema.Schema{Not: &jsonschema.Schema{}} // false
+		}
+	}
+
+	// Convert schema to map for gojsonschema
+	schemaBytes, err := json.Marshal(schema)
+	if err != nil {
+		return fmt.Errorf("failed to marshal schema: %w", err)
+	}
+
+	var schemaMap map[string]interface{}
+	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
+		return fmt.Errorf("failed to unmarshal schema: %w", err)
+	}
+
+	schemaLoader := gojsonschema.NewGoLoader(schemaMap)
+	documentLoader := gojsonschema.NewBytesLoader(jsonData)
+
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return fmt.Errorf("schema validation error: %w", err)
+	}
+
+	if !result.Valid() {
+		var errMsgs []string
+		for _, desc := range result.Errors() {
+			errMsgs = append(errMsgs, desc.String())
+		}
+		return fmt.Errorf("JSON schema validation failed: %s", errMsgs)
+	}
+
+	return nil
+}

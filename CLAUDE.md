@@ -374,6 +374,82 @@ UserPromptSubmit:
         decision: "block"
 ```
 
+### PreToolUse JSON Output
+
+PreToolUse hooks support JSON output format for Claude Code integration. Actions can return structured output with 3-stage permission control:
+
+**Output Action** (type: `output`):
+```yaml
+PreToolUse:
+  - matcher: "Write"
+    actions:
+      - type: output
+        message: "Operation validated"
+        permission_decision: "allow"  # "allow", "deny", or "ask"
+```
+
+**Command Action** (type: `command`):
+Commands must output JSON with the following structure:
+```json
+{
+  "continue": true,
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow",
+    "permissionDecisionReason": "Message to display",
+    "updatedInput": {
+      "file_path": "modified_path.txt"
+    }
+  },
+  "systemMessage": "Optional system message"
+}
+```
+
+**Permission Control** (3-stage):
+- `"allow"`: Tool execution proceeds normally
+- `"deny"`: Tool execution is blocked (early return)
+- `"ask"`: Claude Code prompts user for confirmation
+
+**Updated Input**:
+The `updatedInput` field allows hooks to modify tool input parameters before execution. This enables:
+- Path normalization
+- Parameter validation and correction
+- Adding default values
+
+**Field Merging**:
+When multiple actions execute:
+- `continue`: Always `true` (cannot be changed for PreToolUse)
+- `permissionDecision`: Last value wins (early return on `"deny"`)
+- `permissionDecisionReason` and `systemMessage`: Concatenated with newline separator
+- `updatedInput`: Last non-null value wins (merged at top level, not deep merge)
+- `hookEventName`: Set once by first action
+
+**Exit Code Behavior**:
+PreToolUse hooks **always exit with code 0**. The `permissionDecision` field controls whether the tool execution is allowed, denied, or requires user confirmation.
+
+Errors are logged to stderr as warnings, but cchook continues to output JSON and exits successfully. On errors, `permissionDecision` defaults to `"deny"` for safety.
+
+**Example**:
+```yaml
+PreToolUse:
+  - matcher: "Bash"
+    conditions:
+      - type: command_contains
+        value: "rm -rf"
+    actions:
+      - type: output
+        message: "Dangerous command blocked"
+        permission_decision: "deny"
+  - matcher: "Write"
+    conditions:
+      - type: file_extension
+        value: ".env"
+    actions:
+      - type: output
+        message: "Modifying sensitive file"
+        permission_decision: "ask"
+```
+
 ## Common Workflows
 
 ### Adding a New Hook Type

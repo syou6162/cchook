@@ -112,6 +112,45 @@ func main() {
 			// Always exit 0 for UserPromptSubmit (decision field controls behavior)
 			os.Exit(0)
 		}
+
+		if HookEventType(*eventType) == PreToolUse {
+			// PreToolUse special handling with JSON output
+			output, err := RunPreToolUseHooks(config)
+			if err != nil {
+				// Log error to stderr
+				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+				// Ensure output has hookSpecificOutput even on error
+				if output == nil {
+					output = &PreToolUseOutput{
+						Continue:      true,
+						SystemMessage: fmt.Sprintf("Failed to process PreToolUse: %v", err),
+						HookSpecificOutput: &PreToolUseHookSpecificOutput{
+							HookEventName:      "PreToolUse",
+							PermissionDecision: "deny",
+						},
+					}
+				}
+			}
+
+			// Marshal JSON with 2-space indent
+			jsonBytes, err := json.MarshalIndent(output, "", "  ")
+			if err != nil {
+				// Marshal failure is fatal
+				fmt.Fprintf(os.Stderr, "Error marshaling JSON: %v\n", err)
+				os.Exit(1)
+			}
+
+			// Validate final JSON output against schema (non-functional requirement)
+			if err := validatePreToolUseOutput(jsonBytes); err != nil {
+				fmt.Fprintf(os.Stderr, "Final JSON output validation failed: %v\n", err)
+				os.Exit(1)
+			}
+
+			// Output JSON to stdout
+			fmt.Println(string(jsonBytes))
+			// Always exit 0 for PreToolUse (permissionDecision field controls behavior)
+			os.Exit(0)
+		}
 		err = runHooks(config, HookEventType(*eventType))
 	case "dry-run":
 		err = dryRunHooks(config, HookEventType(*eventType))
