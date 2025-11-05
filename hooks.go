@@ -92,6 +92,16 @@ func RunUserPromptSubmitHooks(config *Config) (*UserPromptSubmitOutput, error) {
 	return executeUserPromptSubmitHooks(config, input, rawJSON)
 }
 
+// RunPreToolUseHooks parses input from stdin and executes PreToolUse hooks.
+// Returns PreToolUseOutput for JSON serialization.
+func RunPreToolUseHooks(config *Config) (*PreToolUseOutput, error) {
+	input, rawJSON, err := parseInput[*PreToolUseInput](PreToolUse)
+	if err != nil {
+		return nil, err
+	}
+	return executePreToolUseHooksJSON(config, input, rawJSON)
+}
+
 // dryRunHooks parses input and performs a dry-run of hooks for the specified event type.
 func dryRunHooks(config *Config, eventType HookEventType) error {
 	switch eventType {
@@ -1061,6 +1071,114 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 	finalOutput.HookSpecificOutput = &UserPromptSubmitHookSpecificOutput{
 		HookEventName:     hookEventName,
 		AdditionalContext: additionalContextBuilder.String(),
+	}
+
+	finalOutput.SystemMessage = systemMessageBuilder.String()
+
+	// Collect all errors
+	var allErrors []error
+	allErrors = append(allErrors, conditionErrors...)
+	allErrors = append(allErrors, actionErrors...)
+
+	if len(allErrors) > 0 {
+		return finalOutput, errors.Join(allErrors...)
+	}
+
+	return finalOutput, nil
+}
+
+// executePreToolUseHooksJSON executes all matching PreToolUse hooks and returns JSON output.
+// This function implements Phase 3 JSON output functionality for PreToolUse hooks.
+func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON interface{}) (*PreToolUseOutput, error) {
+	executor := NewActionExecutor(nil)
+	var conditionErrors []error
+	var actionErrors []error
+
+	// Initialize finalOutput with Continue: true (always), PermissionDecision: "allow"
+	finalOutput := &PreToolUseOutput{
+		Continue: true,
+	}
+
+	var reasonBuilder strings.Builder
+	var systemMessageBuilder strings.Builder
+	hookEventName := ""
+	permissionDecision := "allow" // Default
+	var updatedInput map[string]interface{}
+
+	for i, hook := range config.PreToolUse {
+		// Matcher and condition checks
+		shouldExecute, err := shouldExecutePreToolUseHook(hook, input)
+		if err != nil {
+			conditionErrors = append(conditionErrors,
+				fmt.Errorf("hook[PreToolUse][%d]: %w", i, err))
+			continue // Skip this hook but continue checking others
+		}
+
+		if !shouldExecute {
+			continue
+		}
+
+		// Execute hook actions
+		actionOutput, err := executePreToolUseHook(executor, hook, input, rawJSON)
+		if err != nil {
+			actionErrors = append(actionErrors, fmt.Errorf("PreToolUse hook %d action failed: %w", i, err))
+			continue
+		}
+
+		if actionOutput == nil {
+			continue
+		}
+
+		// Update finalOutput fields following merge rules
+
+		// Continue: always true (do not overwrite from actionOutput)
+		// finalOutput.Continue remains true
+
+		// PermissionDecision: last value wins
+		permissionDecision = actionOutput.PermissionDecision
+
+		// HookEventName: set once and preserve
+		if hookEventName == "" && actionOutput.HookEventName != "" {
+			hookEventName = actionOutput.HookEventName
+		}
+
+		// PermissionDecisionReason: concatenate with "\n"
+		if actionOutput.PermissionDecisionReason != "" {
+			if reasonBuilder.Len() > 0 {
+				reasonBuilder.WriteString("\n")
+			}
+			reasonBuilder.WriteString(actionOutput.PermissionDecisionReason)
+		}
+
+		// SystemMessage: concatenate with "\n"
+		if actionOutput.SystemMessage != "" {
+			if systemMessageBuilder.Len() > 0 {
+				systemMessageBuilder.WriteString("\n")
+			}
+			systemMessageBuilder.WriteString(actionOutput.SystemMessage)
+		}
+
+		// UpdatedInput: last non-nil value wins
+		if actionOutput.UpdatedInput != nil {
+			updatedInput = actionOutput.UpdatedInput
+		}
+
+		// Early return check AFTER collecting this action's data
+		if actionOutput.PermissionDecision == "deny" {
+			break
+		}
+	}
+
+	// Build final output
+	// Always set hookEventName to "PreToolUse"
+	if hookEventName == "" {
+		hookEventName = "PreToolUse"
+	}
+	finalOutput.HookSpecificOutput = &PreToolUseHookSpecificOutput{
+		HookEventName:            hookEventName,
+		PermissionDecision:       permissionDecision,
+		PermissionDecisionReason: reasonBuilder.String(),
+		UpdatedInput:             updatedInput,
 	}
 
 	finalOutput.SystemMessage = systemMessageBuilder.String()
