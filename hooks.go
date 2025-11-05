@@ -546,7 +546,9 @@ func executePreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inte
 			continue // Skip this hook's actions but continue checking others
 		}
 		if shouldExecute {
-			if err := executePreToolUseHook(executor, hook, input, rawJSON); err != nil {
+			// TODO: Task 9 will update this to properly handle JSON output and remove ExitError
+			_, err := executePreToolUseHook(executor, hook, input, rawJSON)
+			if err != nil {
 				// Action execution errors are fatal - return immediately with any collected condition errors
 				if exitErr, ok := err.(*ExitError); ok {
 					actionErr := &ExitError{
@@ -1117,16 +1119,69 @@ func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput)
 	return true, nil
 }
 
-// executePreToolUseHook executes all actions for a single PreToolUse hook.
-// TODO: Task 8 will update this to handle JSON output properly
-func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input *PreToolUseInput, rawJSON interface{}) error {
+// executePreToolUseHook executes all actions for a single PreToolUse hook and returns JSON output.
+// This function implements Phase 3 JSON output functionality for PreToolUse hooks.
+func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input *PreToolUseInput, rawJSON interface{}) (*ActionOutput, error) {
+	// Initialize output with Continue: true (always true for PreToolUse)
+	// and default permissionDecision: allow
+	output := &ActionOutput{
+		Continue:           true,
+		PermissionDecision: "allow",
+		HookEventName:      "PreToolUse",
+	}
+
+	var reasonBuilder strings.Builder
+	var systemMessageBuilder strings.Builder
+	var updatedInput map[string]interface{}
+
 	for _, action := range hook.Actions {
-		_, err := executor.ExecutePreToolUseAction(action, input, rawJSON)
+		actionOutput, err := executor.ExecutePreToolUseAction(action, input, rawJSON)
 		if err != nil {
-			return err
+			return nil, err
+		}
+
+		if actionOutput == nil {
+			continue
+		}
+
+		// Update output fields following merge rules
+
+		// PermissionDecision: last value wins
+		output.PermissionDecision = actionOutput.PermissionDecision
+
+		// PermissionDecisionReason: concatenate with "\n"
+		if actionOutput.PermissionDecisionReason != "" {
+			if reasonBuilder.Len() > 0 {
+				reasonBuilder.WriteString("\n")
+			}
+			reasonBuilder.WriteString(actionOutput.PermissionDecisionReason)
+		}
+
+		// SystemMessage: concatenate with "\n"
+		if actionOutput.SystemMessage != "" {
+			if systemMessageBuilder.Len() > 0 {
+				systemMessageBuilder.WriteString("\n")
+			}
+			systemMessageBuilder.WriteString(actionOutput.SystemMessage)
+		}
+
+		// UpdatedInput: last value wins (only non-nil)
+		if actionOutput.UpdatedInput != nil {
+			updatedInput = actionOutput.UpdatedInput
+		}
+
+		// Early return check for permissionDecision: deny
+		if actionOutput.PermissionDecision == "deny" {
+			break
 		}
 	}
-	return nil
+
+	// Build final output
+	output.PermissionDecisionReason = reasonBuilder.String()
+	output.SystemMessage = systemMessageBuilder.String()
+	output.UpdatedInput = updatedInput
+
+	return output, nil
 }
 
 // executePostToolUseHook executes all actions for a single PostToolUse hook.
