@@ -9,12 +9,6 @@ import (
 // runHooks parses input and executes hooks for the specified event type.
 func runHooks(config *Config, eventType HookEventType) error {
 	switch eventType {
-	case PreToolUse:
-		input, rawJSON, err := parseInput[*PreToolUseInput](eventType)
-		if err != nil {
-			return err
-		}
-		return executePreToolUseHooks(config, input, rawJSON)
 	case PostToolUse:
 		input, rawJSON, err := parseInput[*PostToolUseInput](eventType)
 		if err != nil {
@@ -537,52 +531,6 @@ func dryRunUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, r
 
 	if !executed {
 		fmt.Println("No matching UserPromptSubmit hooks found")
-	}
-	return nil
-}
-
-// executePreToolUseHooks executes all matching PreToolUse hooks based on matcher and condition checks.
-// Collects all condition check errors and returns them aggregated so users can fix all config issues in one run.
-func executePreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON interface{}) error {
-	executor := NewActionExecutor(nil)
-	var conditionErrors []error
-
-	for i, hook := range config.PreToolUse {
-		shouldExecute, err := shouldExecutePreToolUseHook(hook, input)
-		if err != nil {
-			// Collect condition check errors to show all config issues at once
-			conditionErrors = append(conditionErrors,
-				fmt.Errorf("hook[PreToolUse][%d]: %w", i, err))
-			continue // Skip this hook's actions but continue checking others
-		}
-		if shouldExecute {
-			// TODO: Task 9 will update this to properly handle JSON output and remove ExitError
-			_, err := executePreToolUseHook(executor, hook, input, rawJSON)
-			if err != nil {
-				// Action execution errors are fatal - return immediately with any collected condition errors
-				if exitErr, ok := err.(*ExitError); ok {
-					actionErr := &ExitError{
-						Code:    exitErr.Code,
-						Message: fmt.Sprintf("PreToolUse hook %d failed: %s", i, exitErr.Message),
-						Stderr:  exitErr.Stderr,
-					}
-					if len(conditionErrors) > 0 {
-						return errors.Join(append(conditionErrors, actionErr)...)
-					}
-					return actionErr
-				}
-				actionErr := fmt.Errorf("PreToolUse hook %d failed: %w", i, err)
-				if len(conditionErrors) > 0 {
-					return errors.Join(append(conditionErrors, actionErr)...)
-				}
-				return actionErr
-			}
-		}
-	}
-
-	// Return all condition errors aggregated
-	if len(conditionErrors) > 0 {
-		return errors.Join(conditionErrors...)
 	}
 	return nil
 }
