@@ -967,10 +967,10 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 	var conditionErrors []error
 	var actionErrors []error
 
-	// Initialize finalOutput with Continue: true, Decision: "allow"
+	// Initialize finalOutput with Continue: true, Decision: "approve"
 	finalOutput := &UserPromptSubmitOutput{
 		Continue: true,
-		Decision: "allow",
+		Decision: "approve",
 	}
 
 	var additionalContextBuilder strings.Builder
