@@ -652,7 +652,7 @@ func SkipTestExecutePreToolUseHook_OutputAction(t *testing.T) {
 	input := &PreToolUseInput{ToolName: "Write"}
 
 	executor := NewActionExecutor(nil)
-	err := executePreToolUseHook(executor, hook, input, nil)
+	_, err := executePreToolUseHook(executor, hook, input, nil)
 
 	// 標準出力を復元
 	_ = w.Close()
@@ -681,7 +681,7 @@ func SkipTestExecutePreToolUseHook_CommandAction(t *testing.T) {
 	input := &PreToolUseInput{ToolName: "Write"}
 
 	executor := NewActionExecutor(nil)
-	err := executePreToolUseHook(executor, hook, input, nil)
+	_, err := executePreToolUseHook(executor, hook, input, nil)
 	if err != nil {
 		t.Errorf("executePreToolUseHook() error = %v", err)
 	}
@@ -707,7 +707,7 @@ func SkipTestExecutePreToolUseHook_CommandWithVariables(t *testing.T) {
 	}
 
 	executor := NewActionExecutor(nil)
-	err := executePreToolUseHook(executor, hook, input, rawJSON)
+	_, err := executePreToolUseHook(executor, hook, input, rawJSON)
 	if err != nil {
 		t.Errorf("executePreToolUseHook() error = %v", err)
 	}
@@ -723,7 +723,7 @@ func SkipTestExecutePreToolUseHook_FailingCommand(t *testing.T) {
 	input := &PreToolUseInput{ToolName: "Write"}
 
 	executor := NewActionExecutor(nil)
-	err := executePreToolUseHook(executor, hook, input, nil)
+	_, err := executePreToolUseHook(executor, hook, input, nil)
 	if err == nil {
 		t.Error("Expected error for failing command, got nil")
 	}
@@ -739,7 +739,7 @@ func SkipTestExecutePreToolUseHook_FailingCommandReturnsExit2(t *testing.T) {
 	input := &PreToolUseInput{ToolName: "Write"}
 
 	executor := NewActionExecutor(nil)
-	err := executePreToolUseHook(executor, hook, input, nil)
+	_, err := executePreToolUseHook(executor, hook, input, nil)
 
 	// エラーが返されることを確認
 	if err == nil {
@@ -2113,5 +2113,126 @@ func TestExecuteUserPromptSubmitHooks_AdditionalContextConcatenation(t *testing.
 	expectedAdditionalContext := "First context\nSecond context\nThird context"
 	if output.HookSpecificOutput.AdditionalContext != expectedAdditionalContext {
 		t.Errorf("AdditionalContext = %q, want %q", output.HookSpecificOutput.AdditionalContext, expectedAdditionalContext)
+	}
+}
+
+// ============================================================================
+// Task 7: New tests for executePreToolUseHook (JSON output)
+// ============================================================================
+
+func TestExecutePreToolUseHook_NewSignature(t *testing.T) {
+	tests := []struct {
+		name                         string
+		config                       *Config
+		input                        *PreToolUseInput
+		wantPermissionDecision       string
+		wantPermissionDecisionReason string
+		wantHookEventName            string
+		wantUpdatedInput             map[string]interface{}
+		wantSystemMessage            string
+		wantErr                      bool
+	}{
+		{
+			name: "Single output action with permissionDecision: allow",
+			config: &Config{
+				PreToolUse: []PreToolUseHook{
+					{
+						Matcher: "Write",
+						Actions: []Action{
+							{
+								Type:               "output",
+								Message:            "Allowing write operation",
+								PermissionDecision: stringPtr("allow"),
+							},
+						},
+					},
+				},
+			},
+			input: &PreToolUseInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-123",
+					HookEventName:  PreToolUse,
+					TranscriptPath: "/tmp/transcript",
+				},
+				ToolName: "Write",
+				ToolInput: ToolInput{
+					FilePath: "test.txt",
+				},
+			},
+			wantPermissionDecision:       "allow",
+			wantPermissionDecisionReason: "Allowing write operation",
+			wantHookEventName:            "PreToolUse",
+			wantSystemMessage:            "",
+			wantErr:                      false,
+		},
+		{
+			name: "Single output action with permissionDecision: deny",
+			config: &Config{
+				PreToolUse: []PreToolUseHook{
+					{
+						Matcher: "Write",
+						Actions: []Action{
+							{
+								Type:               "output",
+								Message:            "Blocking dangerous operation",
+								PermissionDecision: stringPtr("deny"),
+							},
+						},
+					},
+				},
+			},
+			input: &PreToolUseInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-123",
+					HookEventName:  PreToolUse,
+					TranscriptPath: "/tmp/transcript",
+				},
+				ToolName: "Write",
+				ToolInput: ToolInput{
+					FilePath: "dangerous.sh",
+				},
+			},
+			wantPermissionDecision:       "deny",
+			wantPermissionDecisionReason: "Blocking dangerous operation",
+			wantHookEventName:            "PreToolUse",
+			wantSystemMessage:            "",
+			wantErr:                      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := NewActionExecutor(nil)
+			output, err := executePreToolUseHook(executor, tt.config.PreToolUse[0], tt.input, tt.input)
+
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("executePreToolUseHook() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if output == nil {
+				t.Fatal("output is nil")
+			}
+
+			// Continue is ALWAYS true for PreToolUse
+			if !output.Continue {
+				t.Errorf("Continue = %v, want true", output.Continue)
+			}
+
+			if output.PermissionDecision != tt.wantPermissionDecision {
+				t.Errorf("PermissionDecision = %q, want %q", output.PermissionDecision, tt.wantPermissionDecision)
+			}
+
+			if output.PermissionDecisionReason != tt.wantPermissionDecisionReason {
+				t.Errorf("PermissionDecisionReason = %q, want %q", output.PermissionDecisionReason, tt.wantPermissionDecisionReason)
+			}
+
+			if output.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName = %q, want %q", output.HookEventName, tt.wantHookEventName)
+			}
+
+			if output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+		})
 	}
 }
