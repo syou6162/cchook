@@ -316,7 +316,7 @@ UserPromptSubmit:
   - actions:
       - type: output
         message: "Prompt validation message"
-        decision: "allow"  # optional: "allow" or "block", defaults to "allow"
+        decision: "approve"  # optional: "approve" or "block", defaults to "approve"
 ```
 
 **Command Action** (type: `command`):
@@ -324,7 +324,7 @@ Commands must output JSON with the following structure:
 ```json
 {
   "continue": true,
-  "decision": "allow",
+  "decision": "approve",
   "hookSpecificOutput": {
     "hookEventName": "UserPromptSubmit",
     "additionalContext": "Message to display"
@@ -341,7 +341,7 @@ When multiple actions execute:
 - `additionalContext` and `systemMessage`: Concatenated with newline separator
 
 **Exit Code Behavior**:
-UserPromptSubmit hooks **always exit with code 0**. The `decision` field controls whether the prompt is allowed or blocked:
+UserPromptSubmit hooks **always exit with code 0**. The `decision` field controls whether the prompt is approved or blocked:
 - `"allow"`: Prompt processing continues normally
 - `"block"`: Prompt processing is blocked (early return)
 
@@ -349,7 +349,7 @@ Errors are logged to stderr as warnings, but cchook continues to output JSON and
 
 **Empty stdout behavior**:
 When a command action returns empty stdout (e.g., validation tools that only output on failure):
-- The decision defaults to "allow"
+- The decision defaults to "approve"
 - This supports validation-type CLI tools following the Unix philosophy ("silence is golden")
 
 Example:
@@ -357,7 +357,7 @@ Example:
 UserPromptSubmit:
   - actions:
       - type: command
-        command: "lint-prompt.sh"  # No output on success → decision: "allow"
+        command: "lint-prompt.sh"  # No output on success → decision: "approve"
 ```
 
 Best practice: For clarity, always return explicit JSON output from commands.
