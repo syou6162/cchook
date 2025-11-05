@@ -1137,6 +1137,23 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 	allErrors = append(allErrors, actionErrors...)
 
 	if len(allErrors) > 0 {
+		// Requirement 6.4: On error, set permissionDecision to "deny" and include error in systemMessage
+		finalOutput.HookSpecificOutput.PermissionDecision = "deny"
+
+		// Build error message
+		var errorMessages []string
+		for _, err := range allErrors {
+			errorMessages = append(errorMessages, err.Error())
+		}
+		errorMsg := strings.Join(errorMessages, "\n")
+
+		// Append to systemMessage (preserve existing messages if any)
+		if finalOutput.SystemMessage != "" {
+			finalOutput.SystemMessage += "\n" + errorMsg
+		} else {
+			finalOutput.SystemMessage = errorMsg
+		}
+
 		return finalOutput, errors.Join(allErrors...)
 	}
 

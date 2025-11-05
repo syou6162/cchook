@@ -555,11 +555,11 @@ func checkUnsupportedFieldsPreToolUse(stdout string) {
 
 	supportedFields := map[string]bool{
 		"continue":           true,
-		"permissionDecision": true, // PreToolUse specific
 		"stopReason":         true,
 		"suppressOutput":     true,
 		"systemMessage":      true,
 		"hookSpecificOutput": true,
+		// Note: "permissionDecision" should be inside hookSpecificOutput, not at top level
 	}
 
 	for field := range data {
