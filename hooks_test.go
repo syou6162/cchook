@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"os"
 	"strings"
@@ -856,84 +855,6 @@ func TestExecutePostToolUseHook_Success(t *testing.T) {
 	}
 }
 
-func SkipTestExecutePreToolUseHooks_Integration(t *testing.T) {
-	config := &Config{
-		PreToolUse: []PreToolUseHook{
-			{
-				Matcher: "Write",
-				Actions: []Action{
-					{Type: "command", Command: "false"}, // 失敗するコマンド
-				},
-			},
-		},
-	}
-
-	input := &PreToolUseInput{ToolName: "Write"}
-
-	err := executePreToolUseHooks(config, input, nil)
-
-	// executePreToolUseHooksはフック失敗時にエラーを返す
-	if err == nil {
-		t.Error("Expected executePreToolUseHooks to return error for failing command")
-	}
-
-	// エラーメッセージに"PreToolUse hook 0 failed"が含まれることを確認
-	if !strings.Contains(err.Error(), "PreToolUse hook 0 failed") {
-		t.Errorf("Expected error message to contain hook failure message, got: %q", err.Error())
-	}
-}
-
-func SkipTestExecutePreToolUseHooks_ConditionErrorAggregation(t *testing.T) {
-	// 無効な条件タイプを含む設定（prompt_regex はPreToolUseでは使えない）
-	config := &Config{
-		PreToolUse: []PreToolUseHook{
-			{
-				Matcher: "Write",
-				Conditions: []Condition{
-					{Type: ConditionPromptRegex, Value: "test"}, // PreToolUseでは無効
-				},
-				Actions: []Action{
-					{Type: "output", Message: "test"},
-				},
-			},
-			{
-				Matcher: "Write", // 2件目もWriteにマッチするように変更
-				Conditions: []Condition{
-					{Type: ConditionEveryNPrompts, Value: "5"}, // これもPreToolUseでは無効
-				},
-				Actions: []Action{
-					{Type: "output", Message: "test"},
-				},
-			},
-		},
-	}
-
-	input := &PreToolUseInput{
-		BaseInput: BaseInput{Cwd: "/tmp"},
-		ToolName:  "Write",
-	}
-
-	err := executePreToolUseHooks(config, input, nil)
-
-	// エラーが返されることを確認
-	if err == nil {
-		t.Fatal("Expected error for invalid condition types, got nil")
-	}
-
-	// エラーメッセージに両方のフックのエラーが含まれることを確認（errors.Joinによる集約）
-	errMsg := err.Error()
-	if !strings.Contains(errMsg, "hook[PreToolUse][0]") {
-		t.Errorf("Expected error message to contain first hook error, got: %q", errMsg)
-	}
-	// 2件目のフックのエラーも含まれることを確認（Editツールにマッチするフックもある）
-	if !strings.Contains(errMsg, "hook[PreToolUse][1]") {
-		t.Errorf("Expected error message to contain second hook error, got: %q", errMsg)
-	}
-	if !strings.Contains(errMsg, "unknown condition type") {
-		t.Errorf("Expected error message to contain 'unknown condition type', got: %q", errMsg)
-	}
-}
-
 func TestExecutePostToolUseHooks_ConditionErrorAggregation(t *testing.T) {
 	// 複数の無効な条件タイプを含む設定
 	config := &Config{
@@ -1019,65 +940,6 @@ func TestExecuteNotificationHooks_ConditionErrorAggregation(t *testing.T) {
 	}
 	if !strings.Contains(errMsg, "unknown condition type") {
 		t.Errorf("Expected error message to contain 'unknown condition type', got: %q", errMsg)
-	}
-}
-
-func SkipTestExecutePreToolUseHooks_ConditionErrorAndExitError(t *testing.T) {
-	// 条件エラーとアクション実行エラー（ExitError）が同時に発生するケース
-	exitStatus := 10
-	config := &Config{
-		PreToolUse: []PreToolUseHook{
-			{
-				Matcher: "Write",
-				Conditions: []Condition{
-					{Type: ConditionPromptRegex, Value: "test"}, // PreToolUseでは無効
-				},
-				Actions: []Action{
-					{Type: "output", Message: "test"},
-				},
-			},
-			{
-				Matcher: "Write",
-				Actions: []Action{
-					{Type: "output", Message: "will fail", ExitStatus: &exitStatus},
-				},
-			},
-		},
-	}
-
-	input := &PreToolUseInput{
-		BaseInput: BaseInput{Cwd: "/tmp"},
-		ToolName:  "Write",
-	}
-
-	err := executePreToolUseHooks(config, input, nil)
-
-	// エラーが返されることを確認
-	if err == nil {
-		t.Fatal("Expected error, got nil")
-	}
-
-	// errors.Asを使ってExitErrorを取り出せることを確認
-	var exitErr *ExitError
-	if !errors.As(err, &exitErr) {
-		t.Fatal("Expected ExitError to be extractable with errors.As, but it wasn't")
-	}
-
-	// ExitErrorの情報が保持されていることを確認
-	if exitErr.Code != 10 {
-		t.Errorf("Expected exit code 10, got %d", exitErr.Code)
-	}
-	if exitErr.Stderr != false {
-		t.Errorf("Expected Stderr=false, got %v", exitErr.Stderr)
-	}
-
-	// エラーメッセージに条件エラーとアクションエラーの両方が含まれることを確認
-	errMsg := err.Error()
-	if !strings.Contains(errMsg, "hook[PreToolUse][0]") {
-		t.Errorf("Expected error message to contain condition error, got: %q", errMsg)
-	}
-	if !strings.Contains(errMsg, "PreToolUse hook 1 failed") {
-		t.Errorf("Expected error message to contain action error, got: %q", errMsg)
 	}
 }
 
