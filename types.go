@@ -171,13 +171,34 @@ type SessionStartHookSpecificOutput struct {
 
 // ActionOutput はアクション実行結果を表す内部型（JSONには直接出力されない）
 type ActionOutput struct {
-	Continue          bool
-	Decision          string // "allow" or "block" (UserPromptSubmit only, empty for SessionStart)
-	StopReason        string
-	SuppressOutput    bool
-	SystemMessage     string
-	HookEventName     string
-	AdditionalContext string
+	Continue                 bool
+	Decision                 string // "allow" or "block" (UserPromptSubmit only, empty for SessionStart)
+	PermissionDecision       string // "allow", "deny", or "ask" (PreToolUse only, empty for SessionStart/UserPromptSubmit)
+	PermissionDecisionReason string // Reason for permission decision (PreToolUse only)
+	UpdatedInput             map[string]interface{} // Updated tool input parameters (PreToolUse only)
+	StopReason               string
+	SuppressOutput           bool
+	SystemMessage            string
+	HookEventName            string
+	AdditionalContext        string
+}
+
+// PreToolUseOutput represents the complete JSON output structure for PreToolUse hooks
+// following Claude Code JSON specification for Phase 3
+type PreToolUseOutput struct {
+	Continue           bool                            `json:"continue"`
+	StopReason         string                          `json:"stopReason,omitempty"`
+	SuppressOutput     bool                            `json:"suppressOutput,omitempty"`
+	SystemMessage      string                          `json:"systemMessage,omitempty"`
+	HookSpecificOutput *PreToolUseHookSpecificOutput   `json:"hookSpecificOutput"` // Required for PreToolUse (not omitempty)
+}
+
+// PreToolUseHookSpecificOutput represents the hookSpecificOutput field for PreToolUse hooks
+type PreToolUseHookSpecificOutput struct {
+	HookEventName            string                 `json:"hookEventName"` // Always "PreToolUse"
+	PermissionDecision       string                 `json:"permissionDecision"` // Required: "allow", "deny", or "ask"
+	PermissionDecisionReason string                 `json:"permissionDecisionReason,omitempty"`
+	UpdatedInput             map[string]interface{} `json:"updatedInput,omitempty"`
 }
 
 // UserPromptSubmit用
@@ -382,13 +403,14 @@ type Condition struct {
 
 // Action - 全てのイベントタイプで共通のアクション構造体
 type Action struct {
-	Type       string  `yaml:"type"`
-	Command    string  `yaml:"command,omitempty"`
-	Message    string  `yaml:"message,omitempty"`
-	UseStdin   bool    `yaml:"use_stdin,omitempty"`
-	ExitStatus *int    `yaml:"exit_status,omitempty"`
-	Continue   *bool   `yaml:"continue,omitempty"`
-	Decision   *string `yaml:"decision,omitempty"` // "allow" or "block" (UserPromptSubmit only)
+	Type               string  `yaml:"type"`
+	Command            string  `yaml:"command,omitempty"`
+	Message            string  `yaml:"message,omitempty"`
+	UseStdin           bool    `yaml:"use_stdin,omitempty"`
+	ExitStatus         *int    `yaml:"exit_status,omitempty"`
+	Continue           *bool   `yaml:"continue,omitempty"`
+	Decision           *string `yaml:"decision,omitempty"` // "allow" or "block" (UserPromptSubmit only)
+	PermissionDecision *string `yaml:"permission_decision,omitempty"` // "allow", "deny", or "ask" (PreToolUse only)
 }
 
 // 設定ファイル構造
