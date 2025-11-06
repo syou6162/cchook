@@ -1085,14 +1085,19 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 		// finalOutput.Continue remains true
 
 		// PermissionDecision: last value wins
+		// If permissionDecision changes, reset permissionDecisionReason to avoid contradictions
+		previousDecision := permissionDecision
 		permissionDecision = actionOutput.PermissionDecision
+		if previousDecision != permissionDecision {
+			reasonBuilder.Reset()
+		}
 
 		// HookEventName: set once and preserve
 		if hookEventName == "" && actionOutput.HookEventName != "" {
 			hookEventName = actionOutput.HookEventName
 		}
 
-		// PermissionDecisionReason: concatenate with "\n"
+		// PermissionDecisionReason: concatenate with "\n" if decision unchanged, otherwise replace
 		if actionOutput.PermissionDecisionReason != "" {
 			if reasonBuilder.Len() > 0 {
 				reasonBuilder.WriteString("\n")
@@ -1242,9 +1247,14 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 		// Update output fields following merge rules
 
 		// PermissionDecision: last value wins
+		// If permissionDecision changes, reset permissionDecisionReason to avoid contradictions
+		previousDecision := output.PermissionDecision
 		output.PermissionDecision = actionOutput.PermissionDecision
+		if previousDecision != output.PermissionDecision {
+			reasonBuilder.Reset()
+		}
 
-		// PermissionDecisionReason: concatenate with "\n"
+		// PermissionDecisionReason: concatenate with "\n" if decision unchanged, otherwise replace
 		if actionOutput.PermissionDecisionReason != "" {
 			if reasonBuilder.Len() > 0 {
 				reasonBuilder.WriteString("\n")
