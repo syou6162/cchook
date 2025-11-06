@@ -1052,6 +1052,8 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 	hookEventName := ""
 	permissionDecision := "allow" // Default
 	var updatedInput map[string]interface{}
+	stopReason := ""
+	suppressOutput := false
 
 	for i, hook := range config.PreToolUse {
 		// Matcher and condition checks
@@ -1111,6 +1113,14 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 			updatedInput = actionOutput.UpdatedInput
 		}
 
+		// StopReason: last non-empty value wins
+		if actionOutput.StopReason != "" {
+			stopReason = actionOutput.StopReason
+		}
+
+		// SuppressOutput: last value wins
+		suppressOutput = actionOutput.SuppressOutput
+
 		// Early return check AFTER collecting this action's data
 		if actionOutput.PermissionDecision == "deny" {
 			break
@@ -1130,6 +1140,8 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 	}
 
 	finalOutput.SystemMessage = systemMessageBuilder.String()
+	finalOutput.StopReason = stopReason
+	finalOutput.SuppressOutput = suppressOutput
 
 	// Collect all errors
 	var allErrors []error
@@ -1252,6 +1264,14 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 		if actionOutput.UpdatedInput != nil {
 			updatedInput = actionOutput.UpdatedInput
 		}
+
+		// StopReason: last non-empty value wins
+		if actionOutput.StopReason != "" {
+			output.StopReason = actionOutput.StopReason
+		}
+
+		// SuppressOutput: last value wins
+		output.SuppressOutput = actionOutput.SuppressOutput
 
 		// Early return check for permissionDecision: deny
 		if actionOutput.PermissionDecision == "deny" {
