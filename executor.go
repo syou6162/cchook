@@ -441,7 +441,8 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 		}
 
 		// Validate action.PermissionDecision if set
-		permissionDecision := "allow" // default
+		// Default to "deny" for backward compatibility (formerly exit status 2)
+		permissionDecision := "deny"
 		if action.PermissionDecision != nil {
 			if *action.PermissionDecision != "allow" && *action.PermissionDecision != "deny" && *action.PermissionDecision != "ask" {
 				return &ActionOutput{

@@ -989,7 +989,8 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 				}
 			}`,
 			commandExitCode:        0,
-			wantPermissionDecision: "allow",
+			wantPermissionDecision: "deny",
+			wantSystemMessage:      "Missing required field 'permissionDecision' in command output",
 			wantHookEventName:      "PreToolUse",
 		},
 		{
