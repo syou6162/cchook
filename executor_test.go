@@ -796,10 +796,10 @@ func TestExecutePreToolUseAction_TypeOutput(t *testing.T) {
 		wantHookEventName            string
 	}{
 		{
-			name: "Message with permissionDecision unspecified -> permissionDecision: allow",
+			name: "Message with permissionDecision unspecified -> permissionDecision: deny (backward compatibility)",
 			action: Action{
 				Type:    "output",
-				Message: "Operation allowed",
+				Message: "Operation blocked by default",
 			},
 			input: &PreToolUseInput{
 				ToolName: "Write",
@@ -807,8 +807,8 @@ func TestExecutePreToolUseAction_TypeOutput(t *testing.T) {
 					FilePath: "test.txt",
 				},
 			},
-			wantPermissionDecision:       "allow",
-			wantPermissionDecisionReason: "Operation allowed",
+			wantPermissionDecision:       "deny",
+			wantPermissionDecisionReason: "Operation blocked by default",
 			wantHookEventName:            "PreToolUse",
 		},
 		{
@@ -854,7 +854,7 @@ func TestExecutePreToolUseAction_TypeOutput(t *testing.T) {
 			wantHookEventName:      "PreToolUse",
 		},
 		{
-			name: "Message with template variables -> correctly expanded",
+			name: "Message with template variables -> correctly expanded (deny by default)",
 			action: Action{
 				Type:    "output",
 				Message: "File operation on {.tool_input.file_path}",
@@ -865,7 +865,7 @@ func TestExecutePreToolUseAction_TypeOutput(t *testing.T) {
 					FilePath: "config.yaml",
 				},
 			},
-			wantPermissionDecision:       "allow",
+			wantPermissionDecision:       "deny",
 			wantPermissionDecisionReason: "File operation on config.yaml",
 			wantHookEventName:            "PreToolUse",
 		},

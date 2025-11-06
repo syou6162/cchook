@@ -373,12 +373,19 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 			}, nil
 		}
 
-		// Validate permissionDecision field
+		// Validate permissionDecision field (required field - fail-safe to "deny" if missing)
 		permissionDecision := cmdOutput.HookSpecificOutput.PermissionDecision
 		if permissionDecision == "" {
-			// Default to "allow" if unspecified
-			permissionDecision = "allow"
-		} else if permissionDecision != "allow" && permissionDecision != "deny" && permissionDecision != "ask" {
+			// Fail-safe: Default to "deny" if permissionDecision is missing
+			return &ActionOutput{
+				Continue:           true,
+				PermissionDecision: "deny",
+				HookEventName:      "PreToolUse",
+				SystemMessage:      "Missing required field 'permissionDecision' in command output",
+			}, nil
+		}
+
+		if permissionDecision != "allow" && permissionDecision != "deny" && permissionDecision != "ask" {
 			return &ActionOutput{
 				Continue:           true,
 				PermissionDecision: "deny",
@@ -387,21 +394,19 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 			}, nil
 		}
 
-		// Validate against JSON Schema if permissionDecision is specified
+		// Validate against JSON Schema
 		// This checks:
 		// - hookSpecificOutput exists (required field)
 		// - hookEventName is "PreToolUse" (enum validation)
-		// - permissionDecision is "allow", "deny", or "ask" (if present)
+		// - permissionDecision is "allow", "deny", or "ask" (required field)
 		// - All field types match the schema
-		if cmdOutput.HookSpecificOutput.PermissionDecision != "" {
-			if err := validatePreToolUseOutput([]byte(stdout)); err != nil {
-				return &ActionOutput{
-					Continue:           true,
-					PermissionDecision: "deny",
-					HookEventName:      "PreToolUse",
-					SystemMessage:      fmt.Sprintf("Command output validation failed: %s", err.Error()),
-				}, nil
-			}
+		if err := validatePreToolUseOutput([]byte(stdout)); err != nil {
+			return &ActionOutput{
+				Continue:           true,
+				PermissionDecision: "deny",
+				HookEventName:      "PreToolUse",
+				SystemMessage:      fmt.Sprintf("Command output validation failed: %s", err.Error()),
+			}, nil
 		}
 
 		// Check for unsupported fields and log warnings to stderr
