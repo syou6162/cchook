@@ -419,6 +419,8 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 			PermissionDecision:       permissionDecision,
 			PermissionDecisionReason: cmdOutput.HookSpecificOutput.PermissionDecisionReason,
 			UpdatedInput:             cmdOutput.HookSpecificOutput.UpdatedInput,
+			StopReason:               cmdOutput.StopReason,
+			SuppressOutput:           cmdOutput.SuppressOutput,
 			HookEventName:            cmdOutput.HookSpecificOutput.HookEventName,
 			SystemMessage:            cmdOutput.SystemMessage,
 		}

@@ -974,7 +974,7 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 			wantHookEventName: "PreToolUse",
 		},
 		{
-			name: "Command with permissionDecision unspecified -> permissionDecision: allow",
+			name: "Command with permissionDecision missing -> fail-safe to deny",
 			action: Action{
 				Type:    "command",
 				Command: "echo test",
