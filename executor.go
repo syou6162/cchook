@@ -313,20 +313,175 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 	return nil, nil
 }
 
-// ExecutePreToolUseAction executes an action for the PreToolUse event.
-// Command failures result in exit status 2 to block tool execution.
-func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUseInput, rawJSON interface{}) error {
+// ExecutePreToolUseAction executes an action for the PreToolUse event and returns JSON output.
+// This method implements Phase 3 JSON output functionality for PreToolUse hooks.
+func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUseInput, rawJSON interface{}) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := e.runner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			// PreToolUseでコマンドが失敗した場合はexit 2でツール実行をブロック
-			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
+		stdout, stderr, exitCode, err := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
+
+		// Command failed with non-zero exit code
+		if exitCode != 0 {
+			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:           true,
+				PermissionDecision: "deny",
+				HookEventName:      "PreToolUse",
+				SystemMessage:      errMsg,
+			}, nil
 		}
+
+		// Empty stdout - Allow for validation-type CLI tools
+		// Tools like linters exit 0 with no output when everything is OK.
+		// In this case, we return continue: true with permissionDecision: allow to proceed.
+		if strings.TrimSpace(stdout) == "" {
+			return &ActionOutput{
+				Continue:           true,
+				PermissionDecision: "allow",
+				HookEventName:      "PreToolUse",
+			}, nil
+		}
+
+		// Parse JSON output
+		var cmdOutput PreToolUseOutput
+		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			errMsg := fmt.Sprintf("Command output is not valid JSON: %s", stdout)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:           true,
+				PermissionDecision: "deny",
+				HookEventName:      "PreToolUse",
+				SystemMessage:      errMsg,
+			}, nil
+		}
+
+		// Check for required field: hookSpecificOutput.hookEventName
+		if cmdOutput.HookSpecificOutput == nil || cmdOutput.HookSpecificOutput.HookEventName == "" {
+			errMsg := "Command output is missing required field: hookSpecificOutput.hookEventName"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:           true,
+				PermissionDecision: "deny",
+				HookEventName:      "PreToolUse",
+				SystemMessage:      errMsg,
+			}, nil
+		}
+
+		// Validate hookEventName value
+		if cmdOutput.HookSpecificOutput.HookEventName != "PreToolUse" {
+			errMsg := fmt.Sprintf("Invalid hookEventName: expected 'PreToolUse', got '%s'", cmdOutput.HookSpecificOutput.HookEventName)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:           true,
+				PermissionDecision: "deny",
+				HookEventName:      "PreToolUse",
+				SystemMessage:      errMsg,
+			}, nil
+		}
+
+		// Validate permissionDecision field (required field - fail-safe to "deny" if missing)
+		permissionDecision := cmdOutput.HookSpecificOutput.PermissionDecision
+		if permissionDecision == "" {
+			// Fail-safe: Default to "deny" if permissionDecision is missing
+			errMsg := "Missing required field 'permissionDecision' in command output"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:           true,
+				PermissionDecision: "deny",
+				HookEventName:      "PreToolUse",
+				SystemMessage:      errMsg,
+			}, nil
+		}
+
+		if permissionDecision != "allow" && permissionDecision != "deny" && permissionDecision != "ask" {
+			errMsg := "Invalid permissionDecision value: must be 'allow', 'deny', or 'ask'"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:           true,
+				PermissionDecision: "deny",
+				HookEventName:      "PreToolUse",
+				SystemMessage:      errMsg,
+			}, nil
+		}
+
+		// Validate against JSON Schema
+		// This checks:
+		// - hookSpecificOutput exists (required field)
+		// - hookEventName is "PreToolUse" (enum validation)
+		// - permissionDecision is "allow", "deny", or "ask" (required field)
+		// - All field types match the schema
+		if err := validatePreToolUseOutput([]byte(stdout)); err != nil {
+			errMsg := fmt.Sprintf("Command output validation failed: %s", err.Error())
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:           true,
+				PermissionDecision: "deny",
+				HookEventName:      "PreToolUse",
+				SystemMessage:      errMsg,
+			}, nil
+		}
+
+		// Check for unsupported fields and log warnings to stderr
+		checkUnsupportedFieldsPreToolUse(stdout)
+
+		// Build ActionOutput from parsed JSON
+		// After validation, hookSpecificOutput is guaranteed to exist
+		result := &ActionOutput{
+			Continue:                 true,
+			PermissionDecision:       permissionDecision,
+			PermissionDecisionReason: cmdOutput.HookSpecificOutput.PermissionDecisionReason,
+			UpdatedInput:             cmdOutput.HookSpecificOutput.UpdatedInput,
+			StopReason:               cmdOutput.StopReason,
+			SuppressOutput:           cmdOutput.SuppressOutput,
+			HookEventName:            cmdOutput.HookSpecificOutput.HookEventName,
+			SystemMessage:            cmdOutput.SystemMessage,
+		}
+
+		return result, err
+
 	case "output":
-		return handleOutput(action.Message, action.ExitStatus, rawJSON)
+		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
+
+		// Empty message check
+		if strings.TrimSpace(processedMessage) == "" {
+			errMsg := "Action output has no message"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:           true,
+				PermissionDecision: "deny",
+				HookEventName:      "PreToolUse",
+				SystemMessage:      errMsg,
+			}, nil
+		}
+
+		// Validate action.PermissionDecision if set
+		// Default to "deny" for backward compatibility (formerly exit status 2)
+		permissionDecision := "deny"
+		if action.PermissionDecision != nil {
+			if *action.PermissionDecision != "allow" && *action.PermissionDecision != "deny" && *action.PermissionDecision != "ask" {
+				errMsg := "Invalid permission_decision value in action config: must be 'allow', 'deny', or 'ask'"
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+				return &ActionOutput{
+					Continue:           true,
+					PermissionDecision: "deny",
+					HookEventName:      "PreToolUse",
+					SystemMessage:      errMsg,
+				}, nil
+			}
+			permissionDecision = *action.PermissionDecision
+		}
+
+		return &ActionOutput{
+			Continue:                 true,
+			PermissionDecision:       permissionDecision,
+			HookEventName:            "PreToolUse",
+			PermissionDecisionReason: processedMessage,
+		}, nil
 	}
-	return nil
+
+	return nil, nil
 }
 
 // ExecutePostToolUseAction executes an action for the PostToolUse event.
@@ -411,6 +566,31 @@ func checkUnsupportedFieldsUserPromptSubmit(stdout string) {
 	for field := range data {
 		if !supportedFields[field] {
 			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for UserPromptSubmit hooks\n", field)
+		}
+	}
+}
+
+// checkUnsupportedFieldsPreToolUse checks for unsupported fields in PreToolUse JSON output
+// and logs warnings to stderr for any fields that are not in the supported list.
+func checkUnsupportedFieldsPreToolUse(stdout string) {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+		// JSON parsing failed - this will be caught by the main validation
+		return
+	}
+
+	supportedFields := map[string]bool{
+		"continue":           true,
+		"stopReason":         true,
+		"suppressOutput":     true,
+		"systemMessage":      true,
+		"hookSpecificOutput": true,
+		// Note: "permissionDecision" should be inside hookSpecificOutput, not at top level
+	}
+
+	for field := range data {
+		if !supportedFields[field] {
+			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for PreToolUse hooks\n", field)
 		}
 	}
 }

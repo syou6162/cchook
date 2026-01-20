@@ -784,6 +784,519 @@ func TestExecuteUserPromptSubmitAction_TypeCommand(t *testing.T) {
 	}
 }
 
+// TestExecutePreToolUseAction_TypeOutput tests ExecutePreToolUseAction with type: output (Phase 3)
+func TestExecutePreToolUseAction_TypeOutput(t *testing.T) {
+	tests := []struct {
+		name                         string
+		action                       Action
+		input                        *PreToolUseInput
+		wantPermissionDecision       string
+		wantPermissionDecisionReason string
+		wantSystemMessage            string
+		wantHookEventName            string
+	}{
+		{
+			name: "Message with permissionDecision unspecified -> permissionDecision: deny (backward compatibility)",
+			action: Action{
+				Type:    "output",
+				Message: "Operation blocked by default",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+				ToolInput: ToolInput{
+					FilePath: "test.txt",
+				},
+			},
+			wantPermissionDecision:       "deny",
+			wantPermissionDecisionReason: "Operation blocked by default",
+			wantHookEventName:            "PreToolUse",
+		},
+		{
+			name: "Message with permissionDecision: deny",
+			action: Action{
+				Type:               "output",
+				Message:            "Dangerous operation detected",
+				PermissionDecision: stringPtr("deny"),
+			},
+			input: &PreToolUseInput{
+				ToolName: "Bash",
+			},
+			wantPermissionDecision:       "deny",
+			wantPermissionDecisionReason: "Dangerous operation detected",
+			wantHookEventName:            "PreToolUse",
+		},
+		{
+			name: "Message with permissionDecision: ask",
+			action: Action{
+				Type:               "output",
+				Message:            "Please confirm this operation",
+				PermissionDecision: stringPtr("ask"),
+			},
+			input: &PreToolUseInput{
+				ToolName: "Edit",
+			},
+			wantPermissionDecision:       "ask",
+			wantPermissionDecisionReason: "Please confirm this operation",
+			wantHookEventName:            "PreToolUse",
+		},
+		{
+			name: "Message with invalid permissionDecision value -> permissionDecision: deny + systemMessage",
+			action: Action{
+				Type:               "output",
+				Message:            "Test message",
+				PermissionDecision: stringPtr("invalid_value"),
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+			},
+			wantPermissionDecision: "deny",
+			wantSystemMessage:      "Invalid permission_decision value in action config: must be 'allow', 'deny', or 'ask'",
+			wantHookEventName:      "PreToolUse",
+		},
+		{
+			name: "Message with template variables -> correctly expanded (deny by default)",
+			action: Action{
+				Type:    "output",
+				Message: "File operation on {.tool_input.file_path}",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+				ToolInput: ToolInput{
+					FilePath: "config.yaml",
+				},
+			},
+			wantPermissionDecision:       "deny",
+			wantPermissionDecisionReason: "File operation on config.yaml",
+			wantHookEventName:            "PreToolUse",
+		},
+		{
+			name: "Empty message -> permissionDecision: deny + systemMessage",
+			action: Action{
+				Type:    "output",
+				Message: "",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Bash",
+			},
+			wantPermissionDecision: "deny",
+			wantSystemMessage:      "Action output has no message",
+			wantHookEventName:      "PreToolUse",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := NewActionExecutor(nil)
+			rawJSON := map[string]interface{}{
+				"tool_name":  tt.input.ToolName,
+				"tool_input": tt.input.ToolInput,
+			}
+
+			output, err := executor.ExecutePreToolUseAction(tt.action, tt.input, rawJSON)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got: %v", err)
+			}
+
+			if output.Continue != true {
+				t.Errorf("Continue should always be true for PreToolUse, got: %v", output.Continue)
+			}
+
+			if output.PermissionDecision != tt.wantPermissionDecision {
+				t.Errorf("PermissionDecision mismatch. Got %q, want %q", output.PermissionDecision, tt.wantPermissionDecision)
+			}
+
+			if output.PermissionDecisionReason != tt.wantPermissionDecisionReason {
+				t.Errorf("PermissionDecisionReason mismatch. Got %q, want %q", output.PermissionDecisionReason, tt.wantPermissionDecisionReason)
+			}
+
+			if output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage mismatch. Got %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+
+			if output.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName mismatch. Got %q, want %q", output.HookEventName, tt.wantHookEventName)
+			}
+
+			// UpdatedInput should not be set for type: output
+			if output.UpdatedInput != nil {
+				t.Errorf("UpdatedInput should be nil for type: output, got: %v", output.UpdatedInput)
+			}
+		})
+	}
+}
+
+// TestExecutePreToolUseAction_TypeCommand tests ExecutePreToolUseAction with type: command (Phase 3)
+func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
+	tests := []struct {
+		name                         string
+		action                       Action
+		input                        *PreToolUseInput
+		commandOutput                string
+		commandExitCode              int
+		wantPermissionDecision       string
+		wantPermissionDecisionReason string
+		wantUpdatedInput             map[string]interface{}
+		wantSystemMessage            string
+		wantHookEventName            string
+	}{
+		{
+			name: "Command success with complete JSON format -> correctly parsed and fields propagated",
+			action: Action{
+				Type:    "command",
+				Command: "echo test",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+				ToolInput: ToolInput{
+					FilePath: "test.txt",
+				},
+			},
+			commandOutput: `{
+				"continue": true,
+				"systemMessage": "Command executed successfully",
+				"hookSpecificOutput": {
+					"hookEventName": "PreToolUse",
+					"permissionDecision": "allow",
+					"permissionDecisionReason": "Safe operation",
+					"updatedInput": {
+						"file_path": "modified.txt"
+					}
+				}
+			}`,
+			commandExitCode:              0,
+			wantPermissionDecision:       "allow",
+			wantPermissionDecisionReason: "Safe operation",
+			wantUpdatedInput: map[string]interface{}{
+				"file_path": "modified.txt",
+			},
+			wantSystemMessage: "Command executed successfully",
+			wantHookEventName: "PreToolUse",
+		},
+		{
+			name: "Command with permissionDecision missing -> fail-safe to deny",
+			action: Action{
+				Type:    "command",
+				Command: "echo test",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Edit",
+			},
+			commandOutput: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PreToolUse"
+				}
+			}`,
+			commandExitCode:        0,
+			wantPermissionDecision: "deny",
+			wantSystemMessage:      "Missing required field 'permissionDecision' in command output",
+			wantHookEventName:      "PreToolUse",
+		},
+		{
+			name: "Command with permissionDecision: deny",
+			action: Action{
+				Type:    "command",
+				Command: "validate.sh",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Bash",
+			},
+			commandOutput: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PreToolUse",
+					"permissionDecision": "deny",
+					"permissionDecisionReason": "Blocked by policy"
+				}
+			}`,
+			commandExitCode:              0,
+			wantPermissionDecision:       "deny",
+			wantPermissionDecisionReason: "Blocked by policy",
+			wantHookEventName:            "PreToolUse",
+		},
+		{
+			name: "Command with permissionDecision: ask",
+			action: Action{
+				Type:    "command",
+				Command: "check.sh",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+			},
+			commandOutput: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PreToolUse",
+					"permissionDecision": "ask",
+					"permissionDecisionReason": "Needs confirmation"
+				}
+			}`,
+			commandExitCode:              0,
+			wantPermissionDecision:       "ask",
+			wantPermissionDecisionReason: "Needs confirmation",
+			wantHookEventName:            "PreToolUse",
+		},
+		{
+			name: "Command with updatedInput + permissionDecision: allow (recommended)",
+			action: Action{
+				Type:    "command",
+				Command: "modifier.sh",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+				ToolInput: ToolInput{
+					FilePath: "original.txt",
+				},
+			},
+			commandOutput: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PreToolUse",
+					"permissionDecision": "allow",
+					"updatedInput": {
+						"file_path": "sanitized.txt"
+					}
+				}
+			}`,
+			commandExitCode:        0,
+			wantPermissionDecision: "allow",
+			wantUpdatedInput: map[string]interface{}{
+				"file_path": "sanitized.txt",
+			},
+			wantHookEventName: "PreToolUse",
+		},
+		{
+			name: "Command with updatedInput + permissionDecision: ask (acceptable)",
+			action: Action{
+				Type:    "command",
+				Command: "modifier.sh",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Edit",
+			},
+			commandOutput: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PreToolUse",
+					"permissionDecision": "ask",
+					"updatedInput": {
+						"content": "modified content"
+					}
+				}
+			}`,
+			commandExitCode:        0,
+			wantPermissionDecision: "ask",
+			wantUpdatedInput: map[string]interface{}{
+				"content": "modified content",
+			},
+			wantHookEventName: "PreToolUse",
+		},
+		{
+			name: "Command with updatedInput + permissionDecision: deny (acceptable)",
+			action: Action{
+				Type:    "command",
+				Command: "modifier.sh",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Bash",
+			},
+			commandOutput: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PreToolUse",
+					"permissionDecision": "deny",
+					"updatedInput": {
+						"command": "safe command"
+					}
+				}
+			}`,
+			commandExitCode:        0,
+			wantPermissionDecision: "deny",
+			wantUpdatedInput: map[string]interface{}{
+				"command": "safe command",
+			},
+			wantHookEventName: "PreToolUse",
+		},
+		{
+			name: "Command failure (exit != 0) -> permissionDecision: deny + systemMessage",
+			action: Action{
+				Type:    "command",
+				Command: "failing.sh",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+			},
+			commandOutput:          "",
+			commandExitCode:        1,
+			wantPermissionDecision: "deny",
+			wantSystemMessage:      "Command failed with exit code 1",
+			wantHookEventName:      "PreToolUse",
+		},
+		{
+			name: "Empty stdout -> permissionDecision: allow (validation tool case)",
+			action: Action{
+				Type:    "command",
+				Command: "validator.sh",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Edit",
+			},
+			commandOutput:          "",
+			commandExitCode:        0,
+			wantPermissionDecision: "allow",
+			wantHookEventName:      "PreToolUse",
+		},
+		{
+			name: "Invalid JSON output -> permissionDecision: deny + systemMessage",
+			action: Action{
+				Type:    "command",
+				Command: "echo invalid",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Bash",
+			},
+			commandOutput:          "not json",
+			commandExitCode:        0,
+			wantPermissionDecision: "deny",
+			wantSystemMessage:      "Command output is not valid JSON",
+			wantHookEventName:      "PreToolUse",
+		},
+		{
+			name: "Missing hookEventName -> permissionDecision: deny + systemMessage",
+			action: Action{
+				Type:    "command",
+				Command: "echo test",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+			},
+			commandOutput: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"permissionDecision": "allow"
+				}
+			}`,
+			commandExitCode:        0,
+			wantPermissionDecision: "deny",
+			wantSystemMessage:      "Command output is missing required field: hookSpecificOutput.hookEventName",
+			wantHookEventName:      "PreToolUse",
+		},
+		{
+			name: "Invalid hookEventName value -> permissionDecision: deny + systemMessage",
+			action: Action{
+				Type:    "command",
+				Command: "echo test",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Edit",
+			},
+			commandOutput: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "WrongEvent",
+					"permissionDecision": "allow"
+				}
+			}`,
+			commandExitCode:        0,
+			wantPermissionDecision: "deny",
+			wantSystemMessage:      "Invalid hookEventName: expected 'PreToolUse', got 'WrongEvent'",
+			wantHookEventName:      "PreToolUse",
+		},
+		{
+			name: "Invalid permissionDecision value -> permissionDecision: deny + systemMessage",
+			action: Action{
+				Type:    "command",
+				Command: "echo test",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Bash",
+			},
+			commandOutput: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PreToolUse",
+					"permissionDecision": "invalid"
+				}
+			}`,
+			commandExitCode:        0,
+			wantPermissionDecision: "deny",
+			wantSystemMessage:      "Invalid permissionDecision value: must be 'allow', 'deny', or 'ask'",
+			wantHookEventName:      "PreToolUse",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &stubRunnerWithOutput{
+				stdout:   tt.commandOutput,
+				exitCode: tt.commandExitCode,
+			}
+			executor := NewActionExecutor(runner)
+			rawJSON := map[string]interface{}{
+				"tool_name":  tt.input.ToolName,
+				"tool_input": tt.input.ToolInput,
+			}
+
+			output, err := executor.ExecutePreToolUseAction(tt.action, tt.input, rawJSON)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got: %v", err)
+			}
+
+			if output.Continue != true {
+				t.Errorf("Continue should always be true for PreToolUse, got: %v", output.Continue)
+			}
+
+			if output.PermissionDecision != tt.wantPermissionDecision {
+				t.Errorf("PermissionDecision mismatch. Got %q, want %q", output.PermissionDecision, tt.wantPermissionDecision)
+			}
+
+			if output.PermissionDecisionReason != tt.wantPermissionDecisionReason {
+				t.Errorf("PermissionDecisionReason mismatch. Got %q, want %q", output.PermissionDecisionReason, tt.wantPermissionDecisionReason)
+			}
+
+			if tt.wantSystemMessage != "" && !stringContains2(output.SystemMessage, tt.wantSystemMessage) {
+				t.Errorf("SystemMessage should contain %q, got %q", tt.wantSystemMessage, output.SystemMessage)
+			}
+
+			if output.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName mismatch. Got %q, want %q", output.HookEventName, tt.wantHookEventName)
+			}
+
+			// Check UpdatedInput
+			if tt.wantUpdatedInput != nil {
+				if output.UpdatedInput == nil {
+					t.Errorf("UpdatedInput should not be nil")
+				} else {
+					for key, wantVal := range tt.wantUpdatedInput {
+						gotVal, ok := output.UpdatedInput[key]
+						if !ok {
+							t.Errorf("UpdatedInput missing key %q", key)
+						} else if gotVal != wantVal {
+							t.Errorf("UpdatedInput[%q] mismatch. Got %v, want %v", key, gotVal, wantVal)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+// stringContains2 checks if a string contains a substring (helper for PreToolUse tests)
+func stringContains2(s, substr string) bool {
+	return len(s) >= len(substr) && contains2(s, substr)
+}
+
+func contains2(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 func TestCheckUnsupportedFieldsSessionStart(t *testing.T) {
 	tests := []struct {
 		name           string

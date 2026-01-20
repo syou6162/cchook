@@ -1029,3 +1029,349 @@ func TestUserPromptSubmitOutputSchemaValidation(t *testing.T) {
 		})
 	}
 }
+
+// TestPreToolUseOutput_JSONSerialization tests JSON serialization/deserialization for PreToolUseOutput
+func TestPreToolUseOutput_JSONSerialization(t *testing.T) {
+	tests := []struct {
+		name           string
+		output         PreToolUseOutput
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name: "Full output with all Phase 3 used fields",
+			output: PreToolUseOutput{
+				Continue:      true,
+				SystemMessage: "Test message",
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:            "PreToolUse",
+					PermissionDecision:       "allow",
+					PermissionDecisionReason: "Safe operation",
+					UpdatedInput: map[string]interface{}{
+						"file_path": "modified.txt",
+						"content":   "new content",
+					},
+				},
+			},
+			wantContains:   []string{"\"continue\":true", "\"systemMessage\":\"Test message\"", "\"hookEventName\":\"PreToolUse\"", "\"permissionDecision\":\"allow\"", "\"permissionDecisionReason\":\"Safe operation\"", "\"updatedInput\"", "\"file_path\":\"modified.txt\""},
+			wantNotContain: []string{"stopReason", "suppressOutput"},
+		},
+		{
+			name: "Phase 3 unused fields (stopReason, suppressOutput) are omitted when zero",
+			output: PreToolUseOutput{
+				Continue:       true,
+				StopReason:     "",    // zero value
+				SuppressOutput: false, // zero value
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "deny",
+				},
+			},
+			wantContains:   []string{"\"continue\":true", "\"hookEventName\":\"PreToolUse\"", "\"permissionDecision\":\"deny\""},
+			wantNotContain: []string{"stopReason", "suppressOutput"},
+		},
+		{
+			name: "HookEventName is always PreToolUse",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "ask",
+				},
+			},
+			wantContains: []string{"\"hookEventName\":\"PreToolUse\"", "\"permissionDecision\":\"ask\""},
+		},
+		{
+			name: "PermissionDecision allow",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "allow",
+				},
+			},
+			wantContains: []string{"\"permissionDecision\":\"allow\""},
+		},
+		{
+			name: "PermissionDecision deny",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "deny",
+				},
+			},
+			wantContains: []string{"\"permissionDecision\":\"deny\""},
+		},
+		{
+			name: "PermissionDecision ask",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "ask",
+				},
+			},
+			wantContains: []string{"\"permissionDecision\":\"ask\""},
+		},
+		{
+			name: "UpdatedInput with complex types",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "allow",
+					UpdatedInput: map[string]interface{}{
+						"string_field": "value",
+						"number_field": 42,
+						"bool_field":   true,
+						"array_field":  []interface{}{"a", "b", "c"},
+						"object_field": map[string]interface{}{
+							"nested": "value",
+						},
+					},
+				},
+			},
+			wantContains: []string{"\"updatedInput\"", "\"string_field\":\"value\"", "\"number_field\":42", "\"bool_field\":true"},
+		},
+		{
+			name: "Empty permissionDecisionReason and updatedInput are omitted",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:            "PreToolUse",
+					PermissionDecision:       "allow",
+					PermissionDecisionReason: "",
+					UpdatedInput:             nil,
+				},
+			},
+			wantContains:   []string{"\"hookEventName\":\"PreToolUse\"", "\"permissionDecision\":\"allow\""},
+			wantNotContain: []string{"permissionDecisionReason", "updatedInput"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Marshal
+			jsonBytes, err := json.Marshal(tt.output)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+			jsonStr := string(jsonBytes)
+
+			// Check expected content
+			for _, want := range tt.wantContains {
+				if !stringContains(jsonStr, want) {
+					t.Errorf("JSON does not contain expected string %q. JSON: %s", want, jsonStr)
+				}
+			}
+
+			// Check unexpected content
+			for _, notWant := range tt.wantNotContain {
+				if stringContains(jsonStr, notWant) {
+					t.Errorf("JSON contains unexpected string %q. JSON: %s", notWant, jsonStr)
+				}
+			}
+
+			// Unmarshal (round-trip)
+			var unmarshaled PreToolUseOutput
+			if err := json.Unmarshal(jsonBytes, &unmarshaled); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+
+			// Verify round-trip preserves data
+			if unmarshaled.Continue != tt.output.Continue {
+				t.Errorf("Round-trip: Continue mismatch. Got %v, want %v", unmarshaled.Continue, tt.output.Continue)
+			}
+			if unmarshaled.SystemMessage != tt.output.SystemMessage {
+				t.Errorf("Round-trip: SystemMessage mismatch. Got %q, want %q", unmarshaled.SystemMessage, tt.output.SystemMessage)
+			}
+			if tt.output.HookSpecificOutput != nil {
+				if unmarshaled.HookSpecificOutput == nil {
+					t.Errorf("Round-trip: HookSpecificOutput is nil")
+				} else {
+					if unmarshaled.HookSpecificOutput.HookEventName != tt.output.HookSpecificOutput.HookEventName {
+						t.Errorf("Round-trip: HookEventName mismatch. Got %q, want %q",
+							unmarshaled.HookSpecificOutput.HookEventName, tt.output.HookSpecificOutput.HookEventName)
+					}
+					if unmarshaled.HookSpecificOutput.PermissionDecision != tt.output.HookSpecificOutput.PermissionDecision {
+						t.Errorf("Round-trip: PermissionDecision mismatch. Got %q, want %q",
+							unmarshaled.HookSpecificOutput.PermissionDecision, tt.output.HookSpecificOutput.PermissionDecision)
+					}
+					if unmarshaled.HookSpecificOutput.PermissionDecisionReason != tt.output.HookSpecificOutput.PermissionDecisionReason {
+						t.Errorf("Round-trip: PermissionDecisionReason mismatch. Got %q, want %q",
+							unmarshaled.HookSpecificOutput.PermissionDecisionReason, tt.output.HookSpecificOutput.PermissionDecisionReason)
+					}
+					// UpdatedInput comparison requires deep comparison
+					if tt.output.HookSpecificOutput.UpdatedInput != nil {
+						if unmarshaled.HookSpecificOutput.UpdatedInput == nil {
+							t.Errorf("Round-trip: UpdatedInput is nil")
+						}
+						// Basic check - detailed comparison would require reflect.DeepEqual
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestPreToolUseOutputSchemaValidation tests JSON schema validation for PreToolUseOutput
+func TestPreToolUseOutputSchemaValidation(t *testing.T) {
+	tests := []struct {
+		name      string
+		output    PreToolUseOutput
+		wantValid bool
+		wantError string
+	}{
+		{
+			name: "Valid full output with all fields including updatedInput",
+			output: PreToolUseOutput{
+				Continue:      true,
+				SystemMessage: "Test message",
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:            "PreToolUse",
+					PermissionDecision:       "allow",
+					PermissionDecisionReason: "Safe operation",
+					UpdatedInput: map[string]interface{}{
+						"file_path": "modified.txt",
+					},
+				},
+			},
+			wantValid: true,
+		},
+		{
+			name: "Valid minimal output with only required fields",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "deny",
+				},
+			},
+			wantValid: true,
+		},
+		{
+			name: "Invalid: missing hookEventName",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "", // empty hookEventName
+					PermissionDecision: "allow",
+				},
+			},
+			wantValid: false,
+			wantError: "hookEventName",
+		},
+		{
+			name: "Invalid: wrong hookEventName value",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "WrongEvent",
+					PermissionDecision: "allow",
+				},
+			},
+			wantValid: false,
+			wantError: "hookEventName",
+		},
+		{
+			name: "Invalid: missing permissionDecision",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "", // empty permissionDecision
+				},
+			},
+			wantValid: false,
+			wantError: "permissionDecision",
+		},
+		{
+			name: "Invalid: wrong permissionDecision value",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "invalid_value",
+				},
+			},
+			wantValid: false,
+			wantError: "permissionDecision",
+		},
+		{
+			name: "Valid: permissionDecision allow",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "allow",
+				},
+			},
+			wantValid: true,
+		},
+		{
+			name: "Valid: permissionDecision deny",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "deny",
+				},
+			},
+			wantValid: true,
+		},
+		{
+			name: "Valid: permissionDecision ask",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "ask",
+				},
+			},
+			wantValid: true,
+		},
+		{
+			name: "Valid: updatedInput with complex types",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "allow",
+					UpdatedInput: map[string]interface{}{
+						"string_field": "value",
+						"number_field": 42,
+						"bool_field":   true,
+						"array_field":  []interface{}{"a", "b", "c"},
+					},
+				},
+			},
+			wantValid: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Marshal to JSON
+			jsonBytes, err := json.Marshal(tt.output)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+
+			// Validate
+			err = validatePreToolUseOutput(jsonBytes)
+
+			if tt.wantValid {
+				if err != nil {
+					t.Errorf("Expected valid, but got error: %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Errorf("Expected validation error, but got none")
+				} else if tt.wantError != "" && !stringContains(err.Error(), tt.wantError) {
+					t.Errorf("Expected error to contain %q, but got: %v", tt.wantError, err)
+				}
+			}
+		})
+	}
+}

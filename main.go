@@ -112,6 +112,54 @@ func main() {
 			// Always exit 0 for UserPromptSubmit (decision field controls behavior)
 			os.Exit(0)
 		}
+
+		if HookEventType(*eventType) == PreToolUse {
+			// PreToolUse special handling with JSON output
+			output, err := RunPreToolUseHooks(config)
+			if err != nil {
+				// Log error to stderr
+				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+				// Ensure output has hookSpecificOutput even on error
+				if output == nil {
+					output = &PreToolUseOutput{
+						Continue:      true,
+						SystemMessage: fmt.Sprintf("Failed to process PreToolUse: %v", err),
+						HookSpecificOutput: &PreToolUseHookSpecificOutput{
+							HookEventName:      "PreToolUse",
+							PermissionDecision: "deny",
+						},
+					}
+				}
+			}
+
+			// Marshal JSON with 2-space indent
+			jsonBytes, err := json.MarshalIndent(output, "", "  ")
+			if err != nil {
+				// Marshal failure should not be fatal - output minimal valid JSON and exit 0
+				fmt.Fprintf(os.Stderr, "Warning: Error marshaling JSON: %v\n", err)
+				// Fallback to minimal valid output
+				fallbackOutput := PreToolUseOutput{
+					Continue: true,
+					HookSpecificOutput: &PreToolUseHookSpecificOutput{
+						HookEventName:      "PreToolUse",
+						PermissionDecision: "deny",
+					},
+					SystemMessage: fmt.Sprintf("Failed to marshal output: %v", err),
+				}
+				jsonBytes, _ = json.MarshalIndent(fallbackOutput, "", "  ")
+			}
+
+			// Validate final JSON output against schema (non-functional requirement)
+			if err := validatePreToolUseOutput(jsonBytes); err != nil {
+				// Validation failure should not be fatal - log warning and continue
+				fmt.Fprintf(os.Stderr, "Warning: Final JSON output validation failed: %v\n", err)
+			}
+
+			// Output JSON to stdout
+			fmt.Println(string(jsonBytes))
+			// Always exit 0 for PreToolUse (permissionDecision field controls behavior)
+			os.Exit(0)
+		}
 		err = runHooks(config, HookEventType(*eventType))
 	case "dry-run":
 		err = dryRunHooks(config, HookEventType(*eventType))

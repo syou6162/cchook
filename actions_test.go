@@ -442,65 +442,6 @@ func TestExecuteNotificationAction_CommandWithStubRunner(t *testing.T) {
 	}
 }
 
-func TestExecutePreToolUseAction_CommandWithStubRunner(t *testing.T) {
-	tests := []struct {
-		name     string
-		command  string
-		runFunc  func(cmd string, useStdin bool, data interface{}) error
-		wantErr  bool
-		wantCode int
-	}{
-		{
-			name:    "command success does not block",
-			command: "echo success",
-			runFunc: func(cmd string, useStdin bool, data interface{}) error {
-				return nil
-			},
-			wantErr: false,
-		},
-		{
-			name:    "command failure blocks with exit 2",
-			command: "false",
-			runFunc: func(cmd string, useStdin bool, data interface{}) error {
-				return fmt.Errorf("command failed")
-			},
-			wantErr:  true,
-			wantCode: 2,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			runner := &stubRunner{runFunc: tt.runFunc}
-			executor := NewActionExecutor(runner)
-
-			action := Action{
-				Type:    "command",
-				Command: tt.command,
-			}
-
-			err := executor.ExecutePreToolUseAction(action, &PreToolUseInput{}, map[string]interface{}{})
-
-			if tt.wantErr {
-				if err == nil {
-					t.Fatal("Expected error, got nil")
-				}
-				exitErr, ok := err.(*ExitError)
-				if !ok {
-					t.Fatalf("Expected *ExitError, got %T", err)
-				}
-				if exitErr.Code != tt.wantCode {
-					t.Errorf("Expected exit code %d, got %d", tt.wantCode, exitErr.Code)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Expected no error, got %v", err)
-				}
-			}
-		})
-	}
-}
-
 func TestExecuteStopAction_CommandWithStubRunner(t *testing.T) {
 	tests := []struct {
 		name     string
