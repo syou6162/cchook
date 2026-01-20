@@ -3,7 +3,7 @@ module github.com/syou6162/cchook
 go 1.24.5
 
 require (
-	github.com/go-git/go-git/v5 v5.16.2
+	github.com/go-git/go-git/v5 v5.16.4
 	github.com/invopop/jsonschema v0.13.0
 	github.com/itchyny/gojq v0.12.18
 	github.com/xeipuuv/gojsonschema v1.2.0
