@@ -9,12 +9,6 @@ import (
 // runHooks parses input and executes hooks for the specified event type.
 func runHooks(config *Config, eventType HookEventType) error {
 	switch eventType {
-	case PreToolUse:
-		input, rawJSON, err := parseInput[*PreToolUseInput](eventType)
-		if err != nil {
-			return err
-		}
-		return executePreToolUseHooks(config, input, rawJSON)
 	case PostToolUse:
 		input, rawJSON, err := parseInput[*PostToolUseInput](eventType)
 		if err != nil {
@@ -90,6 +84,16 @@ func RunUserPromptSubmitHooks(config *Config) (*UserPromptSubmitOutput, error) {
 		return nil, err
 	}
 	return executeUserPromptSubmitHooks(config, input, rawJSON)
+}
+
+// RunPreToolUseHooks parses input from stdin and executes PreToolUse hooks.
+// Returns PreToolUseOutput for JSON serialization.
+func RunPreToolUseHooks(config *Config) (*PreToolUseOutput, error) {
+	input, rawJSON, err := parseInput[*PreToolUseInput](PreToolUse)
+	if err != nil {
+		return nil, err
+	}
+	return executePreToolUseHooksJSON(config, input, rawJSON)
 }
 
 // dryRunHooks parses input and performs a dry-run of hooks for the specified event type.
@@ -527,50 +531,6 @@ func dryRunUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, r
 
 	if !executed {
 		fmt.Println("No matching UserPromptSubmit hooks found")
-	}
-	return nil
-}
-
-// executePreToolUseHooks executes all matching PreToolUse hooks based on matcher and condition checks.
-// Collects all condition check errors and returns them aggregated so users can fix all config issues in one run.
-func executePreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON interface{}) error {
-	executor := NewActionExecutor(nil)
-	var conditionErrors []error
-
-	for i, hook := range config.PreToolUse {
-		shouldExecute, err := shouldExecutePreToolUseHook(hook, input)
-		if err != nil {
-			// Collect condition check errors to show all config issues at once
-			conditionErrors = append(conditionErrors,
-				fmt.Errorf("hook[PreToolUse][%d]: %w", i, err))
-			continue // Skip this hook's actions but continue checking others
-		}
-		if shouldExecute {
-			if err := executePreToolUseHook(executor, hook, input, rawJSON); err != nil {
-				// Action execution errors are fatal - return immediately with any collected condition errors
-				if exitErr, ok := err.(*ExitError); ok {
-					actionErr := &ExitError{
-						Code:    exitErr.Code,
-						Message: fmt.Sprintf("PreToolUse hook %d failed: %s", i, exitErr.Message),
-						Stderr:  exitErr.Stderr,
-					}
-					if len(conditionErrors) > 0 {
-						return errors.Join(append(conditionErrors, actionErr)...)
-					}
-					return actionErr
-				}
-				actionErr := fmt.Errorf("PreToolUse hook %d failed: %w", i, err)
-				if len(conditionErrors) > 0 {
-					return errors.Join(append(conditionErrors, actionErr)...)
-				}
-				return actionErr
-			}
-		}
-	}
-
-	// Return all condition errors aggregated
-	if len(conditionErrors) > 0 {
-		return errors.Join(conditionErrors...)
 	}
 	return nil
 }
@@ -1075,6 +1035,148 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 	return finalOutput, nil
 }
 
+// executePreToolUseHooksJSON executes all matching PreToolUse hooks and returns JSON output.
+// This function implements Phase 3 JSON output functionality for PreToolUse hooks.
+func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON interface{}) (*PreToolUseOutput, error) {
+	executor := NewActionExecutor(nil)
+	var conditionErrors []error
+	var actionErrors []error
+
+	// Initialize finalOutput with Continue: true (always), PermissionDecision: "allow"
+	finalOutput := &PreToolUseOutput{
+		Continue: true,
+	}
+
+	var reasonBuilder strings.Builder
+	var systemMessageBuilder strings.Builder
+	hookEventName := ""
+	permissionDecision := "allow" // Default
+	var updatedInput map[string]interface{}
+	stopReason := ""
+	suppressOutput := false
+
+	for i, hook := range config.PreToolUse {
+		// Matcher and condition checks
+		shouldExecute, err := shouldExecutePreToolUseHook(hook, input)
+		if err != nil {
+			conditionErrors = append(conditionErrors,
+				fmt.Errorf("hook[PreToolUse][%d]: %w", i, err))
+			continue // Skip this hook but continue checking others
+		}
+
+		if !shouldExecute {
+			continue
+		}
+
+		// Execute hook actions
+		actionOutput, err := executePreToolUseHook(executor, hook, input, rawJSON)
+		if err != nil {
+			actionErrors = append(actionErrors, fmt.Errorf("PreToolUse hook %d action failed: %w", i, err))
+			continue
+		}
+
+		if actionOutput == nil {
+			continue
+		}
+
+		// Update finalOutput fields following merge rules
+
+		// Continue: always true (do not overwrite from actionOutput)
+		// finalOutput.Continue remains true
+
+		// PermissionDecision: last value wins
+		// If permissionDecision changes, reset permissionDecisionReason to avoid contradictions
+		previousDecision := permissionDecision
+		permissionDecision = actionOutput.PermissionDecision
+		if previousDecision != permissionDecision {
+			reasonBuilder.Reset()
+		}
+
+		// HookEventName: set once and preserve
+		if hookEventName == "" && actionOutput.HookEventName != "" {
+			hookEventName = actionOutput.HookEventName
+		}
+
+		// PermissionDecisionReason: concatenate with "\n" if decision unchanged, otherwise replace
+		if actionOutput.PermissionDecisionReason != "" {
+			if reasonBuilder.Len() > 0 {
+				reasonBuilder.WriteString("\n")
+			}
+			reasonBuilder.WriteString(actionOutput.PermissionDecisionReason)
+		}
+
+		// SystemMessage: concatenate with "\n"
+		if actionOutput.SystemMessage != "" {
+			if systemMessageBuilder.Len() > 0 {
+				systemMessageBuilder.WriteString("\n")
+			}
+			systemMessageBuilder.WriteString(actionOutput.SystemMessage)
+		}
+
+		// UpdatedInput: last non-nil value wins
+		if actionOutput.UpdatedInput != nil {
+			updatedInput = actionOutput.UpdatedInput
+		}
+
+		// StopReason: last non-empty value wins
+		if actionOutput.StopReason != "" {
+			stopReason = actionOutput.StopReason
+		}
+
+		// SuppressOutput: last value wins
+		suppressOutput = actionOutput.SuppressOutput
+
+		// Early return check AFTER collecting this action's data
+		if actionOutput.PermissionDecision == "deny" {
+			break
+		}
+	}
+
+	// Build final output
+	// Always set hookEventName to "PreToolUse"
+	if hookEventName == "" {
+		hookEventName = "PreToolUse"
+	}
+	finalOutput.HookSpecificOutput = &PreToolUseHookSpecificOutput{
+		HookEventName:            hookEventName,
+		PermissionDecision:       permissionDecision,
+		PermissionDecisionReason: reasonBuilder.String(),
+		UpdatedInput:             updatedInput,
+	}
+
+	finalOutput.SystemMessage = systemMessageBuilder.String()
+	finalOutput.StopReason = stopReason
+	finalOutput.SuppressOutput = suppressOutput
+
+	// Collect all errors
+	var allErrors []error
+	allErrors = append(allErrors, conditionErrors...)
+	allErrors = append(allErrors, actionErrors...)
+
+	if len(allErrors) > 0 {
+		// Requirement 6.4: On error, set permissionDecision to "deny" and include error in systemMessage
+		finalOutput.HookSpecificOutput.PermissionDecision = "deny"
+
+		// Build error message
+		var errorMessages []string
+		for _, err := range allErrors {
+			errorMessages = append(errorMessages, err.Error())
+		}
+		errorMsg := strings.Join(errorMessages, "\n")
+
+		// Append to systemMessage (preserve existing messages if any)
+		if finalOutput.SystemMessage != "" {
+			finalOutput.SystemMessage += "\n" + errorMsg
+		} else {
+			finalOutput.SystemMessage = errorMsg
+		}
+
+		return finalOutput, errors.Join(allErrors...)
+	}
+
+	return finalOutput, nil
+}
+
 // shouldExecutePreToolUseHook checks if a PreToolUse hook should be executed based on matcher and conditions.
 func shouldExecutePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput) (bool, error) {
 	// マッチャーチェック
@@ -1117,14 +1219,82 @@ func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput)
 	return true, nil
 }
 
-// executePreToolUseHook executes all actions for a single PreToolUse hook.
-func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input *PreToolUseInput, rawJSON interface{}) error {
+// executePreToolUseHook executes all actions for a single PreToolUse hook and returns JSON output.
+// This function implements Phase 3 JSON output functionality for PreToolUse hooks.
+func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input *PreToolUseInput, rawJSON interface{}) (*ActionOutput, error) {
+	// Initialize output with Continue: true (always true for PreToolUse)
+	// and default permissionDecision: allow
+	output := &ActionOutput{
+		Continue:           true,
+		PermissionDecision: "allow",
+		HookEventName:      "PreToolUse",
+	}
+
+	var reasonBuilder strings.Builder
+	var systemMessageBuilder strings.Builder
+	var updatedInput map[string]interface{}
+
 	for _, action := range hook.Actions {
-		if err := executor.ExecutePreToolUseAction(action, input, rawJSON); err != nil {
-			return err
+		actionOutput, err := executor.ExecutePreToolUseAction(action, input, rawJSON)
+		if err != nil {
+			return nil, err
+		}
+
+		if actionOutput == nil {
+			continue
+		}
+
+		// Update output fields following merge rules
+
+		// PermissionDecision: last value wins
+		// If permissionDecision changes, reset permissionDecisionReason to avoid contradictions
+		previousDecision := output.PermissionDecision
+		output.PermissionDecision = actionOutput.PermissionDecision
+		if previousDecision != output.PermissionDecision {
+			reasonBuilder.Reset()
+		}
+
+		// PermissionDecisionReason: concatenate with "\n" if decision unchanged, otherwise replace
+		if actionOutput.PermissionDecisionReason != "" {
+			if reasonBuilder.Len() > 0 {
+				reasonBuilder.WriteString("\n")
+			}
+			reasonBuilder.WriteString(actionOutput.PermissionDecisionReason)
+		}
+
+		// SystemMessage: concatenate with "\n"
+		if actionOutput.SystemMessage != "" {
+			if systemMessageBuilder.Len() > 0 {
+				systemMessageBuilder.WriteString("\n")
+			}
+			systemMessageBuilder.WriteString(actionOutput.SystemMessage)
+		}
+
+		// UpdatedInput: last value wins (only non-nil)
+		if actionOutput.UpdatedInput != nil {
+			updatedInput = actionOutput.UpdatedInput
+		}
+
+		// StopReason: last non-empty value wins
+		if actionOutput.StopReason != "" {
+			output.StopReason = actionOutput.StopReason
+		}
+
+		// SuppressOutput: last value wins
+		output.SuppressOutput = actionOutput.SuppressOutput
+
+		// Early return check for permissionDecision: deny
+		if actionOutput.PermissionDecision == "deny" {
+			break
 		}
 	}
-	return nil
+
+	// Build final output
+	output.PermissionDecisionReason = reasonBuilder.String()
+	output.SystemMessage = systemMessageBuilder.String()
+	output.UpdatedInput = updatedInput
+
+	return output, nil
 }
 
 // executePostToolUseHook executes all actions for a single PostToolUse hook.

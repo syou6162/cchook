@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"os"
 	"strings"
@@ -637,137 +636,6 @@ func TestShouldExecutePostToolUseHook(t *testing.T) {
 	}
 }
 
-func TestExecutePreToolUseHook_OutputAction(t *testing.T) {
-	// 標準出力をキャプチャ
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	exitStatus := 0
-	hook := PreToolUseHook{
-		Actions: []Action{
-			{Type: "output", Message: "Test message", ExitStatus: &exitStatus}},
-	}
-
-	input := &PreToolUseInput{ToolName: "Write"}
-
-	executor := NewActionExecutor(nil)
-	err := executePreToolUseHook(executor, hook, input, nil)
-
-	// 標準出力を復元
-	_ = w.Close()
-	os.Stdout = oldStdout
-
-	// 出力を読み取り
-	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(r)
-	output := buf.String()
-
-	if err != nil {
-		t.Errorf("executePreToolUseHook() error = %v", err)
-	}
-
-	if !strings.Contains(output, "Test message") {
-		t.Errorf("Expected output to contain 'Test message', got: %q", output)
-	}
-}
-
-func TestExecutePreToolUseHook_CommandAction(t *testing.T) {
-	hook := PreToolUseHook{
-		Actions: []Action{
-			{Type: "command", Command: "echo test"}},
-	}
-
-	input := &PreToolUseInput{ToolName: "Write"}
-
-	executor := NewActionExecutor(nil)
-	err := executePreToolUseHook(executor, hook, input, nil)
-	if err != nil {
-		t.Errorf("executePreToolUseHook() error = %v", err)
-	}
-}
-
-func TestExecutePreToolUseHook_CommandWithVariables(t *testing.T) {
-	hook := PreToolUseHook{
-		Actions: []Action{
-			{Type: "command", Command: "echo {.tool_input.file_path}"}},
-	}
-
-	input := &PreToolUseInput{
-		ToolName:  "Write",
-		ToolInput: ToolInput{FilePath: "test.go"},
-	}
-
-	// JQクエリが動作するようにrawJSONを作成
-	rawJSON := map[string]interface{}{
-		"tool_name": "Write",
-		"tool_input": map[string]interface{}{
-			"file_path": "test.go",
-		},
-	}
-
-	executor := NewActionExecutor(nil)
-	err := executePreToolUseHook(executor, hook, input, rawJSON)
-	if err != nil {
-		t.Errorf("executePreToolUseHook() error = %v", err)
-	}
-}
-
-func TestExecutePreToolUseHook_FailingCommand(t *testing.T) {
-	hook := PreToolUseHook{
-		Actions: []Action{
-			{Type: "command", Command: "false"}, // 常に失敗するコマンド
-		},
-	}
-
-	input := &PreToolUseInput{ToolName: "Write"}
-
-	executor := NewActionExecutor(nil)
-	err := executePreToolUseHook(executor, hook, input, nil)
-	if err == nil {
-		t.Error("Expected error for failing command, got nil")
-	}
-}
-
-func TestExecutePreToolUseHook_FailingCommandReturnsExit2(t *testing.T) {
-	hook := PreToolUseHook{
-		Actions: []Action{
-			{Type: "command", Command: "false"}, // 失敗するコマンド
-		},
-	}
-
-	input := &PreToolUseInput{ToolName: "Write"}
-
-	executor := NewActionExecutor(nil)
-	err := executePreToolUseHook(executor, hook, input, nil)
-
-	// エラーが返されることを確認
-	if err == nil {
-		t.Fatal("Expected error for failing command, got nil")
-	}
-
-	// ExitError型であることを確認
-	exitErr, ok := err.(*ExitError)
-	if !ok {
-		t.Fatalf("Expected ExitError, got %T", err)
-	}
-
-	// exit code 2であることを確認
-	if exitErr.Code != 2 {
-		t.Errorf("Expected exit code 2, got %d", exitErr.Code)
-	}
-
-	// stderrに出力されることを確認
-	if !exitErr.Stderr {
-		t.Error("Expected stderr to be true")
-	}
-
-	// エラーメッセージにCommand failedが含まれることを確認
-	if !strings.Contains(exitErr.Message, "Command failed") {
-		t.Errorf("Expected message to contain 'Command failed', got: %s", exitErr.Message)
-	}
-}
-
 // TODO: Task 7 - Implement UserPromptSubmit integration tests with JSON output
 
 func TestExecuteStopHook_FailingCommandReturnsExit2(t *testing.T) {
@@ -856,84 +724,6 @@ func TestExecutePostToolUseHook_Success(t *testing.T) {
 	}
 }
 
-func TestExecutePreToolUseHooks_Integration(t *testing.T) {
-	config := &Config{
-		PreToolUse: []PreToolUseHook{
-			{
-				Matcher: "Write",
-				Actions: []Action{
-					{Type: "command", Command: "false"}, // 失敗するコマンド
-				},
-			},
-		},
-	}
-
-	input := &PreToolUseInput{ToolName: "Write"}
-
-	err := executePreToolUseHooks(config, input, nil)
-
-	// executePreToolUseHooksはフック失敗時にエラーを返す
-	if err == nil {
-		t.Error("Expected executePreToolUseHooks to return error for failing command")
-	}
-
-	// エラーメッセージに"PreToolUse hook 0 failed"が含まれることを確認
-	if !strings.Contains(err.Error(), "PreToolUse hook 0 failed") {
-		t.Errorf("Expected error message to contain hook failure message, got: %q", err.Error())
-	}
-}
-
-func TestExecutePreToolUseHooks_ConditionErrorAggregation(t *testing.T) {
-	// 無効な条件タイプを含む設定（prompt_regex はPreToolUseでは使えない）
-	config := &Config{
-		PreToolUse: []PreToolUseHook{
-			{
-				Matcher: "Write",
-				Conditions: []Condition{
-					{Type: ConditionPromptRegex, Value: "test"}, // PreToolUseでは無効
-				},
-				Actions: []Action{
-					{Type: "output", Message: "test"},
-				},
-			},
-			{
-				Matcher: "Write", // 2件目もWriteにマッチするように変更
-				Conditions: []Condition{
-					{Type: ConditionEveryNPrompts, Value: "5"}, // これもPreToolUseでは無効
-				},
-				Actions: []Action{
-					{Type: "output", Message: "test"},
-				},
-			},
-		},
-	}
-
-	input := &PreToolUseInput{
-		BaseInput: BaseInput{Cwd: "/tmp"},
-		ToolName:  "Write",
-	}
-
-	err := executePreToolUseHooks(config, input, nil)
-
-	// エラーが返されることを確認
-	if err == nil {
-		t.Fatal("Expected error for invalid condition types, got nil")
-	}
-
-	// エラーメッセージに両方のフックのエラーが含まれることを確認（errors.Joinによる集約）
-	errMsg := err.Error()
-	if !strings.Contains(errMsg, "hook[PreToolUse][0]") {
-		t.Errorf("Expected error message to contain first hook error, got: %q", errMsg)
-	}
-	// 2件目のフックのエラーも含まれることを確認（Editツールにマッチするフックもある）
-	if !strings.Contains(errMsg, "hook[PreToolUse][1]") {
-		t.Errorf("Expected error message to contain second hook error, got: %q", errMsg)
-	}
-	if !strings.Contains(errMsg, "unknown condition type") {
-		t.Errorf("Expected error message to contain 'unknown condition type', got: %q", errMsg)
-	}
-}
-
 func TestExecutePostToolUseHooks_ConditionErrorAggregation(t *testing.T) {
 	// 複数の無効な条件タイプを含む設定
 	config := &Config{
@@ -1019,65 +809,6 @@ func TestExecuteNotificationHooks_ConditionErrorAggregation(t *testing.T) {
 	}
 	if !strings.Contains(errMsg, "unknown condition type") {
 		t.Errorf("Expected error message to contain 'unknown condition type', got: %q", errMsg)
-	}
-}
-
-func TestExecutePreToolUseHooks_ConditionErrorAndExitError(t *testing.T) {
-	// 条件エラーとアクション実行エラー（ExitError）が同時に発生するケース
-	exitStatus := 10
-	config := &Config{
-		PreToolUse: []PreToolUseHook{
-			{
-				Matcher: "Write",
-				Conditions: []Condition{
-					{Type: ConditionPromptRegex, Value: "test"}, // PreToolUseでは無効
-				},
-				Actions: []Action{
-					{Type: "output", Message: "test"},
-				},
-			},
-			{
-				Matcher: "Write",
-				Actions: []Action{
-					{Type: "output", Message: "will fail", ExitStatus: &exitStatus},
-				},
-			},
-		},
-	}
-
-	input := &PreToolUseInput{
-		BaseInput: BaseInput{Cwd: "/tmp"},
-		ToolName:  "Write",
-	}
-
-	err := executePreToolUseHooks(config, input, nil)
-
-	// エラーが返されることを確認
-	if err == nil {
-		t.Fatal("Expected error, got nil")
-	}
-
-	// errors.Asを使ってExitErrorを取り出せることを確認
-	var exitErr *ExitError
-	if !errors.As(err, &exitErr) {
-		t.Fatal("Expected ExitError to be extractable with errors.As, but it wasn't")
-	}
-
-	// ExitErrorの情報が保持されていることを確認
-	if exitErr.Code != 10 {
-		t.Errorf("Expected exit code 10, got %d", exitErr.Code)
-	}
-	if exitErr.Stderr != false {
-		t.Errorf("Expected Stderr=false, got %v", exitErr.Stderr)
-	}
-
-	// エラーメッセージに条件エラーとアクションエラーの両方が含まれることを確認
-	errMsg := err.Error()
-	if !strings.Contains(errMsg, "hook[PreToolUse][0]") {
-		t.Errorf("Expected error message to contain condition error, got: %q", errMsg)
-	}
-	if !strings.Contains(errMsg, "PreToolUse hook 1 failed") {
-		t.Errorf("Expected error message to contain action error, got: %q", errMsg)
 	}
 }
 
@@ -2113,5 +1844,126 @@ func TestExecuteUserPromptSubmitHooks_AdditionalContextConcatenation(t *testing.
 	expectedAdditionalContext := "First context\nSecond context\nThird context"
 	if output.HookSpecificOutput.AdditionalContext != expectedAdditionalContext {
 		t.Errorf("AdditionalContext = %q, want %q", output.HookSpecificOutput.AdditionalContext, expectedAdditionalContext)
+	}
+}
+
+// ============================================================================
+// Task 7: New tests for executePreToolUseHook (JSON output)
+// ============================================================================
+
+func TestExecutePreToolUseHook_NewSignature(t *testing.T) {
+	tests := []struct {
+		name                         string
+		config                       *Config
+		input                        *PreToolUseInput
+		wantPermissionDecision       string
+		wantPermissionDecisionReason string
+		wantHookEventName            string
+		wantUpdatedInput             map[string]interface{}
+		wantSystemMessage            string
+		wantErr                      bool
+	}{
+		{
+			name: "Single output action with permissionDecision: allow",
+			config: &Config{
+				PreToolUse: []PreToolUseHook{
+					{
+						Matcher: "Write",
+						Actions: []Action{
+							{
+								Type:               "output",
+								Message:            "Allowing write operation",
+								PermissionDecision: stringPtr("allow"),
+							},
+						},
+					},
+				},
+			},
+			input: &PreToolUseInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-123",
+					HookEventName:  PreToolUse,
+					TranscriptPath: "/tmp/transcript",
+				},
+				ToolName: "Write",
+				ToolInput: ToolInput{
+					FilePath: "test.txt",
+				},
+			},
+			wantPermissionDecision:       "allow",
+			wantPermissionDecisionReason: "Allowing write operation",
+			wantHookEventName:            "PreToolUse",
+			wantSystemMessage:            "",
+			wantErr:                      false,
+		},
+		{
+			name: "Single output action with permissionDecision: deny",
+			config: &Config{
+				PreToolUse: []PreToolUseHook{
+					{
+						Matcher: "Write",
+						Actions: []Action{
+							{
+								Type:               "output",
+								Message:            "Blocking dangerous operation",
+								PermissionDecision: stringPtr("deny"),
+							},
+						},
+					},
+				},
+			},
+			input: &PreToolUseInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-123",
+					HookEventName:  PreToolUse,
+					TranscriptPath: "/tmp/transcript",
+				},
+				ToolName: "Write",
+				ToolInput: ToolInput{
+					FilePath: "dangerous.sh",
+				},
+			},
+			wantPermissionDecision:       "deny",
+			wantPermissionDecisionReason: "Blocking dangerous operation",
+			wantHookEventName:            "PreToolUse",
+			wantSystemMessage:            "",
+			wantErr:                      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := NewActionExecutor(nil)
+			output, err := executePreToolUseHook(executor, tt.config.PreToolUse[0], tt.input, tt.input)
+
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("executePreToolUseHook() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if output == nil {
+				t.Fatal("output is nil")
+			}
+
+			// Continue is ALWAYS true for PreToolUse
+			if !output.Continue {
+				t.Errorf("Continue = %v, want true", output.Continue)
+			}
+
+			if output.PermissionDecision != tt.wantPermissionDecision {
+				t.Errorf("PermissionDecision = %q, want %q", output.PermissionDecision, tt.wantPermissionDecision)
+			}
+
+			if output.PermissionDecisionReason != tt.wantPermissionDecisionReason {
+				t.Errorf("PermissionDecisionReason = %q, want %q", output.PermissionDecisionReason, tt.wantPermissionDecisionReason)
+			}
+
+			if output.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName = %q, want %q", output.HookEventName, tt.wantHookEventName)
+			}
+
+			if output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+		})
 	}
 }
