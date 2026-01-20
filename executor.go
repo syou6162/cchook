@@ -359,21 +359,25 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 
 		// Check for required field: hookSpecificOutput.hookEventName
 		if cmdOutput.HookSpecificOutput == nil || cmdOutput.HookSpecificOutput.HookEventName == "" {
+			errMsg := "Command output is missing required field: hookSpecificOutput.hookEventName"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:           true,
 				PermissionDecision: "deny",
 				HookEventName:      "PreToolUse",
-				SystemMessage:      "Command output is missing required field: hookSpecificOutput.hookEventName",
+				SystemMessage:      errMsg,
 			}, nil
 		}
 
 		// Validate hookEventName value
 		if cmdOutput.HookSpecificOutput.HookEventName != "PreToolUse" {
+			errMsg := fmt.Sprintf("Invalid hookEventName: expected 'PreToolUse', got '%s'", cmdOutput.HookSpecificOutput.HookEventName)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:           true,
 				PermissionDecision: "deny",
 				HookEventName:      "PreToolUse",
-				SystemMessage:      fmt.Sprintf("Invalid hookEventName: expected 'PreToolUse', got '%s'", cmdOutput.HookSpecificOutput.HookEventName),
+				SystemMessage:      errMsg,
 			}, nil
 		}
 
@@ -381,20 +385,24 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 		permissionDecision := cmdOutput.HookSpecificOutput.PermissionDecision
 		if permissionDecision == "" {
 			// Fail-safe: Default to "deny" if permissionDecision is missing
+			errMsg := "Missing required field 'permissionDecision' in command output"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:           true,
 				PermissionDecision: "deny",
 				HookEventName:      "PreToolUse",
-				SystemMessage:      "Missing required field 'permissionDecision' in command output",
+				SystemMessage:      errMsg,
 			}, nil
 		}
 
 		if permissionDecision != "allow" && permissionDecision != "deny" && permissionDecision != "ask" {
+			errMsg := "Invalid permissionDecision value: must be 'allow', 'deny', or 'ask'"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:           true,
 				PermissionDecision: "deny",
 				HookEventName:      "PreToolUse",
-				SystemMessage:      "Invalid permissionDecision value: must be 'allow', 'deny', or 'ask'",
+				SystemMessage:      errMsg,
 			}, nil
 		}
 
@@ -405,11 +413,13 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 		// - permissionDecision is "allow", "deny", or "ask" (required field)
 		// - All field types match the schema
 		if err := validatePreToolUseOutput([]byte(stdout)); err != nil {
+			errMsg := fmt.Sprintf("Command output validation failed: %s", err.Error())
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:           true,
 				PermissionDecision: "deny",
 				HookEventName:      "PreToolUse",
-				SystemMessage:      fmt.Sprintf("Command output validation failed: %s", err.Error()),
+				SystemMessage:      errMsg,
 			}, nil
 		}
 
@@ -436,11 +446,13 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 
 		// Empty message check
 		if strings.TrimSpace(processedMessage) == "" {
+			errMsg := "Action output has no message"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:           true,
 				PermissionDecision: "deny",
 				HookEventName:      "PreToolUse",
-				SystemMessage:      "Action output has no message",
+				SystemMessage:      errMsg,
 			}, nil
 		}
 
@@ -449,11 +461,13 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 		permissionDecision := "deny"
 		if action.PermissionDecision != nil {
 			if *action.PermissionDecision != "allow" && *action.PermissionDecision != "deny" && *action.PermissionDecision != "ask" {
+				errMsg := "Invalid permission_decision value in action config: must be 'allow', 'deny', or 'ask'"
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 				return &ActionOutput{
 					Continue:           true,
 					PermissionDecision: "deny",
 					HookEventName:      "PreToolUse",
-					SystemMessage:      "Invalid permission_decision value in action config: must be 'allow', 'deny', or 'ask'",
+					SystemMessage:      errMsg,
 				}, nil
 			}
 			permissionDecision = *action.PermissionDecision
