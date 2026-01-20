@@ -1887,7 +1887,7 @@ func TestExecuteUserPromptSubmitHooks_ErrorHandling(t *testing.T) {
 				Prompt: "test prompt",
 			},
 			wantContinue:      true,               // Continue is always true for UserPromptSubmit
-			wantDecision:      "approve",          // Condition error does not block (spec: prompt remains sendable)
+			wantDecision:      "allow",            // Condition error does not block (spec: prompt remains sendable)
 			wantHookEventName: "UserPromptSubmit", // Always set
 			wantSystemMessage: "",                 // Condition errors are not included in SystemMessage
 			wantErr:           true,               // Error is returned (but does not block)
