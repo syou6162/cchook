@@ -1026,22 +1026,25 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 	// Collect all errors
 	var allErrors []error
 	allErrors = append(allErrors, conditionErrors...)
-	allErrors = append(allErrors, actionErrors...)
 
-	if len(allErrors) > 0 {
-		// Safe side default: エラー時は decision: "block" を設定
-		// (SessionStartのcontinue: false、PreToolUseのpermissionDecision: "deny"と同様の安全側処理)
+	// アクションエラーがある場合のみdecision: "block"を設定
+	// 仕様: 条件チェックエラーはフックスキップ、プロンプト送信は可能（decision: "allow"維持）
+	if len(actionErrors) > 0 {
 		finalOutput.Decision = "block"
 
-		// エラー内容をSystemMessageに追加（グレースフルデグラデーション）
-		// Codex指摘: JSON出力にエラー情報を含めることで、ユーザーに原因を伝える
-		errorMsg := errors.Join(allErrors...).Error()
+		// アクションエラーのみSystemMessageに追加
+		errorMsg := errors.Join(actionErrors...).Error()
 		if finalOutput.SystemMessage != "" {
 			finalOutput.SystemMessage += "\n" + errorMsg
 		} else {
 			finalOutput.SystemMessage = errorMsg
 		}
 
+		allErrors = append(allErrors, actionErrors...)
+	}
+
+	// エラーがあれば返す（条件エラーのみでもエラーは返す）
+	if len(allErrors) > 0 {
 		return finalOutput, errors.Join(allErrors...)
 	}
 
