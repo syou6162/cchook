@@ -95,9 +95,11 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 
 		// Command failed with non-zero exit code
 		if exitCode != 0 {
+			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      false,
-				SystemMessage: fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr),
+				SystemMessage: errMsg,
 			}, nil
 		}
 
@@ -115,9 +117,11 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 		// Parse JSON output
 		var cmdOutput SessionStartOutput
 		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			errMsg := fmt.Sprintf("Command output is not valid JSON: %s", stdout)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      false,
-				SystemMessage: fmt.Sprintf("Command output is not valid JSON: %s", stdout),
+				SystemMessage: errMsg,
 			}, nil
 		}
 
@@ -194,11 +198,13 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 
 		// Command failed with non-zero exit code
 		if exitCode != 0 {
+			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
 				Decision:      "block",
 				HookEventName: "UserPromptSubmit",
-				SystemMessage: fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr),
+				SystemMessage: errMsg,
 			}, nil
 		}
 
@@ -216,11 +222,13 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 		// Parse JSON output
 		var cmdOutput UserPromptSubmitOutput
 		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			errMsg := fmt.Sprintf("Command output is not valid JSON: %s", stdout)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
 				Decision:      "block",
 				HookEventName: "UserPromptSubmit",
-				SystemMessage: fmt.Sprintf("Command output is not valid JSON: %s", stdout),
+				SystemMessage: errMsg,
 			}, nil
 		}
 

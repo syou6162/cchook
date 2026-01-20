@@ -1422,3 +1422,275 @@ func TestCheckUnsupportedFieldsUserPromptSubmit(t *testing.T) {
 		})
 	}
 }
+
+// TestExecuteSessionStartAction_CommandFailure_StderrWarning tests that command failure logs to stderr
+func TestExecuteSessionStartAction_CommandFailure_StderrWarning(t *testing.T) {
+	runner := &stubRunnerWithOutput{
+		stdout:   "",
+		stderr:   "Permission denied",
+		exitCode: 1,
+	}
+	executor := NewActionExecutor(runner)
+
+	action := Action{
+		Type:    "command",
+		Command: "failing-command.sh",
+	}
+
+	input := &SessionStartInput{
+		BaseInput: BaseInput{
+			SessionID: "test-session-123",
+		},
+	}
+
+	rawJSON := map[string]interface{}{
+		"session_id": "test-session-123",
+	}
+
+	// Capture stderr
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	output, err := executor.ExecuteSessionStartAction(action, input, rawJSON)
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	stderr := buf.String()
+
+	// Verify no error returned (fail-safe design)
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	// Verify output is valid with Continue=false and SystemMessage set
+	if output == nil {
+		t.Fatal("Expected valid output, got nil")
+	}
+	if output.Continue != false {
+		t.Errorf("Expected Continue=false, got: %v", output.Continue)
+	}
+	if !strings.Contains(output.SystemMessage, "Command failed with exit code 1") {
+		t.Errorf("Expected SystemMessage to contain error, got: %s", output.SystemMessage)
+	}
+
+	// Verify stderr warning was logged
+	if !strings.Contains(stderr, "Warning:") {
+		t.Errorf("Expected warning in stderr, got: %s", stderr)
+	}
+	if !strings.Contains(stderr, "Command failed with exit code 1") {
+		t.Errorf("Expected error message in stderr, got: %s", stderr)
+	}
+}
+
+// TestExecuteSessionStartAction_JSONParseError_StderrWarning tests that JSON parse error logs to stderr
+func TestExecuteSessionStartAction_JSONParseError_StderrWarning(t *testing.T) {
+	runner := &stubRunnerWithOutput{
+		stdout:   `{"invalid": json}`,
+		stderr:   "",
+		exitCode: 0,
+	}
+	executor := NewActionExecutor(runner)
+
+	action := Action{
+		Type:    "command",
+		Command: "invalid-json.sh",
+	}
+
+	input := &SessionStartInput{
+		BaseInput: BaseInput{
+			SessionID: "test-session-123",
+		},
+	}
+
+	rawJSON := map[string]interface{}{
+		"session_id": "test-session-123",
+	}
+
+	// Capture stderr
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	output, err := executor.ExecuteSessionStartAction(action, input, rawJSON)
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	stderr := buf.String()
+
+	// Verify no error returned (fail-safe design)
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	// Verify output is valid with Continue=false and SystemMessage set
+	if output == nil {
+		t.Fatal("Expected valid output, got nil")
+	}
+	if output.Continue != false {
+		t.Errorf("Expected Continue=false, got: %v", output.Continue)
+	}
+	if !strings.Contains(output.SystemMessage, "Command output is not valid JSON") {
+		t.Errorf("Expected SystemMessage to contain JSON error, got: %s", output.SystemMessage)
+	}
+
+	// Verify stderr warning was logged
+	if !strings.Contains(stderr, "Warning:") {
+		t.Errorf("Expected warning in stderr, got: %s", stderr)
+	}
+	if !strings.Contains(stderr, "Command output is not valid JSON") {
+		t.Errorf("Expected JSON error message in stderr, got: %s", stderr)
+	}
+}
+
+// TestExecuteUserPromptSubmitAction_CommandFailure_StderrWarning tests that command failure logs to stderr
+func TestExecuteUserPromptSubmitAction_CommandFailure_StderrWarning(t *testing.T) {
+	runner := &stubRunnerWithOutput{
+		stdout:   "",
+		stderr:   "command failed",
+		exitCode: 1,
+	}
+	executor := NewActionExecutor(runner)
+
+	action := Action{
+		Type:    "command",
+		Command: "exit 1",
+	}
+
+	input := &UserPromptSubmitInput{
+		BaseInput: BaseInput{
+			SessionID:      "test-session-123",
+			TranscriptPath: "/path/to/transcript",
+			Cwd:            "/test/cwd",
+			PermissionMode: "test",
+			HookEventName:  UserPromptSubmit,
+		},
+		Prompt: "test prompt",
+	}
+
+	rawJSON := map[string]interface{}{
+		"session_id":      "test-session-123",
+		"transcript_path": "/path/to/transcript",
+		"cwd":             "/test/cwd",
+		"permission_mode": "test",
+		"hook_event_name": "UserPromptSubmit",
+		"prompt":          "test prompt",
+	}
+
+	// Capture stderr
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	output, err := executor.ExecuteUserPromptSubmitAction(action, input, rawJSON)
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	stderr := buf.String()
+
+	// Verify no error returned (fail-safe design)
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	// Verify output is valid with Decision=block and SystemMessage set
+	if output == nil {
+		t.Fatal("Expected valid output, got nil")
+	}
+	if output.Decision != "block" {
+		t.Errorf("Expected Decision=block, got: %v", output.Decision)
+	}
+	if !strings.Contains(output.SystemMessage, "Command failed with exit code 1") {
+		t.Errorf("Expected SystemMessage to contain error, got: %s", output.SystemMessage)
+	}
+
+	// Verify stderr warning was logged
+	if !strings.Contains(stderr, "Warning:") {
+		t.Errorf("Expected warning in stderr, got: %s", stderr)
+	}
+	if !strings.Contains(stderr, "Command failed with exit code 1") {
+		t.Errorf("Expected error message in stderr, got: %s", stderr)
+	}
+}
+
+// TestExecuteUserPromptSubmitAction_JSONParseError_StderrWarning tests that JSON parse error logs to stderr
+func TestExecuteUserPromptSubmitAction_JSONParseError_StderrWarning(t *testing.T) {
+	runner := &stubRunnerWithOutput{
+		stdout:   "not json",
+		stderr:   "",
+		exitCode: 0,
+	}
+	executor := NewActionExecutor(runner)
+
+	action := Action{
+		Type:    "command",
+		Command: "echo invalid json",
+	}
+
+	input := &UserPromptSubmitInput{
+		BaseInput: BaseInput{
+			SessionID:      "test-session-123",
+			TranscriptPath: "/path/to/transcript",
+			Cwd:            "/test/cwd",
+			PermissionMode: "test",
+			HookEventName:  UserPromptSubmit,
+		},
+		Prompt: "test prompt",
+	}
+
+	rawJSON := map[string]interface{}{
+		"session_id":      "test-session-123",
+		"transcript_path": "/path/to/transcript",
+		"cwd":             "/test/cwd",
+		"permission_mode": "test",
+		"hook_event_name": "UserPromptSubmit",
+		"prompt":          "test prompt",
+	}
+
+	// Capture stderr
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	output, err := executor.ExecuteUserPromptSubmitAction(action, input, rawJSON)
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	stderr := buf.String()
+
+	// Verify no error returned (fail-safe design)
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	// Verify output is valid with Decision=block and SystemMessage set
+	if output == nil {
+		t.Fatal("Expected valid output, got nil")
+	}
+	if output.Decision != "block" {
+		t.Errorf("Expected Decision=block, got: %v", output.Decision)
+	}
+	if !strings.Contains(output.SystemMessage, "Command output is not valid JSON") {
+		t.Errorf("Expected SystemMessage to contain JSON error, got: %s", output.SystemMessage)
+	}
+
+	// Verify stderr warning was logged
+	if !strings.Contains(stderr, "Warning:") {
+		t.Errorf("Expected warning in stderr, got: %s", stderr)
+	}
+	if !strings.Contains(stderr, "Command output is not valid JSON") {
+		t.Errorf("Expected JSON error message in stderr, got: %s", stderr)
+	}
+}
