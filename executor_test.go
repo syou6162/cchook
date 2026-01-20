@@ -416,7 +416,7 @@ func TestExecuteUserPromptSubmitAction_TypeOutput(t *testing.T) {
 			wantDecision:      "block",
 			wantHookEventName: "UserPromptSubmit",
 			wantAdditionalCtx: "",
-			wantSystemMessage: "Invalid decision value: must be 'approve' or 'block'",
+			wantSystemMessage: "Invalid decision value in action config: must be 'approve' or 'block'",
 			wantErr:           false,
 		},
 		{
@@ -523,6 +523,7 @@ func TestExecuteUserPromptSubmitAction_TypeCommand(t *testing.T) {
 			},
 			stubStdout: `{
 				"continue": true,
+				"decision": "approve",
 				"hookSpecificOutput": {
 					"hookEventName": "UserPromptSubmit",
 					"additionalContext": "Valid output"
@@ -546,6 +547,7 @@ func TestExecuteUserPromptSubmitAction_TypeCommand(t *testing.T) {
 			},
 			stubStdout: `{
 				"continue": true,
+				"decision": "approve",
 				"hookSpecificOutput": {
 					"hookEventName": "UserPromptSubmit",
 					"additionalContext": "Hook event test"
@@ -562,7 +564,7 @@ func TestExecuteUserPromptSubmitAction_TypeCommand(t *testing.T) {
 			wantErr:           false,
 		},
 		{
-			name: "Command with decision unspecified defaults to allow",
+			name: "Missing decision returns block",
 			action: Action{
 				Type:    "command",
 				Command: "echo decision unspecified",
@@ -577,10 +579,10 @@ func TestExecuteUserPromptSubmitAction_TypeCommand(t *testing.T) {
 			stubExitCode:      0,
 			stubErr:           nil,
 			wantContinue:      true,
-			wantDecision:      "approve",
+			wantDecision:      "block",
 			wantHookEventName: "UserPromptSubmit",
 			wantAdditionalCtx: "",
-			wantSystemMessage: "",
+			wantSystemMessage: "Missing required field 'decision' in command output",
 			wantErr:           false,
 		},
 		{

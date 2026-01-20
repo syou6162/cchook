@@ -127,9 +127,11 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 
 		// Check for required field: hookSpecificOutput.hookEventName (requirement 3.4)
 		if cmdOutput.HookSpecificOutput == nil || cmdOutput.HookSpecificOutput.HookEventName == "" {
+			errMsg := "Command output is missing required field: hookSpecificOutput.hookEventName"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      false,
-				SystemMessage: "Command output is missing required field: hookSpecificOutput.hookEventName",
+				SystemMessage: errMsg,
 			}, nil
 		}
 
@@ -139,9 +141,11 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 		// - hookEventName is "SessionStart" (enum validation)
 		// - All field types match the schema
 		if err := validateSessionStartOutput([]byte(stdout)); err != nil {
+			errMsg := fmt.Sprintf("Command output validation failed: %s", err.Error())
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      false,
-				SystemMessage: fmt.Sprintf("Command output validation failed: %s", err.Error()),
+				SystemMessage: errMsg,
 			}, nil
 		}
 
@@ -166,9 +170,11 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 
 		// Empty message check
 		if strings.TrimSpace(processedMessage) == "" {
+			errMsg := "Action output has no message"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      false,
-				SystemMessage: "Action output has no message",
+				SystemMessage: errMsg,
 			}, nil
 		}
 
@@ -234,35 +240,66 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 
 		// Check for required field: hookSpecificOutput.hookEventName
 		if cmdOutput.HookSpecificOutput == nil || cmdOutput.HookSpecificOutput.HookEventName == "" {
+			errMsg := "Command output is missing required field: hookSpecificOutput.hookEventName"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
 				Decision:      "block",
 				HookEventName: "UserPromptSubmit",
-				SystemMessage: "Command output is missing required field: hookSpecificOutput.hookEventName",
+				SystemMessage: errMsg,
 			}, nil
 		}
 
 		// Validate hookEventName value
 		if cmdOutput.HookSpecificOutput.HookEventName != "UserPromptSubmit" {
+			errMsg := fmt.Sprintf("Invalid hookEventName: expected 'UserPromptSubmit', got '%s'", cmdOutput.HookSpecificOutput.HookEventName)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
 				Decision:      "block",
 				HookEventName: "UserPromptSubmit",
-				SystemMessage: fmt.Sprintf("Invalid hookEventName: expected 'UserPromptSubmit', got '%s'", cmdOutput.HookSpecificOutput.HookEventName),
+				SystemMessage: errMsg,
 			}, nil
 		}
 
-		// Validate decision field
+		// Validate decision field (required - fail-safe to "block" if missing)
 		decision := cmdOutput.Decision
 		if decision == "" {
-			// Default to "approve" if unspecified
-			decision = "approve"
-		} else if decision != "approve" && decision != "block" {
+			// Fail-safe: Default to "block" if decision is missing
+			errMsg := "Missing required field 'decision' in command output"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
 				Decision:      "block",
 				HookEventName: "UserPromptSubmit",
-				SystemMessage: "Invalid decision value: must be 'approve' or 'block'",
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		if decision != "approve" && decision != "block" {
+			errMsg := "Invalid decision value: must be 'approve' or 'block'"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				HookEventName: "UserPromptSubmit",
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Validate against JSON Schema
+		// This checks:
+		// - hookSpecificOutput exists (required field)
+		// - hookEventName is "UserPromptSubmit" (enum validation)
+		// - All field types match the schema
+		if err := validateUserPromptSubmitOutput([]byte(stdout)); err != nil {
+			errMsg := fmt.Sprintf("Command output validation failed: %s", err.Error())
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				HookEventName: "UserPromptSubmit",
+				SystemMessage: errMsg,
 			}, nil
 		}
 
@@ -288,11 +325,13 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 
 		// Empty message check
 		if strings.TrimSpace(processedMessage) == "" {
+			errMsg := "Action output has no message"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
 				Decision:      "block",
 				HookEventName: "UserPromptSubmit",
-				SystemMessage: "Action output has no message",
+				SystemMessage: errMsg,
 			}, nil
 		}
 
@@ -300,11 +339,13 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 		decision := "approve" // default
 		if action.Decision != nil {
 			if *action.Decision != "approve" && *action.Decision != "block" {
+				errMsg := "Invalid decision value in action config: must be 'approve' or 'block'"
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 				return &ActionOutput{
 					Continue:      true,
 					Decision:      "block",
 					HookEventName: "UserPromptSubmit",
-					SystemMessage: "Invalid decision value: must be 'approve' or 'block'",
+					SystemMessage: errMsg,
 				}, nil
 			}
 			decision = *action.Decision
