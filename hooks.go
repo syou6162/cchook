@@ -927,10 +927,10 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 	var conditionErrors []error
 	var actionErrors []error
 
-	// Initialize finalOutput with Continue: true, Decision: "allow"
+	// Initialize finalOutput with Continue: true, Decision: "" (omit to allow)
 	finalOutput := &UserPromptSubmitOutput{
 		Continue: true,
-		Decision: "allow",
+		Decision: "", // Empty string will be omitted from JSON (omitempty), allowing prompt
 	}
 
 	var additionalContextBuilder strings.Builder

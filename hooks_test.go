@@ -396,7 +396,7 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 				"prompt":          "test prompt",
 			},
 			wantContinue:      true,
-			wantDecision:      "approve",
+			wantDecision:      "",
 			wantHookEventName: "UserPromptSubmit",
 			wantAdditionalCtx: "Output message",
 			wantSystemMessage: "",
@@ -433,7 +433,7 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 				"prompt":          "test prompt",
 			},
 			wantContinue:      true,
-			wantDecision:      "approve",
+			wantDecision:      "",
 			wantHookEventName: "UserPromptSubmit",
 			wantAdditionalCtx: "First message\nSecond message",
 			wantSystemMessage: "",
@@ -542,7 +542,7 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 				"prompt":          "test prompt",
 			},
 			wantContinue:      true,
-			wantDecision:      "approve",
+			wantDecision:      "",
 			wantHookEventName: "UserPromptSubmit",
 			wantAdditionalCtx: "Test message",
 			wantSystemMessage: "",
@@ -1859,7 +1859,7 @@ func TestExecuteUserPromptSubmitHooks_ErrorHandling(t *testing.T) {
 		wantErr           bool
 	}{
 		{
-			name: "Condition error does not block prompt (decision remains allow)",
+			name: "Condition error does not block prompt (decision remains empty)",
 			config: &Config{
 				UserPromptSubmit: []UserPromptSubmitHook{
 					{
@@ -1887,7 +1887,7 @@ func TestExecuteUserPromptSubmitHooks_ErrorHandling(t *testing.T) {
 				Prompt: "test prompt",
 			},
 			wantContinue:      true,               // Continue is always true for UserPromptSubmit
-			wantDecision:      "allow",            // Condition error does not block (spec: prompt remains sendable)
+			wantDecision:      "",                 // Condition error does not block (decision field omitted to allow prompt)
 			wantHookEventName: "UserPromptSubmit", // Always set
 			wantSystemMessage: "",                 // Condition errors are not included in SystemMessage
 			wantErr:           true,               // Error is returned (but does not block)

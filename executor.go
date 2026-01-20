@@ -220,7 +220,7 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 		if strings.TrimSpace(stdout) == "" {
 			return &ActionOutput{
 				Continue:      true,
-				Decision:      "approve",
+				Decision:      "", // Empty string will be omitted from JSON (omitempty), allowing prompt
 				HookEventName: "UserPromptSubmit",
 			}, nil
 		}
@@ -262,22 +262,10 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 			}, nil
 		}
 
-		// Validate decision field (required - fail-safe to "block" if missing)
+		// Validate decision field (optional: empty string or "block")
 		decision := cmdOutput.Decision
-		if decision == "" {
-			// Fail-safe: Default to "block" if decision is missing
-			errMsg := "Missing required field 'decision' in command output"
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
-			return &ActionOutput{
-				Continue:      true,
-				Decision:      "block",
-				HookEventName: "UserPromptSubmit",
-				SystemMessage: errMsg,
-			}, nil
-		}
-
-		if decision != "approve" && decision != "block" {
-			errMsg := "Invalid decision value: must be 'approve' or 'block'"
+		if decision != "" && decision != "block" {
+			errMsg := "Invalid decision value: must be 'block' or omitted (empty string to allow)"
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
@@ -336,10 +324,10 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 		}
 
 		// Validate action.Decision if set
-		decision := "approve" // default
+		decision := "" // default: empty string (omitted to allow)
 		if action.Decision != nil {
-			if *action.Decision != "approve" && *action.Decision != "block" {
-				errMsg := "Invalid decision value in action config: must be 'approve' or 'block'"
+			if *action.Decision != "" && *action.Decision != "block" {
+				errMsg := "Invalid decision value in action config: must be 'block' or omitted (empty string to allow)"
 				fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 				return &ActionOutput{
 					Continue:      true,

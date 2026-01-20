@@ -729,13 +729,13 @@ func validateUserPromptSubmitOutput(jsonData []byte) error {
 	// 1. Allow additional properties at root level (requirement: additionalProperties: true)
 	schema.AdditionalProperties = nil // nil means allow any additional properties
 
-	// 2. Set required fields: decision and hookSpecificOutput
-	schema.Required = []string{"decision", "hookSpecificOutput"}
+	// 2. Set required fields: hookSpecificOutput only (decision is optional)
+	schema.Required = []string{"hookSpecificOutput"}
 
-	// 3. Add custom validation: decision must be "approve" or "block"
+	// 3. Add custom validation: decision must be "block" or omitted (empty string)
 	if decisionProp, ok := schema.Properties.Get("decision"); ok {
 		if decision := decisionProp; decision != nil {
-			decision.Enum = []interface{}{"approve", "block"}
+			decision.Enum = []interface{}{"block", ""}
 		}
 	}
 

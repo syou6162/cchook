@@ -806,7 +806,7 @@ func TestUserPromptSubmitOutput_JSONSerialization(t *testing.T) {
 			wantNotContain: []string{},
 		},
 		{
-			name: "Decision field is required and not omitted even when empty",
+			name: "Decision field is omitted when empty (allows prompt)",
 			output: UserPromptSubmitOutput{
 				Continue: true,
 				Decision: "",
@@ -814,19 +814,7 @@ func TestUserPromptSubmitOutput_JSONSerialization(t *testing.T) {
 					HookEventName: "UserPromptSubmit",
 				},
 			},
-			wantContains: []string{"\"decision\":\"\""},
-		},
-		{
-			name: "Decision field accepts 'approve'",
-			output: UserPromptSubmitOutput{
-				Continue: true,
-				Decision: "approve",
-				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
-					HookEventName:     "UserPromptSubmit",
-					AdditionalContext: "",
-				},
-			},
-			wantContains: []string{"\"decision\":\"approve\""},
+			wantNotContain: []string{"\"decision\""},
 		},
 		{
 			name: "Decision field accepts 'block'",
@@ -910,7 +898,7 @@ func TestUserPromptSubmitOutputSchemaValidation(t *testing.T) {
 			name: "Valid full output with all fields",
 			output: UserPromptSubmitOutput{
 				Continue:       true,
-				Decision:       "approve",
+				Decision:       "",
 				StopReason:     "test",
 				SuppressOutput: false,
 				SystemMessage:  "Test message",
@@ -933,22 +921,21 @@ func TestUserPromptSubmitOutputSchemaValidation(t *testing.T) {
 			wantValid: true,
 		},
 		{
-			name: "Invalid: missing decision field",
+			name: "Valid: missing decision field (allows prompt)",
 			output: UserPromptSubmitOutput{
 				Continue: true,
-				Decision: "", // empty decision
+				Decision: "", // empty decision allows prompt
 				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
 					HookEventName: "UserPromptSubmit",
 				},
 			},
-			wantValid: false,
-			wantError: "decision",
+			wantValid: true,
 		},
 		{
 			name: "Invalid: wrong hookEventName value",
 			output: UserPromptSubmitOutput{
 				Continue: true,
-				Decision: "approve",
+				Decision: "",
 				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
 					HookEventName:     "WrongEvent",
 					AdditionalContext: "Context",
@@ -968,28 +955,6 @@ func TestUserPromptSubmitOutputSchemaValidation(t *testing.T) {
 			},
 			wantValid: false,
 			wantError: "decision",
-		},
-		{
-			name: "Valid: Phase 2 unused fields omitted (omitempty)",
-			output: UserPromptSubmitOutput{
-				Continue: true,
-				Decision: "approve",
-				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
-					HookEventName: "UserPromptSubmit",
-				},
-			},
-			wantValid: true,
-		},
-		{
-			name: "Valid: decision 'allow'",
-			output: UserPromptSubmitOutput{
-				Continue: true,
-				Decision: "approve",
-				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
-					HookEventName: "UserPromptSubmit",
-				},
-			},
-			wantValid: true,
 		},
 		{
 			name: "Valid: decision 'block'",

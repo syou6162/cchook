@@ -172,9 +172,9 @@ type SessionStartHookSpecificOutput struct {
 // ActionOutput はアクション実行結果を表す内部型（JSONには直接出力されない）
 type ActionOutput struct {
 	Continue                 bool
-	Decision                 string // "allow" or "block" (UserPromptSubmit only, empty for SessionStart)
-	PermissionDecision       string // "allow", "deny", or "ask" (PreToolUse only, empty for SessionStart/UserPromptSubmit)
-	PermissionDecisionReason string // Reason for permission decision (PreToolUse only)
+	Decision                 string                 // "allow" or "block" (UserPromptSubmit only, empty for SessionStart)
+	PermissionDecision       string                 // "allow", "deny", or "ask" (PreToolUse only, empty for SessionStart/UserPromptSubmit)
+	PermissionDecisionReason string                 // Reason for permission decision (PreToolUse only)
 	UpdatedInput             map[string]interface{} // Updated tool input parameters (PreToolUse only)
 	StopReason               string
 	SuppressOutput           bool
@@ -186,16 +186,16 @@ type ActionOutput struct {
 // PreToolUseOutput represents the complete JSON output structure for PreToolUse hooks
 // following Claude Code JSON specification for Phase 3
 type PreToolUseOutput struct {
-	Continue           bool                            `json:"continue"`
-	StopReason         string                          `json:"stopReason,omitempty"`
-	SuppressOutput     bool                            `json:"suppressOutput,omitempty"`
-	SystemMessage      string                          `json:"systemMessage,omitempty"`
-	HookSpecificOutput *PreToolUseHookSpecificOutput   `json:"hookSpecificOutput"` // Required for PreToolUse (not omitempty)
+	Continue           bool                          `json:"continue"`
+	StopReason         string                        `json:"stopReason,omitempty"`
+	SuppressOutput     bool                          `json:"suppressOutput,omitempty"`
+	SystemMessage      string                        `json:"systemMessage,omitempty"`
+	HookSpecificOutput *PreToolUseHookSpecificOutput `json:"hookSpecificOutput"` // Required for PreToolUse (not omitempty)
 }
 
 // PreToolUseHookSpecificOutput represents the hookSpecificOutput field for PreToolUse hooks
 type PreToolUseHookSpecificOutput struct {
-	HookEventName            string                 `json:"hookEventName"` // Always "PreToolUse"
+	HookEventName            string                 `json:"hookEventName"`      // Always "PreToolUse"
 	PermissionDecision       string                 `json:"permissionDecision"` // Required: "allow", "deny", or "ask"
 	PermissionDecisionReason string                 `json:"permissionDecisionReason,omitempty"`
 	UpdatedInput             map[string]interface{} `json:"updatedInput,omitempty"`
@@ -215,7 +215,7 @@ func (u *UserPromptSubmitInput) GetToolName() string {
 // UserPromptSubmitOutput はUserPromptSubmitフックのJSON出力全体を表す（Claude Code共通フィールド含む）
 type UserPromptSubmitOutput struct {
 	Continue           bool                                `json:"continue"`
-	Decision           string                              `json:"decision"` // "allow" or "block" (required, no omitempty)
+	Decision           string                              `json:"decision,omitempty"` // "block" only; omit field to allow prompt
 	StopReason         string                              `json:"stopReason,omitempty"`
 	SuppressOutput     bool                                `json:"suppressOutput,omitempty"`
 	SystemMessage      string                              `json:"systemMessage,omitempty"`
@@ -409,7 +409,7 @@ type Action struct {
 	UseStdin           bool    `yaml:"use_stdin,omitempty"`
 	ExitStatus         *int    `yaml:"exit_status,omitempty"`
 	Continue           *bool   `yaml:"continue,omitempty"`
-	Decision           *string `yaml:"decision,omitempty"` // "allow" or "block" (UserPromptSubmit only)
+	Decision           *string `yaml:"decision,omitempty"`            // "allow" or "block" (UserPromptSubmit only)
 	PermissionDecision *string `yaml:"permission_decision,omitempty"` // "allow", "deny", or "ask" (PreToolUse only)
 }
 
