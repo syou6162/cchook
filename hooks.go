@@ -1029,6 +1029,19 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 	allErrors = append(allErrors, actionErrors...)
 
 	if len(allErrors) > 0 {
+		// Safe side default: エラー時は decision: "block" を設定
+		// (SessionStartのcontinue: false、PreToolUseのpermissionDecision: "deny"と同様の安全側処理)
+		finalOutput.Decision = "block"
+
+		// エラー内容をSystemMessageに追加（グレースフルデグラデーション）
+		// Codex指摘: JSON出力にエラー情報を含めることで、ユーザーに原因を伝える
+		errorMsg := errors.Join(allErrors...).Error()
+		if finalOutput.SystemMessage != "" {
+			finalOutput.SystemMessage += "\n" + errorMsg
+		} else {
+			finalOutput.SystemMessage = errorMsg
+		}
+
 		return finalOutput, errors.Join(allErrors...)
 	}
 
