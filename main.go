@@ -135,15 +135,24 @@ func main() {
 			// Marshal JSON with 2-space indent
 			jsonBytes, err := json.MarshalIndent(output, "", "  ")
 			if err != nil {
-				// Marshal failure is fatal
-				fmt.Fprintf(os.Stderr, "Error marshaling JSON: %v\n", err)
-				os.Exit(1)
+				// Marshal failure should not be fatal - output minimal valid JSON and exit 0
+				fmt.Fprintf(os.Stderr, "Warning: Error marshaling JSON: %v\n", err)
+				// Fallback to minimal valid output
+				fallbackOutput := PreToolUseOutput{
+					Continue: true,
+					HookSpecificOutput: &PreToolUseHookSpecificOutput{
+						HookEventName:      "PreToolUse",
+						PermissionDecision: "deny",
+					},
+					SystemMessage: fmt.Sprintf("Failed to marshal output: %v", err),
+				}
+				jsonBytes, _ = json.MarshalIndent(fallbackOutput, "", "  ")
 			}
 
 			// Validate final JSON output against schema (non-functional requirement)
 			if err := validatePreToolUseOutput(jsonBytes); err != nil {
-				fmt.Fprintf(os.Stderr, "Final JSON output validation failed: %v\n", err)
-				os.Exit(1)
+				// Validation failure should not be fatal - log warning and continue
+				fmt.Fprintf(os.Stderr, "Warning: Final JSON output validation failed: %v\n", err)
 			}
 
 			// Output JSON to stdout

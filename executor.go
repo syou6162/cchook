@@ -323,11 +323,13 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 
 		// Command failed with non-zero exit code
 		if exitCode != 0 {
+			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:           true,
 				PermissionDecision: "deny",
 				HookEventName:      "PreToolUse",
-				SystemMessage:      fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr),
+				SystemMessage:      errMsg,
 			}, nil
 		}
 
@@ -345,11 +347,13 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 		// Parse JSON output
 		var cmdOutput PreToolUseOutput
 		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			errMsg := fmt.Sprintf("Command output is not valid JSON: %s", stdout)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:           true,
 				PermissionDecision: "deny",
 				HookEventName:      "PreToolUse",
-				SystemMessage:      fmt.Sprintf("Command output is not valid JSON: %s", stdout),
+				SystemMessage:      errMsg,
 			}, nil
 		}
 
