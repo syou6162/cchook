@@ -292,7 +292,7 @@ func TestCheckCondition(t *testing.T) {
 		},
 		{
 			"dir_exists_recursive - directory exists",
-			Condition{Type: ConditionDirExistsRecursive, Value: ".git"},
+			Condition{Type: ConditionDirExistsRecursive, Value: ".github"},
 			&PreToolUseInput{},
 			true,
 			false,
@@ -327,7 +327,7 @@ func TestCheckCondition(t *testing.T) {
 		},
 		{
 			"dir_not_exists_recursive - directory exists",
-			Condition{Type: ConditionDirNotExistsRecursive, Value: ".git"},
+			Condition{Type: ConditionDirNotExistsRecursive, Value: ".github"},
 			&PreToolUseInput{},
 			false,
 			false,
