@@ -1718,3 +1718,273 @@ func TestExecuteUserPromptSubmitAction_JSONParseError_StderrWarning(t *testing.T
 		t.Errorf("Expected JSON error message in stderr, got: %s", stderr)
 	}
 }
+
+func TestExecutePermissionRequestAction_TypeOutput(t *testing.T) {
+	tests := []struct {
+		name              string
+		action            Action
+		input             *PermissionRequestInput
+		wantBehavior      string
+		wantMessage       string
+		wantInterrupt     bool
+		wantSystemMessage string
+		wantHookEventName string
+	}{
+		{
+			name: "behavior unspecified -> deny (fail-safe)",
+			action: Action{
+				Type:    "output",
+				Message: "Operation blocked by default",
+			},
+			input: &PermissionRequestInput{
+				ToolName: "Write",
+				ToolInput: ToolInput{
+					FilePath: "test.txt",
+				},
+			},
+			wantBehavior:      "deny",
+			wantMessage:       "Operation blocked by default",
+			wantHookEventName: "PermissionRequest",
+		},
+		{
+			name: "behavior: allow",
+			action: Action{
+				Type:     "output",
+				Message:  "Operation allowed",
+				Behavior: stringPtr("allow"),
+			},
+			input: &PermissionRequestInput{
+				ToolName: "Write",
+			},
+			wantBehavior:      "allow",
+			wantMessage:       "Operation allowed",
+			wantHookEventName: "PermissionRequest",
+		},
+		{
+			name: "behavior: deny + message",
+			action: Action{
+				Type:     "output",
+				Message:  "Dangerous operation detected",
+				Behavior: stringPtr("deny"),
+			},
+			input: &PermissionRequestInput{
+				ToolName: "Bash",
+			},
+			wantBehavior:      "deny",
+			wantMessage:       "Dangerous operation detected",
+			wantHookEventName: "PermissionRequest",
+		},
+		{
+			name: "behavior: deny + interrupt: true",
+			action: Action{
+				Type:      "output",
+				Message:   "Critical operation blocked",
+				Behavior:  stringPtr("deny"),
+				Interrupt: boolPtr(true),
+			},
+			input: &PermissionRequestInput{
+				ToolName: "Edit",
+			},
+			wantBehavior:      "deny",
+			wantMessage:       "Critical operation blocked",
+			wantInterrupt:     true,
+			wantHookEventName: "PermissionRequest",
+		},
+		{
+			name: "behavior: ask -> error (ask is invalid for PermissionRequest)",
+			action: Action{
+				Type:     "output",
+				Message:  "Please confirm",
+				Behavior: stringPtr("ask"),
+			},
+			input: &PermissionRequestInput{
+				ToolName: "Write",
+			},
+			wantBehavior:      "deny",
+			wantSystemMessage: "Invalid behavior value in action config: must be 'allow' or 'deny'",
+			wantHookEventName: "PermissionRequest",
+		},
+		{
+			name: "Empty message -> behavior: deny + systemMessage",
+			action: Action{
+				Type:    "output",
+				Message: "",
+			},
+			input: &PermissionRequestInput{
+				ToolName: "Bash",
+			},
+			wantBehavior:      "deny",
+			wantSystemMessage: "Action output has no message",
+			wantHookEventName: "PermissionRequest",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := &ActionExecutor{runner: &stubRunnerWithOutput{}}
+			output, err := executor.ExecutePermissionRequestAction(tt.action, tt.input, tt.input)
+
+			if err != nil {
+				t.Errorf("Expected no error, got: %v", err)
+			}
+
+			if output == nil {
+				t.Fatal("Expected output, got nil")
+			}
+
+			if output.Behavior != tt.wantBehavior {
+				t.Errorf("Expected Behavior=%s, got: %s", tt.wantBehavior, output.Behavior)
+			}
+
+			if output.Message != tt.wantMessage {
+				t.Errorf("Expected Message=%s, got: %s", tt.wantMessage, output.Message)
+			}
+
+			if output.Interrupt != tt.wantInterrupt {
+				t.Errorf("Expected Interrupt=%v, got: %v", tt.wantInterrupt, output.Interrupt)
+			}
+
+			if output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("Expected SystemMessage=%s, got: %s", tt.wantSystemMessage, output.SystemMessage)
+			}
+
+			if output.HookEventName != tt.wantHookEventName {
+				t.Errorf("Expected HookEventName=%s, got: %s", tt.wantHookEventName, output.HookEventName)
+			}
+		})
+	}
+}
+
+func TestExecutePermissionRequestAction_TypeCommand(t *testing.T) {
+	tests := []struct {
+		name              string
+		action            Action
+		input             *PermissionRequestInput
+		stubStdout        string
+		stubStderr        string
+		stubExitCode      int
+		stubErr           error
+		wantBehavior      string
+		wantMessage       string
+		wantInterrupt     bool
+		wantSystemMessage string
+		wantHookEventName string
+	}{
+		{
+			name: "正常JSON出力",
+			action: Action{
+				Type:    "command",
+				Command: "echo '{\"continue\":true,\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"decision\":{\"behavior\":\"allow\"}}}'",
+			},
+			input: &PermissionRequestInput{
+				ToolName: "Write",
+			},
+			stubStdout:        `{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}`,
+			stubExitCode:      0,
+			wantBehavior:      "allow",
+			wantHookEventName: "PermissionRequest",
+		},
+		{
+			name: "コマンド失敗 -> deny",
+			action: Action{
+				Type:    "command",
+				Command: "exit 1",
+			},
+			input: &PermissionRequestInput{
+				ToolName: "Bash",
+			},
+			stubStdout:        "",
+			stubStderr:        "command failed",
+			stubExitCode:      1,
+			wantBehavior:      "deny",
+			wantSystemMessage: "Command failed with exit code 1: command failed",
+			wantHookEventName: "PermissionRequest",
+		},
+		{
+			name: "空stdout -> deny (PermissionRequestではallowではなくdenyがfail-safe)",
+			action: Action{
+				Type:    "command",
+				Command: "echo",
+			},
+			input: &PermissionRequestInput{
+				ToolName: "Write",
+			},
+			stubStdout:        "",
+			stubExitCode:      0,
+			wantBehavior:      "deny",
+			wantSystemMessage: "Command output is empty",
+			wantHookEventName: "PermissionRequest",
+		},
+		{
+			name: "hookEventName欠落",
+			action: Action{
+				Type:    "command",
+				Command: "echo '{\"continue\":true}'",
+			},
+			input: &PermissionRequestInput{
+				ToolName: "Write",
+			},
+			stubStdout:        `{"continue":true}`,
+			stubExitCode:      0,
+			wantBehavior:      "deny",
+			wantSystemMessage: "Command output is missing required field: hookSpecificOutput.hookEventName",
+			wantHookEventName: "PermissionRequest",
+		},
+		{
+			name: "behavior欠落 -> deny",
+			action: Action{
+				Type:    "command",
+				Command: "echo '{\"continue\":true,\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"decision\":{}}}'",
+			},
+			input: &PermissionRequestInput{
+				ToolName: "Write",
+			},
+			stubStdout:        `{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{}}}`,
+			stubExitCode:      0,
+			wantBehavior:      "deny",
+			wantSystemMessage: "Command output is missing required field: hookSpecificOutput.decision.behavior",
+			wantHookEventName: "PermissionRequest",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stub := &stubRunnerWithOutput{
+				stdout:   tt.stubStdout,
+				stderr:   tt.stubStderr,
+				exitCode: tt.stubExitCode,
+				err:      tt.stubErr,
+			}
+			executor := &ActionExecutor{runner: stub}
+			output, err := executor.ExecutePermissionRequestAction(tt.action, tt.input, tt.input)
+
+			if err != nil {
+				t.Errorf("Expected no error, got: %v", err)
+			}
+
+			if output == nil {
+				t.Fatal("Expected output, got nil")
+			}
+
+			if output.Behavior != tt.wantBehavior {
+				t.Errorf("Expected Behavior=%s, got: %s", tt.wantBehavior, output.Behavior)
+			}
+
+			if output.Message != tt.wantMessage {
+				t.Errorf("Expected Message=%s, got: %s", tt.wantMessage, output.Message)
+			}
+
+			if output.Interrupt != tt.wantInterrupt {
+				t.Errorf("Expected Interrupt=%v, got: %v", tt.wantInterrupt, output.Interrupt)
+			}
+
+			if tt.wantSystemMessage != "" && !strings.Contains(output.SystemMessage, tt.wantSystemMessage) {
+				t.Errorf("Expected SystemMessage to contain %s, got: %s", tt.wantSystemMessage, output.SystemMessage)
+			}
+
+			if output.HookEventName != tt.wantHookEventName {
+				t.Errorf("Expected HookEventName=%s, got: %s", tt.wantHookEventName, output.HookEventName)
+			}
+		})
+	}
+}

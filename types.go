@@ -448,6 +448,8 @@ type Action struct {
 	Continue           *bool   `yaml:"continue,omitempty"`
 	Decision           *string `yaml:"decision,omitempty"`            // "block" only, or omit field entirely (internal: empty string will be omitted from JSON; UserPromptSubmit only)
 	PermissionDecision *string `yaml:"permission_decision,omitempty"` // "allow", "deny", or "ask" (PreToolUse only)
+	Behavior           *string `yaml:"behavior,omitempty"`            // "allow" or "deny" (PermissionRequest only)
+	Interrupt          *bool   `yaml:"interrupt,omitempty"`           // deny時のみ (PermissionRequest only)
 }
 
 // 設定ファイル構造
