@@ -756,14 +756,14 @@ func TestUserPromptSubmitOutput_JSONSerialization(t *testing.T) {
 			name: "Full output with all Phase 2 used fields",
 			output: UserPromptSubmitOutput{
 				Continue:      true,
-				Decision:      "approve",
+				Decision:      "block",
 				SystemMessage: "Test message",
 				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
 					HookEventName:     "UserPromptSubmit",
 					AdditionalContext: "Additional info",
 				},
 			},
-			wantContains:   []string{"\"continue\":true", "\"decision\":\"approve\"", "\"systemMessage\":\"Test message\"", "\"hookEventName\":\"UserPromptSubmit\"", "\"additionalContext\":\"Additional info\""},
+			wantContains:   []string{"\"continue\":true", "\"decision\":\"block\"", "\"systemMessage\":\"Test message\"", "\"hookEventName\":\"UserPromptSubmit\"", "\"additionalContext\":\"Additional info\""},
 			wantNotContain: []string{"stopReason", "suppressOutput"},
 		},
 		{
@@ -784,7 +784,7 @@ func TestUserPromptSubmitOutput_JSONSerialization(t *testing.T) {
 			name: "HookEventName is always UserPromptSubmit",
 			output: UserPromptSubmitOutput{
 				Continue: true,
-				Decision: "approve",
+				Decision: "",
 				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
 					HookEventName:     "UserPromptSubmit",
 					AdditionalContext: "Context",
@@ -796,7 +796,7 @@ func TestUserPromptSubmitOutput_JSONSerialization(t *testing.T) {
 			name: "Empty additionalContext is included (required field)",
 			output: UserPromptSubmitOutput{
 				Continue: true,
-				Decision: "approve",
+				Decision: "",
 				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
 					HookEventName:     "UserPromptSubmit",
 					AdditionalContext: "",
