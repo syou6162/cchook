@@ -316,7 +316,7 @@ UserPromptSubmit:
   - actions:
       - type: output
         message: "Prompt validation message"
-        decision: "approve"  # optional: "approve" or "block", defaults to "approve"
+        decision: "block"  # optional: "block" only; omit to allow prompt
 ```
 
 **Command Action** (type: `command`):
@@ -324,7 +324,7 @@ Commands must output JSON with the following structure:
 ```json
 {
   "continue": true,
-  "decision": "approve",
+  "decision": "block",
   "hookSpecificOutput": {
     "hookEventName": "UserPromptSubmit",
     "additionalContext": "Message to display"
@@ -332,6 +332,8 @@ Commands must output JSON with the following structure:
   "systemMessage": "Optional system message"
 }
 ```
+
+Note: To allow the prompt, omit the `decision` field entirely.
 
 **Field Merging**:
 When multiple actions execute:
@@ -341,15 +343,15 @@ When multiple actions execute:
 - `additionalContext` and `systemMessage`: Concatenated with newline separator
 
 **Exit Code Behavior**:
-UserPromptSubmit hooks **always exit with code 0**. The `decision` field controls whether the prompt is approved or blocked:
-- `"allow"`: Prompt processing continues normally
+UserPromptSubmit hooks **always exit with code 0**. The `decision` field controls whether the prompt is blocked:
+- `decision` field omitted: Prompt processing continues normally
 - `"block"`: Prompt processing is blocked (early return)
 
 Errors are logged to stderr as warnings, but cchook continues to output JSON and exits successfully.
 
 **Empty stdout behavior**:
 When a command action returns empty stdout (e.g., validation tools that only output on failure):
-- The decision defaults to "approve"
+- The decision field is omitted (allowing the prompt)
 - This supports validation-type CLI tools following the Unix philosophy ("silence is golden")
 
 Example:
@@ -357,7 +359,7 @@ Example:
 UserPromptSubmit:
   - actions:
       - type: command
-        command: "lint-prompt.sh"  # No output on success → decision: "approve"
+        command: "lint-prompt.sh"  # No output on success → decision omitted (allow)
 ```
 
 Best practice: For clarity, always return explicit JSON output from commands.

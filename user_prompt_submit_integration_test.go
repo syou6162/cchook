@@ -78,7 +78,7 @@ func TestUserPromptSubmitIntegration_BlockPattern(t *testing.T) {
 }
 
 func TestUserPromptSubmitIntegration_AllowPattern(t *testing.T) {
-	// Test case 2: Real config file with normal prompt -> allow message, decision: "approve"
+	// Test case 2: Real config file with normal prompt -> allow message, decision: "" (omitted to allow)
 	tmpDir := t.TempDir()
 	configPath := tmpDir + "/config.yaml"
 
@@ -123,8 +123,8 @@ func TestUserPromptSubmitIntegration_AllowPattern(t *testing.T) {
 		t.Errorf("Continue = false, want true (always true for UserPromptSubmit)")
 	}
 
-	if output.Decision != "approve" {
-		t.Errorf("Decision = %v, want allow", output.Decision)
+	if output.Decision != "" {
+		t.Errorf("Decision = %v, want empty string (omitted to allow)", output.Decision)
 	}
 
 	if output.HookSpecificOutput == nil {
@@ -196,9 +196,9 @@ func TestUserPromptSubmitIntegration_MultipleActions(t *testing.T) {
 		t.Errorf("Continue = false, want true (always true for UserPromptSubmit)")
 	}
 
-	// Verify Decision is "approve" (last value)
-	if output.Decision != "approve" {
-		t.Errorf("Decision = %v, want allow", output.Decision)
+	// Verify Decision is "" (last value, omitted to allow)
+	if output.Decision != "" {
+		t.Errorf("Decision = %v, want empty string (omitted to allow)", output.Decision)
 	}
 }
 
