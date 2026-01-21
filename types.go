@@ -18,21 +18,22 @@ type CommandRunner interface {
 type HookEventType string
 
 const (
-	PreToolUse       HookEventType = "PreToolUse"
-	PostToolUse      HookEventType = "PostToolUse"
-	Notification     HookEventType = "Notification"
-	Stop             HookEventType = "Stop"
-	SubagentStop     HookEventType = "SubagentStop"
-	PreCompact       HookEventType = "PreCompact"
-	SessionStart     HookEventType = "SessionStart"
-	SessionEnd       HookEventType = "SessionEnd"
-	UserPromptSubmit HookEventType = "UserPromptSubmit"
+	PreToolUse        HookEventType = "PreToolUse"
+	PostToolUse       HookEventType = "PostToolUse"
+	PermissionRequest HookEventType = "PermissionRequest"
+	Notification      HookEventType = "Notification"
+	Stop              HookEventType = "Stop"
+	SubagentStop      HookEventType = "SubagentStop"
+	PreCompact        HookEventType = "PreCompact"
+	SessionStart      HookEventType = "SessionStart"
+	SessionEnd        HookEventType = "SessionEnd"
+	UserPromptSubmit  HookEventType = "UserPromptSubmit"
 )
 
 // IsValid validates whether the HookEventType is a recognized event type.
 func (e HookEventType) IsValid() bool {
 	switch e {
-	case PreToolUse, PostToolUse, Notification, Stop, SubagentStop, PreCompact, SessionStart, SessionEnd, UserPromptSubmit:
+	case PreToolUse, PostToolUse, PermissionRequest, Notification, Stop, SubagentStop, PreCompact, SessionStart, SessionEnd, UserPromptSubmit:
 		return true
 	default:
 		return false
@@ -79,6 +80,9 @@ type PreToolUseInput struct {
 func (p *PreToolUseInput) GetToolName() string {
 	return p.ToolName
 }
+
+// PermissionRequest用 - PreToolUseと同じ入力スキーマ
+type PermissionRequestInput = PreToolUseInput
 
 // Tool response structures - ツールによって配列またはオブジェクトのパターンに対応
 type ToolResponse json.RawMessage
@@ -176,6 +180,9 @@ type ActionOutput struct {
 	PermissionDecision       string                 // "allow", "deny", or "ask" (PreToolUse only, empty for SessionStart/UserPromptSubmit)
 	PermissionDecisionReason string                 // Reason for permission decision (PreToolUse only)
 	UpdatedInput             map[string]interface{} // Updated tool input parameters (PreToolUse only)
+	Behavior                 string                 // "allow" or "deny" (PermissionRequest only)
+	Message                  string                 // Deny message (PermissionRequest only)
+	Interrupt                bool                   // Interrupt flag for deny (PermissionRequest only)
 	StopReason               string
 	SuppressOutput           bool
 	SystemMessage            string
@@ -199,6 +206,30 @@ type PreToolUseHookSpecificOutput struct {
 	PermissionDecision       string                 `json:"permissionDecision"` // Required: "allow", "deny", or "ask"
 	PermissionDecisionReason string                 `json:"permissionDecisionReason,omitempty"`
 	UpdatedInput             map[string]interface{} `json:"updatedInput,omitempty"`
+}
+
+// PermissionRequestOutput represents the complete JSON output structure for PermissionRequest hooks
+// following Claude Code JSON specification for Phase 5
+type PermissionRequestOutput struct {
+	Continue           bool                                 `json:"continue"`
+	StopReason         string                               `json:"stopReason,omitempty"`
+	SuppressOutput     bool                                 `json:"suppressOutput,omitempty"`
+	SystemMessage      string                               `json:"systemMessage,omitempty"`
+	HookSpecificOutput *PermissionRequestHookSpecificOutput `json:"hookSpecificOutput"` // Required
+}
+
+// PermissionRequestHookSpecificOutput represents the hookSpecificOutput field for PermissionRequest hooks
+type PermissionRequestHookSpecificOutput struct {
+	HookEventName string                     `json:"hookEventName"` // Always "PermissionRequest"
+	Decision      *PermissionRequestDecision `json:"decision"`      // Required
+}
+
+// PermissionRequestDecision represents the decision object within PermissionRequest hookSpecificOutput
+type PermissionRequestDecision struct {
+	Behavior     string                 `json:"behavior"`               // Required: "allow" or "deny"
+	UpdatedInput map[string]interface{} `json:"updatedInput,omitempty"` // Optional: allow時のみ
+	Message      string                 `json:"message,omitempty"`      // Optional: deny時のみ
+	Interrupt    bool                   `json:"interrupt,omitempty"`    // Optional: deny時のみ、デフォルトfalse
 }
 
 // UserPromptSubmit用
