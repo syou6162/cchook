@@ -290,6 +290,12 @@ type PostToolUseHook struct {
 	Actions    []Action    `yaml:"actions"`
 }
 
+type PermissionRequestHook struct {
+	Matcher    string      `yaml:"matcher"`
+	Conditions []Condition `yaml:"conditions,omitempty"`
+	Actions    []Action    `yaml:"actions"`
+}
+
 type NotificationHook struct {
 	Conditions []Condition `yaml:"conditions,omitempty"`
 	Actions    []Action    `yaml:"actions"`
@@ -446,13 +452,14 @@ type Action struct {
 
 // 設定ファイル構造
 type Config struct {
-	PreToolUse       []PreToolUseHook       `yaml:"PreToolUse,omitempty"`
-	PostToolUse      []PostToolUseHook      `yaml:"PostToolUse,omitempty"`
-	Notification     []NotificationHook     `yaml:"Notification,omitempty"`
-	Stop             []StopHook             `yaml:"Stop,omitempty"`
-	SubagentStop     []SubagentStopHook     `yaml:"SubagentStop,omitempty"`
-	PreCompact       []PreCompactHook       `yaml:"PreCompact,omitempty"`
-	SessionStart     []SessionStartHook     `yaml:"SessionStart,omitempty"`
-	SessionEnd       []SessionEndHook       `yaml:"SessionEnd,omitempty"`
-	UserPromptSubmit []UserPromptSubmitHook `yaml:"UserPromptSubmit,omitempty"`
+	PreToolUse        []PreToolUseHook        `yaml:"PreToolUse,omitempty"`
+	PostToolUse       []PostToolUseHook       `yaml:"PostToolUse,omitempty"`
+	PermissionRequest []PermissionRequestHook `yaml:"PermissionRequest,omitempty"`
+	Notification      []NotificationHook      `yaml:"Notification,omitempty"`
+	Stop              []StopHook              `yaml:"Stop,omitempty"`
+	SubagentStop      []SubagentStopHook      `yaml:"SubagentStop,omitempty"`
+	PreCompact        []PreCompactHook        `yaml:"PreCompact,omitempty"`
+	SessionStart      []SessionStartHook      `yaml:"SessionStart,omitempty"`
+	SessionEnd        []SessionEndHook        `yaml:"SessionEnd,omitempty"`
+	UserPromptSubmit  []UserPromptSubmitHook  `yaml:"UserPromptSubmit,omitempty"`
 }
