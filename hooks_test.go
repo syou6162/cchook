@@ -2062,3 +2062,156 @@ func TestExecutePreToolUseHook_NewSignature(t *testing.T) {
 		})
 	}
 }
+func TestExecutePermissionRequestHooks(t *testing.T) {
+	config := &Config{
+		PermissionRequest: []PermissionRequestHook{
+			{
+				Matcher: "Bash",
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "Command: {.tool_input.command}",
+						Behavior: func() *string {
+							s := "allow"
+							return &s
+						}(),
+					},
+				},
+			},
+			{
+				Matcher: "Write",
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "Dangerous operation",
+						Behavior: func() *string {
+							s := "deny"
+							return &s
+						}(),
+						Interrupt: func() *bool {
+							b := true
+							return &b
+						}(),
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name              string
+		input             *PermissionRequestInput
+		wantBehavior      string
+		wantMessage       string
+		wantInterrupt     bool
+		wantContinue      bool
+		wantHookEventName string
+	}{
+		{
+			name: "Bash matcher matches - allow",
+			input: &PermissionRequestInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session-123",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  PermissionRequest,
+				},
+				ToolName: "Bash",
+				ToolInput: ToolInput{
+					Command: "ls -la",
+				},
+			},
+			wantBehavior:      "allow",
+			wantMessage:       "Command: ls -la",
+			wantInterrupt:     false,
+			wantContinue:      true,
+			wantHookEventName: "PermissionRequest",
+		},
+		{
+			name: "Write matcher matches - deny with interrupt",
+			input: &PermissionRequestInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session-456",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  PermissionRequest,
+				},
+				ToolName: "Write",
+				ToolInput: ToolInput{
+					FilePath: "test.go",
+				},
+			},
+			wantBehavior:      "deny",
+			wantMessage:       "Dangerous operation",
+			wantInterrupt:     true,
+			wantContinue:      true,
+			wantHookEventName: "PermissionRequest",
+		},
+		{
+			name: "No matcher matches - default deny",
+			input: &PermissionRequestInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session-789",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  PermissionRequest,
+				},
+				ToolName: "Read",
+				ToolInput: ToolInput{
+					FilePath: "test.go",
+				},
+			},
+			wantBehavior:      "deny",
+			wantMessage:       "",
+			wantInterrupt:     false,
+			wantContinue:      true,
+			wantHookEventName: "PermissionRequest",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// rawJSON作成
+			rawJSON := map[string]interface{}{
+				"session_id":      tt.input.SessionID,
+				"transcript_path": tt.input.TranscriptPath,
+				"hook_event_name": string(tt.input.HookEventName),
+				"tool_name":       tt.input.ToolName,
+				"tool_input": map[string]interface{}{
+					"command":   tt.input.ToolInput.Command,
+					"file_path": tt.input.ToolInput.FilePath,
+				},
+			}
+
+			// フック実行
+			output, err := executePermissionRequestHooksJSON(config, tt.input, rawJSON)
+
+			// エラーチェック
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			// Continue チェック
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			// HookEventName チェック
+			if output.HookSpecificOutput.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName = %q, want %q", output.HookSpecificOutput.HookEventName, tt.wantHookEventName)
+			}
+
+			// Behavior チェック
+			if output.HookSpecificOutput.Decision.Behavior != tt.wantBehavior {
+				t.Errorf("Behavior = %q, want %q", output.HookSpecificOutput.Decision.Behavior, tt.wantBehavior)
+			}
+
+			// Message チェック
+			if output.HookSpecificOutput.Decision.Message != tt.wantMessage {
+				t.Errorf("Message = %q, want %q", output.HookSpecificOutput.Decision.Message, tt.wantMessage)
+			}
+
+			// Interrupt チェック
+			if output.HookSpecificOutput.Decision.Interrupt != tt.wantInterrupt {
+				t.Errorf("Interrupt = %v, want %v", output.HookSpecificOutput.Decision.Interrupt, tt.wantInterrupt)
+			}
+		})
+	}
+}
