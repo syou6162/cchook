@@ -1454,7 +1454,7 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 
 	var messageBuilder strings.Builder
 	var systemMessageBuilder strings.Builder
-	hookEventName := ""
+	hookEventName := "PermissionRequest"
 	behavior := "deny" // Default: fail-safe to deny
 	var updatedInput map[string]interface{}
 	interrupt := false
