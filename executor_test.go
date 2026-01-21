@@ -1757,7 +1757,7 @@ func TestExecutePermissionRequestAction_TypeOutput(t *testing.T) {
 				ToolName: "Write",
 			},
 			wantBehavior:      "allow",
-			wantMessage:       "Operation allowed",
+			wantMessage:       "", // 公式仕様: allow時はmessageは空
 			wantHookEventName: "PermissionRequest",
 		},
 		{
@@ -1814,7 +1814,7 @@ func TestExecutePermissionRequestAction_TypeOutput(t *testing.T) {
 				ToolName: "Bash",
 			},
 			wantBehavior:      "deny",
-			wantSystemMessage: "Action output has no message",
+			wantSystemMessage: "Action output has no message for deny behavior",
 			wantHookEventName: "PermissionRequest",
 		},
 	}

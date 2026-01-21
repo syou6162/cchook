@@ -755,16 +755,6 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 	case "output":
 		message := unifiedTemplateReplace(action.Message, rawJSON)
 
-		// Empty message is an error
-		if message == "" {
-			return &ActionOutput{
-				Continue:      true,
-				Behavior:      "deny",
-				HookEventName: "PermissionRequest",
-				SystemMessage: "Action output has no message",
-			}, nil
-		}
-
 		// Determine behavior (default: deny for fail-safe)
 		behavior := "deny"
 		if action.Behavior != nil {
@@ -780,17 +770,33 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 			}
 		}
 
-		// Get interrupt flag (only for deny)
-		interrupt := false
-		if action.Interrupt != nil {
-			interrupt = *action.Interrupt
+		// For deny behavior, message is required
+		if behavior == "deny" && message == "" {
+			return &ActionOutput{
+				Continue:      true,
+				Behavior:      "deny",
+				HookEventName: "PermissionRequest",
+				SystemMessage: "Action output has no message for deny behavior",
+			}, nil
 		}
+
+		// Set fields based on behavior (公式仕様に準拠)
+		var resultMessage string
+		var resultInterrupt bool
+		if behavior == "deny" {
+			// deny時: message/interruptを設定
+			resultMessage = message
+			if action.Interrupt != nil {
+				resultInterrupt = *action.Interrupt
+			}
+		}
+		// allow時: message=""、interrupt=false（デフォルト値のまま）
 
 		return &ActionOutput{
 			Continue:      true,
 			Behavior:      behavior,
-			Message:       message,
-			Interrupt:     interrupt,
+			Message:       resultMessage,
+			Interrupt:     resultInterrupt,
 			HookEventName: "PermissionRequest",
 		}, nil
 

@@ -2121,7 +2121,7 @@ func TestExecutePermissionRequestHooks(t *testing.T) {
 				},
 			},
 			wantBehavior:      "allow",
-			wantMessage:       "Command: ls -la",
+			wantMessage:       "", // 公式仕様: allow時はmessageは空
 			wantInterrupt:     false,
 			wantContinue:      true,
 			wantHookEventName: "PermissionRequest",
