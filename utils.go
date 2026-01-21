@@ -732,10 +732,10 @@ func validateUserPromptSubmitOutput(jsonData []byte) error {
 	// 2. Set required fields: hookSpecificOutput only (decision is optional)
 	schema.Required = []string{"hookSpecificOutput"}
 
-	// 3. Add custom validation: decision must be "block" or omitted (empty string)
+	// 3. Add custom validation: decision must be "block" only (or omitted entirely)
 	if decisionProp, ok := schema.Properties.Get("decision"); ok {
 		if decision := decisionProp; decision != nil {
-			decision.Enum = []interface{}{"block", ""}
+			decision.Enum = []interface{}{"block"}
 		}
 	}
 

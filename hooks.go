@@ -1028,7 +1028,7 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 	allErrors = append(allErrors, conditionErrors...)
 
 	// アクションエラーがある場合のみdecision: "block"を設定
-	// 仕様: 条件チェックエラーはフックスキップ、プロンプト送信は可能（decision: "allow"維持）
+	// 仕様: 条件チェックエラーはフックスキップ、プロンプト送信は可能（decisionフィールド省略）
 	if len(actionErrors) > 0 {
 		finalOutput.Decision = "block"
 

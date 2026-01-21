@@ -216,7 +216,7 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 
 		// Empty stdout - Allow for validation-type CLI tools
 		// Tools like linters exit 0 with no output when everything is OK.
-		// In this case, we return continue: true with decision: allow to proceed.
+		// In this case, we return continue: true with decision omitted (empty string) to proceed.
 		if strings.TrimSpace(stdout) == "" {
 			return &ActionOutput{
 				Continue:      true,
@@ -262,10 +262,10 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 			}, nil
 		}
 
-		// Validate decision field (optional: empty string or "block")
+		// Validate decision field (optional: "block" only, or field must be omitted entirely)
 		decision := cmdOutput.Decision
 		if decision != "" && decision != "block" {
-			errMsg := "Invalid decision value: must be 'block' or omitted (empty string to allow)"
+			errMsg := "Invalid decision value: must be 'block' or field must be omitted entirely"
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
@@ -324,10 +324,10 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 		}
 
 		// Validate action.Decision if set
-		decision := "" // default: empty string (omitted to allow)
+		decision := "" // default: empty string (will be omitted from JSON via omitempty)
 		if action.Decision != nil {
 			if *action.Decision != "" && *action.Decision != "block" {
-				errMsg := "Invalid decision value in action config: must be 'block' or omitted (empty string to allow)"
+				errMsg := "Invalid decision value in action config: must be 'block' or field must be omitted"
 				fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 				return &ActionOutput{
 					Continue:      true,

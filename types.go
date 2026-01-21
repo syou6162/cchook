@@ -172,7 +172,7 @@ type SessionStartHookSpecificOutput struct {
 // ActionOutput はアクション実行結果を表す内部型（JSONには直接出力されない）
 type ActionOutput struct {
 	Continue                 bool
-	Decision                 string                 // "allow" or "block" (UserPromptSubmit only, empty for SessionStart)
+	Decision                 string                 // "block" or "" (internal: empty string will be omitted from JSON via omitempty; UserPromptSubmit only, empty for SessionStart)
 	PermissionDecision       string                 // "allow", "deny", or "ask" (PreToolUse only, empty for SessionStart/UserPromptSubmit)
 	PermissionDecisionReason string                 // Reason for permission decision (PreToolUse only)
 	UpdatedInput             map[string]interface{} // Updated tool input parameters (PreToolUse only)
@@ -409,7 +409,7 @@ type Action struct {
 	UseStdin           bool    `yaml:"use_stdin,omitempty"`
 	ExitStatus         *int    `yaml:"exit_status,omitempty"`
 	Continue           *bool   `yaml:"continue,omitempty"`
-	Decision           *string `yaml:"decision,omitempty"`            // "allow" or "block" (UserPromptSubmit only)
+	Decision           *string `yaml:"decision,omitempty"`            // "block" only, or omit field entirely (internal: empty string will be omitted from JSON; UserPromptSubmit only)
 	PermissionDecision *string `yaml:"permission_decision,omitempty"` // "allow", "deny", or "ask" (PreToolUse only)
 }
 
