@@ -1441,7 +1441,7 @@ func dryRunSessionEndHooks(config *Config, input *SessionEndInput, rawJSON inter
 	return nil
 }
 
-// executePermissionRequestHooksJSON executes PermissionRequest hooks and returns JSON output (Phase 5)
+// executePermissionRequestHooksJSON executes PermissionRequest hooks and returns JSON output
 func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestInput, rawJSON interface{}) (*PermissionRequestOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
@@ -1578,7 +1578,7 @@ func executePermissionRequestHook(executor *ActionExecutor, hook PermissionReque
 			continue
 		}
 
-		// Merge actionOutput into mergedOutput following Phase 5 merge rules
+		// Merge actionOutput into mergedOutput following PermissionRequest merge rules
 		// Continue: always true (ignore from individual actions)
 		// Behavior: last value wins
 		mergedOutput.Behavior = actionOutput.Behavior
@@ -1657,7 +1657,7 @@ func shouldExecutePermissionRequestHook(hook PermissionRequestHook, input *Permi
 	return true, nil
 }
 
-// RunPermissionRequestHooks runs PermissionRequest hooks and outputs JSON (Phase 5)
+// RunPermissionRequestHooks runs PermissionRequest hooks and outputs JSON
 func RunPermissionRequestHooks(config *Config) error {
 	// Read JSON input from stdin
 	input, rawJSON, err := parseInput[*PermissionRequestInput](PermissionRequest)

@@ -632,7 +632,7 @@ func checkUnsupportedFieldsPreToolUse(stdout string) {
 	}
 }
 
-// ExecutePermissionRequestAction executes a PermissionRequest action (Phase 5)
+// ExecutePermissionRequestAction executes a PermissionRequest action
 func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *PermissionRequestInput, rawJSON interface{}) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":

@@ -209,7 +209,7 @@ type PreToolUseHookSpecificOutput struct {
 }
 
 // PermissionRequestOutput represents the complete JSON output structure for PermissionRequest hooks
-// following Claude Code JSON specification for Phase 5
+// following Claude Code JSON specification
 type PermissionRequestOutput struct {
 	Continue           bool                                 `json:"continue"`
 	StopReason         string                               `json:"stopReason,omitempty"`

@@ -179,7 +179,7 @@ func main() {
 		}
 
 		if HookEventType(*eventType) == PermissionRequest {
-			// PermissionRequest special handling with JSON output (Phase 5)
+			// PermissionRequest special handling with JSON output
 			err := RunPermissionRequestHooks(config)
 			// Always exit 0 (error handling is done inside RunPermissionRequestHooks)
 			if err != nil {
