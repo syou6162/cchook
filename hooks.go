@@ -927,10 +927,10 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 	var conditionErrors []error
 	var actionErrors []error
 
-	// Initialize finalOutput with Continue: true, Decision: "approve"
+	// Initialize finalOutput with Continue: true, Decision: "" (omit to allow)
 	finalOutput := &UserPromptSubmitOutput{
 		Continue: true,
-		Decision: "approve",
+		Decision: "", // Empty string will be omitted from JSON (omitempty), allowing prompt
 	}
 
 	var additionalContextBuilder strings.Builder
@@ -1026,8 +1026,24 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 	// Collect all errors
 	var allErrors []error
 	allErrors = append(allErrors, conditionErrors...)
-	allErrors = append(allErrors, actionErrors...)
 
+	// アクションエラーがある場合のみdecision: "block"を設定
+	// 仕様: 条件チェックエラーはフックスキップ、プロンプト送信は可能（decisionフィールド省略）
+	if len(actionErrors) > 0 {
+		finalOutput.Decision = "block"
+
+		// アクションエラーのみSystemMessageに追加
+		errorMsg := errors.Join(actionErrors...).Error()
+		if finalOutput.SystemMessage != "" {
+			finalOutput.SystemMessage += "\n" + errorMsg
+		} else {
+			finalOutput.SystemMessage = errorMsg
+		}
+
+		allErrors = append(allErrors, actionErrors...)
+	}
+
+	// エラーがあれば返す（条件エラーのみでもエラーは返す）
 	if len(allErrors) > 0 {
 		return finalOutput, errors.Join(allErrors...)
 	}

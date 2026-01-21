@@ -396,7 +396,7 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 				"prompt":          "test prompt",
 			},
 			wantContinue:      true,
-			wantDecision:      "approve",
+			wantDecision:      "",
 			wantHookEventName: "UserPromptSubmit",
 			wantAdditionalCtx: "Output message",
 			wantSystemMessage: "",
@@ -433,7 +433,7 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 				"prompt":          "test prompt",
 			},
 			wantContinue:      true,
-			wantDecision:      "approve",
+			wantDecision:      "",
 			wantHookEventName: "UserPromptSubmit",
 			wantAdditionalCtx: "First message\nSecond message",
 			wantSystemMessage: "",
@@ -542,7 +542,7 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 				"prompt":          "test prompt",
 			},
 			wantContinue:      true,
-			wantDecision:      "approve",
+			wantDecision:      "",
 			wantHookEventName: "UserPromptSubmit",
 			wantAdditionalCtx: "Test message",
 			wantSystemMessage: "",
@@ -1844,6 +1844,101 @@ func TestExecuteUserPromptSubmitHooks_AdditionalContextConcatenation(t *testing.
 	expectedAdditionalContext := "First context\nSecond context\nThird context"
 	if output.HookSpecificOutput.AdditionalContext != expectedAdditionalContext {
 		t.Errorf("AdditionalContext = %q, want %q", output.HookSpecificOutput.AdditionalContext, expectedAdditionalContext)
+	}
+}
+
+func TestExecuteUserPromptSubmitHooks_ErrorHandling(t *testing.T) {
+	tests := []struct {
+		name              string
+		config            *Config
+		input             *UserPromptSubmitInput
+		wantContinue      bool
+		wantDecision      string
+		wantHookEventName string
+		wantSystemMessage string // Expected substring in SystemMessage
+		wantErr           bool
+	}{
+		{
+			name: "Condition error does not block prompt (decision remains empty)",
+			config: &Config{
+				UserPromptSubmit: []UserPromptSubmitHook{
+					{
+						Conditions: []Condition{
+							{
+								Type:  ConditionReasonIs, // Invalid for UserPromptSubmit
+								Value: "test",
+							},
+						},
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "This should not execute",
+							},
+						},
+					},
+				},
+			},
+			input: &UserPromptSubmitInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  UserPromptSubmit,
+				},
+				Prompt: "test prompt",
+			},
+			wantContinue:      true,               // Continue is always true for UserPromptSubmit
+			wantDecision:      "",                 // Condition error does not block (decision field omitted to allow prompt)
+			wantHookEventName: "UserPromptSubmit", // Always set
+			wantSystemMessage: "",                 // Condition errors are not included in SystemMessage
+			wantErr:           true,               // Error is returned (but does not block)
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rawJSON := map[string]interface{}{
+				"session_id":      tt.input.SessionID,
+				"transcript_path": tt.input.TranscriptPath,
+				"hook_event_name": string(tt.input.HookEventName),
+				"prompt":          tt.input.Prompt,
+			}
+
+			output, err := executeUserPromptSubmitHooks(tt.config, tt.input, rawJSON)
+
+			// Error check
+			if tt.wantErr && err == nil {
+				t.Errorf("Expected error but got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			// Continue check (always true for UserPromptSubmit)
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			// Decision check
+			if output.Decision != tt.wantDecision {
+				t.Errorf("Decision = %v, want %v", output.Decision, tt.wantDecision)
+			}
+
+			// HookEventName check
+			if output.HookSpecificOutput != nil {
+				if output.HookSpecificOutput.HookEventName != tt.wantHookEventName {
+					t.Errorf("HookEventName = %v, want %v", output.HookSpecificOutput.HookEventName, tt.wantHookEventName)
+				}
+			}
+
+			// SystemMessage check (graceful degradation: error should be included in JSON output)
+			if tt.wantSystemMessage != "" {
+				if output.SystemMessage == "" {
+					t.Errorf("Expected SystemMessage to contain error, but got empty string")
+				} else if !strings.Contains(output.SystemMessage, tt.wantSystemMessage) {
+					t.Errorf("SystemMessage = %q, want to contain %q", output.SystemMessage, tt.wantSystemMessage)
+				}
+			}
+		})
 	}
 }
 

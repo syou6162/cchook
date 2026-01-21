@@ -216,11 +216,11 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 
 		// Empty stdout - Allow for validation-type CLI tools
 		// Tools like linters exit 0 with no output when everything is OK.
-		// In this case, we return continue: true with decision: allow to proceed.
+		// In this case, we return continue: true with decision omitted (empty string) to proceed.
 		if strings.TrimSpace(stdout) == "" {
 			return &ActionOutput{
 				Continue:      true,
-				Decision:      "approve",
+				Decision:      "", // Empty string will be omitted from JSON (omitempty), allowing prompt
 				HookEventName: "UserPromptSubmit",
 			}, nil
 		}
@@ -262,22 +262,10 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 			}, nil
 		}
 
-		// Validate decision field (required - fail-safe to "block" if missing)
+		// Validate decision field (optional: "block" only, or field must be omitted entirely)
 		decision := cmdOutput.Decision
-		if decision == "" {
-			// Fail-safe: Default to "block" if decision is missing
-			errMsg := "Missing required field 'decision' in command output"
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
-			return &ActionOutput{
-				Continue:      true,
-				Decision:      "block",
-				HookEventName: "UserPromptSubmit",
-				SystemMessage: errMsg,
-			}, nil
-		}
-
-		if decision != "approve" && decision != "block" {
-			errMsg := "Invalid decision value: must be 'approve' or 'block'"
+		if decision != "" && decision != "block" {
+			errMsg := "Invalid decision value: must be 'block' or field must be omitted entirely"
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
@@ -336,10 +324,10 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 		}
 
 		// Validate action.Decision if set
-		decision := "approve" // default
+		decision := "" // default: empty string (will be omitted from JSON via omitempty)
 		if action.Decision != nil {
-			if *action.Decision != "approve" && *action.Decision != "block" {
-				errMsg := "Invalid decision value in action config: must be 'approve' or 'block'"
+			if *action.Decision != "" && *action.Decision != "block" {
+				errMsg := "Invalid decision value in action config: must be 'block' or field must be omitted"
 				fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 				return &ActionOutput{
 					Continue:      true,
