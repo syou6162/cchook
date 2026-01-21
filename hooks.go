@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -15,6 +17,8 @@ func runHooks(config *Config, eventType HookEventType) error {
 			return err
 		}
 		return executePostToolUseHooks(config, input, rawJSON)
+	case PermissionRequest:
+		return RunPermissionRequestHooks(config)
 	case Notification:
 		input, rawJSON, err := parseInput[*NotificationInput](eventType)
 		if err != nil {
@@ -111,6 +115,12 @@ func dryRunHooks(config *Config, eventType HookEventType) error {
 			return err
 		}
 		return dryRunPostToolUseHooks(config, input, rawJSON)
+	case PermissionRequest:
+		_, rawJSON, err := parseInput[*PermissionRequestInput](eventType)
+		if err != nil {
+			return err
+		}
+		return dryRunPermissionRequestHooks(config, rawJSON)
 	case Notification:
 		input, rawJSON, err := parseInput[*NotificationInput](eventType)
 		if err != nil {
@@ -1427,6 +1437,326 @@ func dryRunSessionEndHooks(config *Config, input *SessionEndInput, rawJSON inter
 
 	if !executed {
 		fmt.Println("No matching SessionEnd hooks found")
+	}
+	return nil
+}
+
+// executePermissionRequestHooksJSON executes PermissionRequest hooks and returns JSON output (Phase 5)
+func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestInput, rawJSON interface{}) (*PermissionRequestOutput, error) {
+	executor := NewActionExecutor(nil)
+	var conditionErrors []error
+	var actionErrors []error
+
+	// Initialize finalOutput with Continue: true (always)
+	finalOutput := &PermissionRequestOutput{
+		Continue: true,
+	}
+
+	var messageBuilder strings.Builder
+	var systemMessageBuilder strings.Builder
+	hookEventName := ""
+	behavior := "deny" // Default: fail-safe to deny
+	var updatedInput map[string]interface{}
+	interrupt := false
+	stopReason := ""
+	suppressOutput := false
+
+	for i, hook := range config.PermissionRequest {
+		// Matcher and condition checks
+		shouldExecute, err := shouldExecutePermissionRequestHook(hook, input)
+		if err != nil {
+			conditionErrors = append(conditionErrors,
+				fmt.Errorf("hook[PermissionRequest][%d]: %w", i, err))
+			continue // Skip this hook but continue checking others
+		}
+
+		if !shouldExecute {
+			continue
+		}
+
+		// Execute hook actions
+		actionOutput, err := executePermissionRequestHook(executor, hook, input, rawJSON)
+		if err != nil {
+			actionErrors = append(actionErrors, fmt.Errorf("PermissionRequest hook %d action failed: %w", i, err))
+			continue
+		}
+
+		if actionOutput == nil {
+			continue
+		}
+
+		// Update finalOutput fields following merge rules
+
+		// Continue: always true (do not overwrite from actionOutput)
+		// finalOutput.Continue remains true
+
+		// Behavior: last value wins
+		behavior = actionOutput.Behavior
+
+		// Message: concatenate with newline
+		if actionOutput.Message != "" {
+			if messageBuilder.Len() > 0 {
+				messageBuilder.WriteString("\n")
+			}
+			messageBuilder.WriteString(actionOutput.Message)
+		}
+
+		// Interrupt: last value wins
+		interrupt = actionOutput.Interrupt
+
+		// UpdatedInput: last non-null value wins (top-level merge, not deep merge)
+		if actionOutput.UpdatedInput != nil {
+			updatedInput = actionOutput.UpdatedInput
+		}
+
+		// HookEventName: set once by first action
+		if hookEventName == "" && actionOutput.HookEventName != "" {
+			hookEventName = actionOutput.HookEventName
+		}
+
+		// SystemMessage: concatenate with newline
+		if actionOutput.SystemMessage != "" {
+			if systemMessageBuilder.Len() > 0 {
+				systemMessageBuilder.WriteString("\n")
+			}
+			systemMessageBuilder.WriteString(actionOutput.SystemMessage)
+		}
+
+		// StopReason: last value wins
+		if actionOutput.StopReason != "" {
+			stopReason = actionOutput.StopReason
+		}
+
+		// SuppressOutput: last value wins
+		suppressOutput = actionOutput.SuppressOutput
+
+		// Early return on deny
+		if behavior == "deny" {
+			break
+		}
+	}
+
+	// Build hookSpecificOutput
+	finalOutput.HookSpecificOutput = &PermissionRequestHookSpecificOutput{
+		HookEventName: hookEventName,
+		Decision: &PermissionRequestDecision{
+			Behavior:     behavior,
+			UpdatedInput: updatedInput,
+			Message:      messageBuilder.String(),
+			Interrupt:    interrupt,
+		},
+	}
+
+	// Set top-level fields
+	finalOutput.SystemMessage = systemMessageBuilder.String()
+	finalOutput.StopReason = stopReason
+	finalOutput.SuppressOutput = suppressOutput
+
+	// Validation errors
+	if len(conditionErrors) > 0 {
+		return finalOutput, fmt.Errorf("condition evaluation errors: %v", conditionErrors)
+	}
+	if len(actionErrors) > 0 {
+		return finalOutput, fmt.Errorf("action execution errors: %v", actionErrors)
+	}
+
+	return finalOutput, nil
+}
+
+// executePermissionRequestHook executes all actions in a single hook and merges their outputs
+func executePermissionRequestHook(executor *ActionExecutor, hook PermissionRequestHook, input *PermissionRequestInput, rawJSON interface{}) (*ActionOutput, error) {
+	var mergedOutput *ActionOutput
+
+	for _, action := range hook.Actions {
+		actionOutput, err := executor.ExecutePermissionRequestAction(action, input, rawJSON)
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute action: %w", err)
+		}
+
+		if mergedOutput == nil {
+			mergedOutput = actionOutput
+			continue
+		}
+
+		// Merge actionOutput into mergedOutput following Phase 5 merge rules
+		// Continue: always true (ignore from individual actions)
+		// Behavior: last value wins
+		mergedOutput.Behavior = actionOutput.Behavior
+
+		// Message: concatenate with newline
+		if actionOutput.Message != "" {
+			if mergedOutput.Message != "" {
+				mergedOutput.Message += "\n" + actionOutput.Message
+			} else {
+				mergedOutput.Message = actionOutput.Message
+			}
+		}
+
+		// Interrupt: last value wins
+		mergedOutput.Interrupt = actionOutput.Interrupt
+
+		// UpdatedInput: last non-null value wins
+		if actionOutput.UpdatedInput != nil {
+			mergedOutput.UpdatedInput = actionOutput.UpdatedInput
+		}
+
+		// HookEventName: set once by first action
+		if mergedOutput.HookEventName == "" && actionOutput.HookEventName != "" {
+			mergedOutput.HookEventName = actionOutput.HookEventName
+		}
+
+		// SystemMessage: concatenate with newline
+		if actionOutput.SystemMessage != "" {
+			if mergedOutput.SystemMessage != "" {
+				mergedOutput.SystemMessage += "\n" + actionOutput.SystemMessage
+			} else {
+				mergedOutput.SystemMessage = actionOutput.SystemMessage
+			}
+		}
+
+		// StopReason: last value wins
+		if actionOutput.StopReason != "" {
+			mergedOutput.StopReason = actionOutput.StopReason
+		}
+
+		// SuppressOutput: last value wins
+		mergedOutput.SuppressOutput = actionOutput.SuppressOutput
+	}
+
+	return mergedOutput, nil
+}
+
+// shouldExecutePermissionRequestHook checks if a hook should be executed based on matcher and conditions
+func shouldExecutePermissionRequestHook(hook PermissionRequestHook, input *PermissionRequestInput) (bool, error) {
+	// Check matcher (tool name partial match)
+	if hook.Matcher != "" {
+		matchers := strings.Split(hook.Matcher, "|")
+		matched := false
+		for _, m := range matchers {
+			if strings.Contains(input.ToolName, strings.TrimSpace(m)) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false, nil
+		}
+	}
+
+	// Check conditions
+	for _, condition := range hook.Conditions {
+		matched, err := checkPermissionRequestCondition(condition, input)
+		if err != nil {
+			return false, fmt.Errorf("condition check failed: %w", err)
+		}
+		if !matched {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+// RunPermissionRequestHooks runs PermissionRequest hooks and outputs JSON (Phase 5)
+func RunPermissionRequestHooks(config *Config) error {
+	// Read JSON input from stdin
+	input, rawJSON, err := parseInput[*PermissionRequestInput](PermissionRequest)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to parse input: %v\n", err)
+		// Fail-safe: output deny decision
+		output := &PermissionRequestOutput{
+			Continue: true,
+			HookSpecificOutput: &PermissionRequestHookSpecificOutput{
+				HookEventName: "PermissionRequest",
+				Decision: &PermissionRequestDecision{
+					Behavior: "deny",
+				},
+			},
+			SystemMessage: fmt.Sprintf("Failed to parse input: %v", err),
+		}
+		jsonOutput, _ := json.Marshal(output)
+		fmt.Println(string(jsonOutput))
+		return nil // Always exit 0
+	}
+
+	// Execute hooks
+	output, err := executePermissionRequestHooksJSON(config, input, rawJSON)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: hook execution errors: %v\n", err)
+		// Continue with output (fail-safe already set in executePermissionRequestHooksJSON)
+	}
+
+	// Output JSON
+	jsonOutput, err := json.Marshal(output)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to marshal output: %v\n", err)
+		// Fail-safe: output deny decision
+		fallbackOutput := &PermissionRequestOutput{
+			Continue: true,
+			HookSpecificOutput: &PermissionRequestHookSpecificOutput{
+				HookEventName: "PermissionRequest",
+				Decision: &PermissionRequestDecision{
+					Behavior: "deny",
+				},
+			},
+			SystemMessage: fmt.Sprintf("Failed to marshal output: %v", err),
+		}
+		jsonOutput, _ = json.Marshal(fallbackOutput)
+	}
+
+	fmt.Println(string(jsonOutput))
+	return nil // Always exit 0
+}
+
+// dryRunPermissionRequestHooks prints what would be executed for PermissionRequest hooks
+func dryRunPermissionRequestHooks(config *Config, rawJSON interface{}) error {
+	var input PermissionRequestInput
+	if err := json.Unmarshal(rawJSON.([]byte), &input); err != nil {
+		return fmt.Errorf("failed to unmarshal input: %w", err)
+	}
+
+	fmt.Println("\n=== PermissionRequest Hooks ===")
+	if len(config.PermissionRequest) == 0 {
+		fmt.Println("No PermissionRequest hooks configured")
+		return nil
+	}
+
+	executed := false
+	for i, hook := range config.PermissionRequest {
+		shouldExecute, err := shouldExecutePermissionRequestHook(hook, &input)
+		if err != nil {
+			fmt.Printf("[Hook %d] Error checking conditions: %v\n", i+1, err)
+			continue
+		}
+		if !shouldExecute {
+			continue
+		}
+
+		executed = true
+		fmt.Printf("[Hook %d] Tool: %s\n", i+1, input.ToolName)
+		for _, action := range hook.Actions {
+			switch action.Type {
+			case "command":
+				cmd := unifiedTemplateReplace(action.Command, rawJSON)
+				fmt.Printf("  Command: %s\n", cmd)
+				if action.UseStdin {
+					fmt.Printf("  UseStdin: true\n")
+				}
+			case "output":
+				msg := unifiedTemplateReplace(action.Message, rawJSON)
+				fmt.Printf("  Message: %s\n", msg)
+				if action.Behavior != nil {
+					fmt.Printf("  Behavior: %s\n", *action.Behavior)
+				}
+				if action.Interrupt != nil && *action.Interrupt {
+					fmt.Printf("  Interrupt: true\n")
+				}
+			}
+		}
+	}
+
+	if !executed {
+		fmt.Println("No matching PermissionRequest hooks found")
 	}
 	return nil
 }

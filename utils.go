@@ -850,3 +850,28 @@ func validatePreToolUseOutput(jsonData []byte) error {
 
 	return nil
 }
+
+// checkPermissionRequestCondition checks if a condition matches for PermissionRequest events.
+// Returns ErrConditionNotHandled if the condition type is not applicable to this event.
+func checkPermissionRequestCondition(condition Condition, input *PermissionRequestInput) (bool, error) {
+	// まず汎用条件をチェック
+	matched, err := checkCommonCondition(condition, &input.BaseInput)
+	if err == nil {
+		return matched, nil // 処理された
+	}
+	if !errors.Is(err, ErrConditionNotHandled) {
+		return false, err // 本当のエラー
+	}
+
+	// ツール固有の条件をチェック
+	matched, err = checkToolCondition(condition, &input.ToolInput)
+	if err == nil {
+		return matched, nil // 処理された
+	}
+	if !errors.Is(err, ErrConditionNotHandled) {
+		return false, err // 本当のエラー
+	}
+
+	// どの関数も処理しなかった場合はエラー
+	return false, fmt.Errorf("unknown condition type: %s", condition.Type)
+}

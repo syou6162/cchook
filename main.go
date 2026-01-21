@@ -177,6 +177,16 @@ func main() {
 			// Always exit 0 for PreToolUse (permissionDecision field controls behavior)
 			os.Exit(0)
 		}
+
+		if HookEventType(*eventType) == PermissionRequest {
+			// PermissionRequest special handling with JSON output (Phase 5)
+			err := RunPermissionRequestHooks(config)
+			// Always exit 0 (error handling is done inside RunPermissionRequestHooks)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+			}
+			os.Exit(0)
+		}
 		err = runHooks(config, HookEventType(*eventType))
 	case "dry-run":
 		err = dryRunHooks(config, HookEventType(*eventType))
