@@ -1490,8 +1490,21 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 		// Continue: always true (do not overwrite from actionOutput)
 		// finalOutput.Continue remains true
 
-		// Behavior: last value wins
+		// Behavior: last value wins, clear incompatible fields on change
+		previousBehavior := behavior
 		behavior = actionOutput.Behavior
+
+		// Clear fields incompatible with new behavior (公式仕様準拠)
+		if previousBehavior != behavior {
+			switch behavior {
+			case "deny":
+				// deny時: updatedInputをクリア (公式仕様: deny時はupdatedInput不可)
+				updatedInput = nil
+			case "allow":
+				// allow時: message/interruptをクリア (公式仕様: allow時はmessage/interrupt不可)
+				messageBuilder.Reset()
+			}
+		}
 
 		// Message: concatenate with newline
 		if actionOutput.Message != "" {
@@ -1501,8 +1514,12 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 			messageBuilder.WriteString(actionOutput.Message)
 		}
 
-		// Interrupt: last value wins
-		interrupt = actionOutput.Interrupt
+		// Interrupt: last value wins (but cleared if behavior changed to allow)
+		if previousBehavior != behavior && behavior == "allow" {
+			interrupt = false
+		} else {
+			interrupt = actionOutput.Interrupt
+		}
 
 		// UpdatedInput: last non-null value wins (top-level merge, not deep merge)
 		if actionOutput.UpdatedInput != nil {
