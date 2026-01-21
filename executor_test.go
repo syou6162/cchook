@@ -1945,6 +1945,51 @@ func TestExecutePermissionRequestAction_TypeCommand(t *testing.T) {
 			wantSystemMessage: "Command output is missing required field: hookSpecificOutput.decision.behavior",
 			wantHookEventName: "PermissionRequest",
 		},
+		{
+			name: "allow時にinterruptが立っている -> deny (semantic validation)",
+			action: Action{
+				Type:    "command",
+				Command: "echo",
+			},
+			input: &PermissionRequestInput{
+				ToolName: "Write",
+			},
+			stubStdout:        `{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow","interrupt":true}}}`,
+			stubExitCode:      0,
+			wantBehavior:      "deny",
+			wantSystemMessage: "semantic validation failed: 'interrupt' should be false when behavior is 'allow'",
+			wantHookEventName: "PermissionRequest",
+		},
+		{
+			name: "allow時にmessageが存在 -> deny (semantic validation)",
+			action: Action{
+				Type:    "command",
+				Command: "echo",
+			},
+			input: &PermissionRequestInput{
+				ToolName: "Write",
+			},
+			stubStdout:        `{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow","message":"should not be here"}}}`,
+			stubExitCode:      0,
+			wantBehavior:      "deny",
+			wantSystemMessage: "semantic validation failed: 'message' should be empty when behavior is 'allow'",
+			wantHookEventName: "PermissionRequest",
+		},
+		{
+			name: "deny時にupdatedInputが存在 -> deny (semantic validation)",
+			action: Action{
+				Type:    "command",
+				Command: "echo",
+			},
+			input: &PermissionRequestInput{
+				ToolName: "Write",
+			},
+			stubStdout:        `{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","updatedInput":{"file_path":"test.txt"}}}}`,
+			stubExitCode:      0,
+			wantBehavior:      "deny",
+			wantSystemMessage: "semantic validation failed: 'updatedInput' should be empty when behavior is 'deny'",
+			wantHookEventName: "PermissionRequest",
+		},
 	}
 
 	for _, tt := range tests {

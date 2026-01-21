@@ -724,6 +724,18 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 			}, nil
 		}
 
+		// Validate JSON output schema and semantic rules
+		if err := validatePermissionRequestOutput([]byte(stdout)); err != nil {
+			errMsg := fmt.Sprintf("Command output validation failed: %s", err.Error())
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Behavior:      "deny",
+				HookEventName: "PermissionRequest",
+				SystemMessage: errMsg,
+			}, nil
+		}
+
 		// Check for unsupported fields
 		checkUnsupportedFieldsPermissionRequest(stdout)
 

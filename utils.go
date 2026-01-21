@@ -875,3 +875,108 @@ func checkPermissionRequestCondition(condition Condition, input *PermissionReque
 	// どの関数も処理しなかった場合はエラー
 	return false, fmt.Errorf("unknown condition type: %s", condition.Type)
 }
+
+// validatePermissionRequestOutput validates the JSON output for PermissionRequest hooks.
+// It checks both schema compliance and semantic rules (e.g., interrupt only valid with deny).
+func validatePermissionRequestOutput(jsonData []byte) error {
+	// Generate schema from PermissionRequestOutput struct
+	reflector := jsonschema.Reflector{
+		DoNotReference: true, // Inline all definitions
+	}
+	schema := reflector.Reflect(&PermissionRequestOutput{})
+
+	// Customize schema to match requirements
+	// 1. Allow additional properties at root level
+	schema.AdditionalProperties = nil // nil means allow any additional properties
+
+	// 2. Set required fields: hookSpecificOutput
+	schema.Required = []string{"hookSpecificOutput"}
+
+	// 3. Configure hookSpecificOutput
+	if hookSpecificProp, ok := schema.Properties.Get("hookSpecificOutput"); ok {
+		if hookSpecific := hookSpecificProp; hookSpecific != nil {
+			// hookEventName must be "PermissionRequest"
+			if hookEventNameProp, ok := hookSpecific.Properties.Get("hookEventName"); ok {
+				if hookEventName := hookEventNameProp; hookEventName != nil {
+					hookEventName.Enum = []interface{}{"PermissionRequest"}
+				}
+			}
+			// hookSpecificOutput.hookEventName and decision are required
+			hookSpecific.Required = []string{"hookEventName", "decision"}
+			// hookSpecificOutput should not allow additional properties
+			hookSpecific.AdditionalProperties = &jsonschema.Schema{Not: &jsonschema.Schema{}} // false
+
+			// 4. Configure decision
+			if decisionProp, ok := hookSpecific.Properties.Get("decision"); ok {
+				if decision := decisionProp; decision != nil {
+					// behavior must be "allow" or "deny"
+					if behaviorProp, ok := decision.Properties.Get("behavior"); ok {
+						if behavior := behaviorProp; behavior != nil {
+							behavior.Enum = []interface{}{"allow", "deny"}
+						}
+					}
+					// decision.behavior is required
+					decision.Required = []string{"behavior"}
+					// decision should not allow additional properties
+					decision.AdditionalProperties = &jsonschema.Schema{Not: &jsonschema.Schema{}} // false
+				}
+			}
+		}
+	}
+
+	// Convert schema to map for gojsonschema
+	schemaBytes, err := json.Marshal(schema)
+	if err != nil {
+		return fmt.Errorf("failed to marshal schema: %w", err)
+	}
+
+	var schemaMap map[string]interface{}
+	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
+		return fmt.Errorf("failed to unmarshal schema: %w", err)
+	}
+
+	schemaLoader := gojsonschema.NewGoLoader(schemaMap)
+	documentLoader := gojsonschema.NewBytesLoader(jsonData)
+
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return fmt.Errorf("schema validation error: %w", err)
+	}
+
+	if !result.Valid() {
+		var errMsgs []string
+		for _, desc := range result.Errors() {
+			errMsgs = append(errMsgs, desc.String())
+		}
+		return fmt.Errorf("JSON schema validation failed: %s", errMsgs)
+	}
+
+	// Additional semantic validation: check behavior-specific field constraints
+	var output PermissionRequestOutput
+	if err := json.Unmarshal(jsonData, &output); err != nil {
+		return fmt.Errorf("failed to unmarshal output for semantic validation: %w", err)
+	}
+
+	if output.HookSpecificOutput != nil && output.HookSpecificOutput.Decision != nil {
+		decision := output.HookSpecificOutput.Decision
+		behavior := decision.Behavior
+
+		switch behavior {
+		case "allow":
+			// allow時: message と interrupt は空/false であるべき
+			if decision.Message != "" {
+				return fmt.Errorf("semantic validation failed: 'message' should be empty when behavior is 'allow', got: %q", decision.Message)
+			}
+			if decision.Interrupt {
+				return fmt.Errorf("semantic validation failed: 'interrupt' should be false when behavior is 'allow'")
+			}
+		case "deny":
+			// deny時: updatedInput は空であるべき
+			if len(decision.UpdatedInput) > 0 {
+				return fmt.Errorf("semantic validation failed: 'updatedInput' should be empty when behavior is 'deny'")
+			}
+		}
+	}
+
+	return nil
+}
