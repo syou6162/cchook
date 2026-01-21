@@ -25,7 +25,8 @@ func parseInput[T HookInput](eventType HookEventType) (T, interface{}, error) {
 
 	// イベントタイプに応じて特別な処理を行う
 	switch eventType {
-	case PreToolUse:
+	case PreToolUse, PermissionRequest:
+		// PermissionRequest は PreToolUse と同じ入力構造
 		preInput, err := parsePreToolUseInput(rawInput)
 		if err != nil {
 			return input, nil, err
@@ -33,7 +34,7 @@ func parseInput[T HookInput](eventType HookEventType) (T, interface{}, error) {
 		if result, ok := interface{}(preInput).(T); ok {
 			return result, rawJSON, nil
 		}
-		return input, nil, fmt.Errorf("type assertion failed for PreToolUse")
+		return input, nil, fmt.Errorf("type assertion failed for %s", eventType)
 
 	case PostToolUse:
 		postInput, err := parsePostToolUseInput(rawInput)

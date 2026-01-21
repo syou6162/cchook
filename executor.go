@@ -631,3 +631,198 @@ func checkUnsupportedFieldsPreToolUse(stdout string) {
 		}
 	}
 }
+
+// ExecutePermissionRequestAction executes a PermissionRequest action
+func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *PermissionRequestInput, rawJSON interface{}) (*ActionOutput, error) {
+	switch action.Type {
+	case "command":
+		cmd := unifiedTemplateReplace(action.Command, rawJSON)
+		stdout, stderr, exitCode, _ := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
+
+		// Command failed with non-zero exit code
+		if exitCode != 0 {
+			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Behavior:      "deny",
+				HookEventName: "PermissionRequest",
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Empty stdout - fail-safe to deny (different from PreToolUse)
+		if strings.TrimSpace(stdout) == "" {
+			errMsg := "Command output is empty"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Behavior:      "deny",
+				HookEventName: "PermissionRequest",
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Parse JSON output
+		var cmdOutput PermissionRequestOutput
+		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			errMsg := fmt.Sprintf("Command output is not valid JSON: %s", stdout)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Behavior:      "deny",
+				HookEventName: "PermissionRequest",
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Check for required field: hookSpecificOutput.hookEventName
+		if cmdOutput.HookSpecificOutput == nil || cmdOutput.HookSpecificOutput.HookEventName == "" {
+			errMsg := "Command output is missing required field: hookSpecificOutput.hookEventName"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Behavior:      "deny",
+				HookEventName: "PermissionRequest",
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Validate hookEventName value
+		if cmdOutput.HookSpecificOutput.HookEventName != "PermissionRequest" {
+			errMsg := fmt.Sprintf("Invalid hookEventName: expected 'PermissionRequest', got '%s'", cmdOutput.HookSpecificOutput.HookEventName)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Behavior:      "deny",
+				HookEventName: "PermissionRequest",
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Check for required field: hookSpecificOutput.decision.behavior
+		if cmdOutput.HookSpecificOutput.Decision == nil || cmdOutput.HookSpecificOutput.Decision.Behavior == "" {
+			errMsg := "Command output is missing required field: hookSpecificOutput.decision.behavior"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Behavior:      "deny",
+				HookEventName: "PermissionRequest",
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Validate behavior value (only "allow" or "deny")
+		if cmdOutput.HookSpecificOutput.Decision.Behavior != "allow" && cmdOutput.HookSpecificOutput.Decision.Behavior != "deny" {
+			errMsg := fmt.Sprintf("Invalid behavior value: must be 'allow' or 'deny', got '%s'", cmdOutput.HookSpecificOutput.Decision.Behavior)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Behavior:      "deny",
+				HookEventName: "PermissionRequest",
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Validate JSON output schema and semantic rules
+		if err := validatePermissionRequestOutput([]byte(stdout)); err != nil {
+			errMsg := fmt.Sprintf("Command output validation failed: %s", err.Error())
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Behavior:      "deny",
+				HookEventName: "PermissionRequest",
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Check for unsupported fields
+		checkUnsupportedFieldsPermissionRequest(stdout)
+
+		// Return output with all fields
+		return &ActionOutput{
+			Continue:       true,
+			Behavior:       cmdOutput.HookSpecificOutput.Decision.Behavior,
+			Message:        cmdOutput.HookSpecificOutput.Decision.Message,
+			Interrupt:      cmdOutput.HookSpecificOutput.Decision.Interrupt,
+			UpdatedInput:   cmdOutput.HookSpecificOutput.Decision.UpdatedInput,
+			HookEventName:  cmdOutput.HookSpecificOutput.HookEventName,
+			SystemMessage:  cmdOutput.SystemMessage,
+			StopReason:     cmdOutput.StopReason,
+			SuppressOutput: cmdOutput.SuppressOutput,
+		}, nil
+
+	case "output":
+		message := unifiedTemplateReplace(action.Message, rawJSON)
+
+		// Determine behavior (default: deny for fail-safe)
+		behavior := "deny"
+		if action.Behavior != nil {
+			behavior = *action.Behavior
+			// Validate behavior value
+			if behavior != "allow" && behavior != "deny" {
+				return &ActionOutput{
+					Continue:      true,
+					Behavior:      "deny",
+					HookEventName: "PermissionRequest",
+					SystemMessage: "Invalid behavior value in action config: must be 'allow' or 'deny'",
+				}, nil
+			}
+		}
+
+		// For deny behavior, message is required
+		if behavior == "deny" && message == "" {
+			return &ActionOutput{
+				Continue:      true,
+				Behavior:      "deny",
+				HookEventName: "PermissionRequest",
+				SystemMessage: "Action output has no message for deny behavior",
+			}, nil
+		}
+
+		// Set fields based on behavior (公式仕様に準拠)
+		var resultMessage string
+		var resultInterrupt bool
+		if behavior == "deny" {
+			// deny時: message/interruptを設定
+			resultMessage = message
+			if action.Interrupt != nil {
+				resultInterrupt = *action.Interrupt
+			}
+		}
+		// allow時: message=""、interrupt=false（デフォルト値のまま）
+
+		return &ActionOutput{
+			Continue:      true,
+			Behavior:      behavior,
+			Message:       resultMessage,
+			Interrupt:     resultInterrupt,
+			HookEventName: "PermissionRequest",
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported action type: %s", action.Type)
+	}
+}
+
+// checkUnsupportedFieldsPermissionRequest checks for unsupported fields in PermissionRequest command output
+func checkUnsupportedFieldsPermissionRequest(stdout string) {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+		return // Skip validation if JSON parsing fails
+	}
+
+	supportedFields := map[string]bool{
+		"continue":           true,
+		"stopReason":         true,
+		"suppressOutput":     true,
+		"systemMessage":      true,
+		"hookSpecificOutput": true,
+	}
+
+	for field := range data {
+		if !supportedFields[field] {
+			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for PermissionRequest hooks\n", field)
+		}
+	}
+}
