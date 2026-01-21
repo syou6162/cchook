@@ -729,13 +729,15 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 
 		// Return output with all fields
 		return &ActionOutput{
-			Continue:      true,
-			Behavior:      cmdOutput.HookSpecificOutput.Decision.Behavior,
-			Message:       cmdOutput.HookSpecificOutput.Decision.Message,
-			Interrupt:     cmdOutput.HookSpecificOutput.Decision.Interrupt,
-			UpdatedInput:  cmdOutput.HookSpecificOutput.Decision.UpdatedInput,
-			HookEventName: cmdOutput.HookSpecificOutput.HookEventName,
-			SystemMessage: cmdOutput.SystemMessage,
+			Continue:       true,
+			Behavior:       cmdOutput.HookSpecificOutput.Decision.Behavior,
+			Message:        cmdOutput.HookSpecificOutput.Decision.Message,
+			Interrupt:      cmdOutput.HookSpecificOutput.Decision.Interrupt,
+			UpdatedInput:   cmdOutput.HookSpecificOutput.Decision.UpdatedInput,
+			HookEventName:  cmdOutput.HookSpecificOutput.HookEventName,
+			SystemMessage:  cmdOutput.SystemMessage,
+			StopReason:     cmdOutput.StopReason,
+			SuppressOutput: cmdOutput.SuppressOutput,
 		}, nil
 
 	case "output":
