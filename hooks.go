@@ -116,11 +116,11 @@ func dryRunHooks(config *Config, eventType HookEventType) error {
 		}
 		return dryRunPostToolUseHooks(config, input, rawJSON)
 	case PermissionRequest:
-		_, rawJSON, err := parseInput[*PermissionRequestInput](eventType)
+		input, rawJSON, err := parseInput[*PermissionRequestInput](eventType)
 		if err != nil {
 			return err
 		}
-		return dryRunPermissionRequestHooks(config, rawJSON)
+		return dryRunPermissionRequestHooks(config, input, rawJSON)
 	case Notification:
 		input, rawJSON, err := parseInput[*NotificationInput](eventType)
 		if err != nil {
@@ -1709,12 +1709,7 @@ func RunPermissionRequestHooks(config *Config) error {
 }
 
 // dryRunPermissionRequestHooks prints what would be executed for PermissionRequest hooks
-func dryRunPermissionRequestHooks(config *Config, rawJSON interface{}) error {
-	var input PermissionRequestInput
-	if err := json.Unmarshal(rawJSON.([]byte), &input); err != nil {
-		return fmt.Errorf("failed to unmarshal input: %w", err)
-	}
-
+func dryRunPermissionRequestHooks(config *Config, input *PermissionRequestInput, rawJSON interface{}) error {
 	fmt.Println("\n=== PermissionRequest Hooks ===")
 	if len(config.PermissionRequest) == 0 {
 		fmt.Println("No PermissionRequest hooks configured")
@@ -1723,7 +1718,7 @@ func dryRunPermissionRequestHooks(config *Config, rawJSON interface{}) error {
 
 	executed := false
 	for i, hook := range config.PermissionRequest {
-		shouldExecute, err := shouldExecutePermissionRequestHook(hook, &input)
+		shouldExecute, err := shouldExecutePermissionRequestHook(hook, input)
 		if err != nil {
 			fmt.Printf("[Hook %d] Error checking conditions: %v\n", i+1, err)
 			continue
