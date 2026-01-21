@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"os"
 	"strings"
@@ -2201,6 +2202,154 @@ func TestExecutePermissionRequestHooks(t *testing.T) {
 			// Behavior チェック
 			if output.HookSpecificOutput.Decision.Behavior != tt.wantBehavior {
 				t.Errorf("Behavior = %q, want %q", output.HookSpecificOutput.Decision.Behavior, tt.wantBehavior)
+			}
+
+			// Message チェック
+			if output.HookSpecificOutput.Decision.Message != tt.wantMessage {
+				t.Errorf("Message = %q, want %q", output.HookSpecificOutput.Decision.Message, tt.wantMessage)
+			}
+
+			// Interrupt チェック
+			if output.HookSpecificOutput.Decision.Interrupt != tt.wantInterrupt {
+				t.Errorf("Interrupt = %v, want %v", output.HookSpecificOutput.Decision.Interrupt, tt.wantInterrupt)
+			}
+		})
+	}
+}
+
+func TestExecutePermissionRequestHooks_BehaviorChange(t *testing.T) {
+	tests := []struct {
+		name             string
+		config           *Config
+		input            *PermissionRequestInput
+		rawJSON          map[string]interface{}
+		wantBehavior     string
+		wantUpdatedInput map[string]interface{}
+		wantMessage      string
+		wantInterrupt    bool
+	}{
+		{
+			name: "allow→deny: updatedInput should be cleared",
+			config: &Config{
+				PermissionRequest: []PermissionRequestHook{
+					{
+						Matcher: "Write",
+						Actions: []Action{
+							{
+								Type:    "command",
+								Command: "bash testdata/permission_request_hooks/allow_updated_input.sh",
+							},
+							{
+								Type:    "command",
+								Command: "bash testdata/permission_request_hooks/deny_message.sh",
+							},
+						},
+					},
+				},
+			},
+			input: &PermissionRequestInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  PermissionRequest,
+				},
+				ToolName: "Write",
+				ToolInput: ToolInput{
+					FilePath: "test.go",
+				},
+			},
+			rawJSON: map[string]interface{}{
+				"session_id":      "test-session",
+				"transcript_path": "/path/to/transcript",
+				"hook_event_name": "PermissionRequest",
+				"tool_name":       "Write",
+				"tool_input": map[string]interface{}{
+					"file_path": "test.go",
+				},
+			},
+			wantBehavior:     "deny",
+			wantUpdatedInput: nil, // クリアされるべき
+			wantMessage:      "Operation blocked",
+			wantInterrupt:    false,
+		},
+		{
+			name: "deny→allow: message and interrupt should be cleared",
+			config: &Config{
+				PermissionRequest: []PermissionRequestHook{
+					{
+						Matcher: "Write",
+						Actions: []Action{
+							{
+								Type:    "command",
+								Command: "bash testdata/permission_request_hooks/deny_message_interrupt.sh",
+							},
+							{
+								Type:     "command",
+								Command:  "bash testdata/permission_request_hooks/allow_updated_input_from_stdin.sh",
+								UseStdin: true,
+							},
+						},
+					},
+				},
+			},
+			input: &PermissionRequestInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  PermissionRequest,
+				},
+				ToolName: "Write",
+				ToolInput: ToolInput{
+					FilePath: "test.go",
+				},
+			},
+			rawJSON: map[string]interface{}{
+				"session_id":      "test-session",
+				"transcript_path": "/path/to/transcript",
+				"hook_event_name": "PermissionRequest",
+				"tool_name":       "Write",
+				"tool_input": map[string]interface{}{
+					"file_path": "test.go",
+				},
+			},
+			wantBehavior:     "allow",
+			wantUpdatedInput: map[string]interface{}{"file_path": "test.go"},
+			wantMessage:      "",    // クリアされるべき
+			wantInterrupt:    false, // クリアされるべき
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// フック実行
+			output, err := executePermissionRequestHooksJSON(tt.config, tt.input, tt.rawJSON)
+
+			// エラーチェック
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			// Behavior チェック
+			if output.HookSpecificOutput.Decision.Behavior != tt.wantBehavior {
+				t.Errorf("Behavior = %q, want %q", output.HookSpecificOutput.Decision.Behavior, tt.wantBehavior)
+			}
+
+			// UpdatedInput チェック
+			if tt.wantUpdatedInput == nil {
+				if output.HookSpecificOutput.Decision.UpdatedInput != nil {
+					t.Errorf("UpdatedInput = %v, want nil", output.HookSpecificOutput.Decision.UpdatedInput)
+				}
+			} else {
+				if output.HookSpecificOutput.Decision.UpdatedInput == nil {
+					t.Errorf("UpdatedInput = nil, want %v", tt.wantUpdatedInput)
+				} else {
+					// map比較
+					gotJSON, _ := json.Marshal(output.HookSpecificOutput.Decision.UpdatedInput)
+					wantJSON, _ := json.Marshal(tt.wantUpdatedInput)
+					if string(gotJSON) != string(wantJSON) {
+						t.Errorf("UpdatedInput = %s, want %s", gotJSON, wantJSON)
+					}
+				}
 			}
 
 			// Message チェック

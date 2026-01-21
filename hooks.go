@@ -1490,21 +1490,8 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 		// Continue: always true (do not overwrite from actionOutput)
 		// finalOutput.Continue remains true
 
-		// Behavior: last value wins, clear incompatible fields on change
-		previousBehavior := behavior
+		// Behavior: last value wins
 		behavior = actionOutput.Behavior
-
-		// Clear fields incompatible with new behavior (公式仕様準拠)
-		if previousBehavior != behavior {
-			switch behavior {
-			case "deny":
-				// deny時: updatedInputをクリア (公式仕様: deny時はupdatedInput不可)
-				updatedInput = nil
-			case "allow":
-				// allow時: message/interruptをクリア (公式仕様: allow時はmessage/interrupt不可)
-				messageBuilder.Reset()
-			}
-		}
 
 		// Message: concatenate with newline
 		if actionOutput.Message != "" {
@@ -1514,12 +1501,8 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 			messageBuilder.WriteString(actionOutput.Message)
 		}
 
-		// Interrupt: last value wins (but cleared if behavior changed to allow)
-		if previousBehavior != behavior && behavior == "allow" {
-			interrupt = false
-		} else {
-			interrupt = actionOutput.Interrupt
-		}
+		// Interrupt: last value wins
+		interrupt = actionOutput.Interrupt
 
 		// UpdatedInput: last non-null value wins (top-level merge, not deep merge)
 		if actionOutput.UpdatedInput != nil {
@@ -1597,7 +1580,9 @@ func executePermissionRequestHook(executor *ActionExecutor, hook PermissionReque
 
 		// Merge actionOutput into mergedOutput following PermissionRequest merge rules
 		// Continue: always true (ignore from individual actions)
+
 		// Behavior: last value wins
+		previousBehavior := mergedOutput.Behavior
 		mergedOutput.Behavior = actionOutput.Behavior
 
 		// Message: concatenate with newline
@@ -1615,6 +1600,20 @@ func executePermissionRequestHook(executor *ActionExecutor, hook PermissionReque
 		// UpdatedInput: last non-null value wins
 		if actionOutput.UpdatedInput != nil {
 			mergedOutput.UpdatedInput = actionOutput.UpdatedInput
+		}
+
+		// Clear fields incompatible with behavior change (公式仕様準拠)
+		// This must happen AFTER setting all fields from actionOutput
+		if previousBehavior != mergedOutput.Behavior {
+			switch mergedOutput.Behavior {
+			case "deny":
+				// deny時: updatedInputをクリア (公式仕様: deny時はupdatedInput不可)
+				mergedOutput.UpdatedInput = nil
+			case "allow":
+				// allow時: message/interruptをクリア (公式仕様: allow時はmessage/interrupt不可)
+				mergedOutput.Message = ""
+				mergedOutput.Interrupt = false
+			}
 		}
 
 		// HookEventName: set once by first action
