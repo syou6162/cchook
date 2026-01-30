@@ -1317,6 +1317,17 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 		}
 	}
 
+	// If no actions produced any output, return nil to delegate completely
+	// This prevents empty ActionOutput from overwriting previous hooks' decisions
+	if output.PermissionDecision == "" &&
+		reasonBuilder.Len() == 0 &&
+		systemMessageBuilder.Len() == 0 &&
+		updatedInput == nil &&
+		output.StopReason == "" &&
+		!output.SuppressOutput {
+		return nil, nil
+	}
+
 	// Build final output
 	output.PermissionDecisionReason = reasonBuilder.String()
 	output.SystemMessage = systemMessageBuilder.String()
