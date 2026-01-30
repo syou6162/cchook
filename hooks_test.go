@@ -1958,6 +1958,7 @@ func TestExecutePreToolUseHook_NewSignature(t *testing.T) {
 		wantUpdatedInput             map[string]interface{}
 		wantSystemMessage            string
 		wantNilOutput                bool
+		useStubRunner                bool
 		wantErr                      bool
 	}{
 		{
@@ -1992,6 +1993,7 @@ func TestExecutePreToolUseHook_NewSignature(t *testing.T) {
 			wantHookEventName:            "PreToolUse",
 			wantSystemMessage:            "",
 			wantNilOutput:                false,
+			useStubRunner:                false,
 			wantErr:                      false,
 		},
 		{
@@ -2026,6 +2028,7 @@ func TestExecutePreToolUseHook_NewSignature(t *testing.T) {
 			wantHookEventName:            "PreToolUse",
 			wantSystemMessage:            "",
 			wantNilOutput:                false,
+			useStubRunner:                false,
 			wantErr:                      false,
 		},
 		{
@@ -2055,6 +2058,7 @@ func TestExecutePreToolUseHook_NewSignature(t *testing.T) {
 				},
 			},
 			wantNilOutput: true,
+			useStubRunner: true,
 			wantErr:       false,
 		},
 	}
@@ -2063,7 +2067,7 @@ func TestExecutePreToolUseHook_NewSignature(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// For command action tests, use stubRunner
 			var executor *ActionExecutor
-			if tt.name == "Command action with empty stdout -> output is nil (delegation)" {
+			if tt.useStubRunner {
 				runner := &stubRunnerWithOutput{
 					stdout:   "",
 					exitCode: 0,
