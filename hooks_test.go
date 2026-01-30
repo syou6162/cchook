@@ -2131,6 +2131,7 @@ func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
 		wantHookSpecificOutput bool
 		wantPermissionDecision string
 		wantContinue           bool
+		useStubRunner          bool
 	}{
 		{
 			name: "No match - hookSpecificOutput should be nil",
@@ -2149,6 +2150,7 @@ func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
 			},
 			wantHookSpecificOutput: false,
 			wantContinue:           true,
+			useStubRunner:          false,
 		},
 		{
 			name: "Match + output action - hookSpecificOutput should exist",
@@ -2168,6 +2170,26 @@ func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
 			wantHookSpecificOutput: true,
 			wantPermissionDecision: "deny",
 			wantContinue:           true,
+			useStubRunner:          false,
+		},
+		{
+			name: "Match + empty stdout - hookSpecificOutput should be nil (delegation)",
+			config: &Config{
+				PreToolUse: []PreToolUseHook{
+					{
+						Matcher: "Write",
+						Actions: []Action{
+							{Type: "command", Command: "validator.sh"},
+						},
+					},
+				},
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+			},
+			wantHookSpecificOutput: false,
+			wantContinue:           true,
+			useStubRunner:          true,
 		},
 		{
 			name: "Condition error - hookSpecificOutput with permissionDecision: deny",
@@ -2190,15 +2212,49 @@ func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
 			wantHookSpecificOutput: true,
 			wantPermissionDecision: "deny",
 			wantContinue:           true,
+			useStubRunner:          false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output, err := executePreToolUseHooksJSON(tt.config, tt.input, map[string]interface{}{
-				"tool_name":  tt.input.ToolName,
-				"tool_input": tt.input.ToolInput,
-			})
+			// For command action tests with empty stdout, use stubRunner
+			// Note: executePreToolUseHooksJSON creates its own executor internally,
+			// so we test via executePreToolUseHook directly for stub runner cases
+			var output *PreToolUseOutput
+			var err error
+
+			if tt.useStubRunner {
+				runner := &stubRunnerWithOutput{
+					stdout:   "",
+					exitCode: 0,
+				}
+				executor := NewActionExecutor(runner)
+
+				// Test the single hook execution path
+				actionOutput, hookErr := executePreToolUseHook(executor, tt.config.PreToolUse[0], tt.input, map[string]interface{}{
+					"tool_name":  tt.input.ToolName,
+					"tool_input": tt.input.ToolInput,
+				})
+
+				// Build PreToolUseOutput structure manually to match executePreToolUseHooksJSON behavior
+				output = &PreToolUseOutput{
+					Continue: true,
+				}
+				if actionOutput != nil && actionOutput.PermissionDecision != "" {
+					output.HookSpecificOutput = &PreToolUseHookSpecificOutput{
+						HookEventName:            "PreToolUse",
+						PermissionDecision:       actionOutput.PermissionDecision,
+						PermissionDecisionReason: actionOutput.PermissionDecisionReason,
+					}
+				}
+				err = hookErr
+			} else {
+				output, err = executePreToolUseHooksJSON(tt.config, tt.input, map[string]interface{}{
+					"tool_name":  tt.input.ToolName,
+					"tool_input": tt.input.ToolInput,
+				})
+			}
 
 			// For "Condition error" test, error is expected
 			if tt.name == "Condition error - hookSpecificOutput with permissionDecision: deny" {
