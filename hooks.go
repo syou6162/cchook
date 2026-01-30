@@ -1167,6 +1167,8 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 		// For errors, override permissionDecision to "deny" (fail-safe)
 		if len(allErrors) > 0 {
 			permissionDecision = "deny"
+			// Clear previous permission decision reason to avoid inconsistency
+			reasonBuilder.Reset()
 		}
 
 		finalOutput.HookSpecificOutput = &PreToolUseHookSpecificOutput{
