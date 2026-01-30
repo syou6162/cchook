@@ -2065,6 +2065,17 @@ func TestExecutePreToolUseHook_NewSignature(t *testing.T) {
 }
 
 // TestExecutePreToolUseHooksJSON_HookSpecificOutput tests hookSpecificOutput generation
+//
+// Note on error handling tests:
+// Plan requires testing "error occurrence → hookSpecificOutput with permissionDecision: deny"
+// via actionErrors/conditionErrors path. However, due to implementation constraints:
+// - ConditionType is opaque (cannot create unknown types in tests)
+// - checkPreToolUseCondition only returns "unknown condition type" errors
+// - No practical way to trigger real condition/action errors in current design
+//
+// The "Command failure" test below covers the observable behavior (deny on failure),
+// though it doesn't exercise the internal error collection path (actionErrors).
+// This is a known limitation documented here for future improvement.
 func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
 	tests := []struct {
 		name                   string
