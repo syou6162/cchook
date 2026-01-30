@@ -2093,13 +2093,13 @@ func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
 			wantContinue:           true,
 		},
 		{
-			name: "Match + JSON output - hookSpecificOutput should exist",
+			name: "Match + command JSON output - hookSpecificOutput should exist",
 			config: &Config{
 				PreToolUse: []PreToolUseHook{
 					{
 						Matcher: "Write",
 						Actions: []Action{
-							{Type: "output", Message: "validation failed", PermissionDecision: stringPtr("deny")},
+							{Type: "command", Command: "echo '{\"continue\":true,\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"validation failed\"}}'"},
 						},
 					},
 				},
@@ -2112,7 +2112,7 @@ func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
 			wantContinue:           true,
 		},
 		{
-			name: "Action error - hookSpecificOutput with permissionDecision: deny",
+			name: "Command failure - hookSpecificOutput with permissionDecision: deny",
 			config: &Config{
 				PreToolUse: []PreToolUseHook{
 					{
