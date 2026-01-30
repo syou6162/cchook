@@ -1274,12 +1274,15 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 
 		// Update output fields following merge rules
 
-		// PermissionDecision: last value wins
+		// PermissionDecision: last non-empty value wins
+		// Empty permissionDecision means "no opinion" and should not overwrite previous values
 		// If permissionDecision changes, reset permissionDecisionReason to avoid contradictions
-		previousDecision := output.PermissionDecision
-		output.PermissionDecision = actionOutput.PermissionDecision
-		if previousDecision != output.PermissionDecision {
-			reasonBuilder.Reset()
+		if actionOutput.PermissionDecision != "" {
+			previousDecision := output.PermissionDecision
+			output.PermissionDecision = actionOutput.PermissionDecision
+			if previousDecision != output.PermissionDecision {
+				reasonBuilder.Reset()
+			}
 		}
 
 		// PermissionDecisionReason: concatenate with "\n" if decision unchanged, otherwise replace
