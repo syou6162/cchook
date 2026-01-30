@@ -2067,15 +2067,8 @@ func TestExecutePreToolUseHook_NewSignature(t *testing.T) {
 // TestExecutePreToolUseHooksJSON_HookSpecificOutput tests hookSpecificOutput generation
 //
 // Note on error handling tests:
-// Plan requires testing "error occurrence → hookSpecificOutput with permissionDecision: deny"
-// via actionErrors/conditionErrors path. However, due to implementation constraints:
-// - ConditionType is opaque (cannot create unknown types in tests)
-// - checkPreToolUseCondition only returns "unknown condition type" errors
-// - No practical way to trigger real condition/action errors in current design
-//
-// The "Command failure" test below covers the observable behavior (deny on failure),
-// though it doesn't exercise the internal error collection path (actionErrors).
-// This is a known limitation documented here for future improvement.
+// - conditionErrors: Testable via ConditionType{v: "unknown"} (same package access)
+// - actionErrors: Difficult to trigger (ExecutePreToolUseAction rarely returns errors)
 func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
 	tests := []struct {
 		name                   string
@@ -2141,6 +2134,28 @@ func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
 			wantPermissionDecision: "deny",
 			wantContinue:           true,
 		},
+		{
+			name: "Condition error - hookSpecificOutput with permissionDecision: deny",
+			config: &Config{
+				PreToolUse: []PreToolUseHook{
+					{
+						Matcher: "Write",
+						Conditions: []Condition{
+							{Type: ConditionType{v: "unknown"}, Value: "test"},
+						},
+						Actions: []Action{
+							{Type: "output", Message: "test"},
+						},
+					},
+				},
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+			},
+			wantHookSpecificOutput: true,
+			wantPermissionDecision: "deny",
+			wantContinue:           true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -2150,8 +2165,15 @@ func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
 				"tool_input": tt.input.ToolInput,
 			})
 
-			if err != nil {
-				t.Fatalf("executePreToolUseHooksJSON() error = %v", err)
+			// For "Condition error" test, error is expected
+			if tt.name == "Condition error - hookSpecificOutput with permissionDecision: deny" {
+				if err == nil {
+					t.Fatal("executePreToolUseHooksJSON() expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("executePreToolUseHooksJSON() error = %v", err)
+				}
 			}
 
 			if output.Continue != tt.wantContinue {
