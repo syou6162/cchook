@@ -1100,12 +1100,15 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 		// Continue: always true (do not overwrite from actionOutput)
 		// finalOutput.Continue remains true
 
-		// PermissionDecision: last value wins
+		// PermissionDecision: last non-empty value wins
+		// Empty permissionDecision means "no opinion" and should not overwrite previous values
 		// If permissionDecision changes, reset permissionDecisionReason to avoid contradictions
-		previousDecision := permissionDecision
-		permissionDecision = actionOutput.PermissionDecision
-		if previousDecision != permissionDecision {
-			reasonBuilder.Reset()
+		if actionOutput.PermissionDecision != "" {
+			previousDecision := permissionDecision
+			permissionDecision = actionOutput.PermissionDecision
+			if previousDecision != permissionDecision {
+				reasonBuilder.Reset()
+			}
 		}
 
 		// HookEventName: set once and preserve
