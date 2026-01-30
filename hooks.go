@@ -1058,7 +1058,7 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 	var conditionErrors []error
 	var actionErrors []error
 
-	// Initialize finalOutput with Continue: true (always), PermissionDecision: "allow"
+	// Initialize finalOutput with Continue: true (always)
 	finalOutput := &PreToolUseOutput{
 		Continue: true,
 	}
@@ -1248,10 +1248,10 @@ func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput)
 // This function implements Phase 3 JSON output functionality for PreToolUse hooks.
 func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input *PreToolUseInput, rawJSON interface{}) (*ActionOutput, error) {
 	// Initialize output with Continue: true (always true for PreToolUse)
-	// and default permissionDecision: allow
+	// permissionDecision starts empty and will be set by actions or remain empty to delegate
 	output := &ActionOutput{
 		Continue:           true,
-		PermissionDecision: "allow",
+		PermissionDecision: "",
 		HookEventName:      "PreToolUse",
 	}
 
