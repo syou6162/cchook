@@ -1066,7 +1066,7 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 	var reasonBuilder strings.Builder
 	var systemMessageBuilder strings.Builder
 	hookEventName := ""
-	permissionDecision := "allow" // Default
+	permissionDecision := "" // Empty = delegate to Claude Code's permission system
 	var updatedInput map[string]interface{}
 	stopReason := ""
 	suppressOutput := false
@@ -1148,30 +1148,39 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 		}
 	}
 
-	// Build final output
-	// Always set hookEventName to "PreToolUse"
-	if hookEventName == "" {
-		hookEventName = "PreToolUse"
-	}
-	finalOutput.HookSpecificOutput = &PreToolUseHookSpecificOutput{
-		HookEventName:            hookEventName,
-		PermissionDecision:       permissionDecision,
-		PermissionDecisionReason: reasonBuilder.String(),
-		UpdatedInput:             updatedInput,
-	}
-
-	finalOutput.SystemMessage = systemMessageBuilder.String()
-	finalOutput.StopReason = stopReason
-	finalOutput.SuppressOutput = suppressOutput
-
 	// Collect all errors
 	var allErrors []error
 	allErrors = append(allErrors, conditionErrors...)
 	allErrors = append(allErrors, actionErrors...)
 
+	// Build final output
+	// Set HookSpecificOutput only when permissionDecision is set or errors occurred
+	if permissionDecision != "" || len(allErrors) > 0 {
+		// Always set hookEventName to "PreToolUse"
+		if hookEventName == "" {
+			hookEventName = "PreToolUse"
+		}
+
+		// For errors, override permissionDecision to "deny" (fail-safe)
+		if len(allErrors) > 0 {
+			permissionDecision = "deny"
+		}
+
+		finalOutput.HookSpecificOutput = &PreToolUseHookSpecificOutput{
+			HookEventName:            hookEventName,
+			PermissionDecision:       permissionDecision,
+			PermissionDecisionReason: reasonBuilder.String(),
+			UpdatedInput:             updatedInput,
+		}
+	}
+	// Otherwise, leave HookSpecificOutput as nil to delegate to Claude Code's permission system
+
+	finalOutput.SystemMessage = systemMessageBuilder.String()
+	finalOutput.StopReason = stopReason
+	finalOutput.SuppressOutput = suppressOutput
+
 	if len(allErrors) > 0 {
-		// Requirement 6.4: On error, set permissionDecision to "deny" and include error in systemMessage
-		finalOutput.HookSpecificOutput.PermissionDecision = "deny"
+		// Requirement 6.4: On error, include error in systemMessage
 
 		// Build error message
 		var errorMessages []string

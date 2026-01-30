@@ -1157,20 +1157,8 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 			wantSystemMessage:      "Command failed with exit code 1",
 			wantHookEventName:      "PreToolUse",
 		},
-		{
-			name: "Empty stdout -> permissionDecision: allow (validation tool case)",
-			action: Action{
-				Type:    "command",
-				Command: "validator.sh",
-			},
-			input: &PreToolUseInput{
-				ToolName: "Edit",
-			},
-			commandOutput:          "",
-			commandExitCode:        0,
-			wantPermissionDecision: "allow",
-			wantHookEventName:      "PreToolUse",
-		},
+		// Removed: Empty stdout now returns nil to delegate to Claude Code's permission system
+		// This test is now covered by TestExecutePreToolUseAction_EmptyStdout below
 		{
 			name: "Invalid JSON output -> permissionDecision: deny + systemMessage",
 			action: Action{
@@ -1716,5 +1704,35 @@ func TestExecuteUserPromptSubmitAction_JSONParseError_StderrWarning(t *testing.T
 	}
 	if !strings.Contains(stderr, "Command output is not valid JSON") {
 		t.Errorf("Expected JSON error message in stderr, got: %s", stderr)
+	}
+}
+
+// TestExecutePreToolUseAction_EmptyStdout tests that empty stdout returns nil to delegate to Claude Code
+func TestExecutePreToolUseAction_EmptyStdout(t *testing.T) {
+	action := Action{
+		Type:    "command",
+		Command: "validator.sh",
+	}
+	input := &PreToolUseInput{
+		ToolName: "Edit",
+	}
+	runner := &stubRunnerWithOutput{
+		stdout:   "",
+		exitCode: 0,
+	}
+	executor := NewActionExecutor(runner)
+	rawJSON := map[string]interface{}{
+		"tool_name":  input.ToolName,
+		"tool_input": input.ToolInput,
+	}
+
+	output, err := executor.ExecutePreToolUseAction(action, input, rawJSON)
+
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	if output != nil {
+		t.Errorf("Expected nil output (delegate to Claude Code), got: %+v", output)
 	}
 }
