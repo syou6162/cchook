@@ -2097,32 +2097,13 @@ func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
 			wantContinue:           true,
 		},
 		{
-			name: "Match + command JSON output - hookSpecificOutput should exist",
+			name: "Match + output action - hookSpecificOutput should exist",
 			config: &Config{
 				PreToolUse: []PreToolUseHook{
 					{
 						Matcher: "Write",
 						Actions: []Action{
-							{Type: "command", Command: "echo '{\"continue\":true,\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"validation failed\"}}'"},
-						},
-					},
-				},
-			},
-			input: &PreToolUseInput{
-				ToolName: "Write",
-			},
-			wantHookSpecificOutput: true,
-			wantPermissionDecision: "deny",
-			wantContinue:           true,
-		},
-		{
-			name: "Command failure - hookSpecificOutput with permissionDecision: deny",
-			config: &Config{
-				PreToolUse: []PreToolUseHook{
-					{
-						Matcher: "Write",
-						Actions: []Action{
-							{Type: "command", Command: "exit 1"},
+							{Type: "output", Message: "validation failed", PermissionDecision: stringPtr("deny")},
 						},
 					},
 				},
@@ -2212,51 +2193,5 @@ func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
 				t.Errorf("JSON has hookSpecificOutput field, want it omitted. JSON: %s", string(jsonBytes))
 			}
 		})
-	}
-}
-
-// TestExecutePreToolUseHooksJSON_EmptyStdout tests empty stdout delegation
-func TestExecutePreToolUseHooksJSON_EmptyStdout(t *testing.T) {
-	config := &Config{
-		PreToolUse: []PreToolUseHook{
-			{
-				Matcher: "Write",
-				Actions: []Action{
-					{Type: "command", Command: "echo ''"},
-				},
-			},
-		},
-	}
-
-	input := &PreToolUseInput{
-		ToolName: "Write",
-	}
-
-	output, err := executePreToolUseHooksJSON(config, input, map[string]interface{}{
-		"tool_name":  input.ToolName,
-		"tool_input": input.ToolInput,
-	})
-
-	if err != nil {
-		t.Fatalf("executePreToolUseHooksJSON() error = %v", err)
-	}
-
-	if output.HookSpecificOutput != nil {
-		t.Errorf("HookSpecificOutput = %+v, want nil (empty stdout should delegate)", output.HookSpecificOutput)
-	}
-
-	// Verify JSON omits hookSpecificOutput
-	jsonBytes, err := json.Marshal(output)
-	if err != nil {
-		t.Fatalf("json.Marshal() error = %v", err)
-	}
-
-	var jsonMap map[string]interface{}
-	if err := json.Unmarshal(jsonBytes, &jsonMap); err != nil {
-		t.Fatalf("json.Unmarshal() error = %v", err)
-	}
-
-	if _, hasHookSpecificOutput := jsonMap["hookSpecificOutput"]; hasHookSpecificOutput {
-		t.Errorf("JSON has hookSpecificOutput field, want it omitted. JSON: %s", string(jsonBytes))
 	}
 }
