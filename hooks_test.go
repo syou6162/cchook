@@ -1957,6 +1957,7 @@ func TestExecutePreToolUseHook_NewSignature(t *testing.T) {
 		wantHookEventName            string
 		wantUpdatedInput             map[string]interface{}
 		wantSystemMessage            string
+		wantNilOutput                bool
 		wantErr                      bool
 	}{
 		{
@@ -1990,6 +1991,7 @@ func TestExecutePreToolUseHook_NewSignature(t *testing.T) {
 			wantPermissionDecisionReason: "Allowing write operation",
 			wantHookEventName:            "PreToolUse",
 			wantSystemMessage:            "",
+			wantNilOutput:                false,
 			wantErr:                      false,
 		},
 		{
@@ -2023,17 +2025,65 @@ func TestExecutePreToolUseHook_NewSignature(t *testing.T) {
 			wantPermissionDecisionReason: "Blocking dangerous operation",
 			wantHookEventName:            "PreToolUse",
 			wantSystemMessage:            "",
+			wantNilOutput:                false,
 			wantErr:                      false,
+		},
+		{
+			name: "Command action with empty stdout -> output is nil (delegation)",
+			config: &Config{
+				PreToolUse: []PreToolUseHook{
+					{
+						Matcher: "Write",
+						Actions: []Action{
+							{
+								Type:    "command",
+								Command: "validator.sh",
+							},
+						},
+					},
+				},
+			},
+			input: &PreToolUseInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-123",
+					HookEventName:  PreToolUse,
+					TranscriptPath: "/tmp/transcript",
+				},
+				ToolName: "Write",
+				ToolInput: ToolInput{
+					FilePath: "test.txt",
+				},
+			},
+			wantNilOutput: true,
+			wantErr:       false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			executor := NewActionExecutor(nil)
+			// For command action tests, use stubRunner
+			var executor *ActionExecutor
+			if tt.name == "Command action with empty stdout -> output is nil (delegation)" {
+				runner := &stubRunnerWithOutput{
+					stdout:   "",
+					exitCode: 0,
+				}
+				executor = NewActionExecutor(runner)
+			} else {
+				executor = NewActionExecutor(nil)
+			}
+
 			output, err := executePreToolUseHook(executor, tt.config.PreToolUse[0], tt.input, tt.input)
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("executePreToolUseHook() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.wantNilOutput {
+				if output != nil {
+					t.Fatalf("Expected nil output (delegation), got: %+v", output)
+				}
+				return
 			}
 
 			if output == nil {
