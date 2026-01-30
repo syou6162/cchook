@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"os"
 	"strings"
@@ -2060,5 +2061,169 @@ func TestExecutePreToolUseHook_NewSignature(t *testing.T) {
 				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
 			}
 		})
+	}
+}
+
+// TestExecutePreToolUseHooksJSON_HookSpecificOutput tests hookSpecificOutput generation
+func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
+	tests := []struct {
+		name                   string
+		config                 *Config
+		input                  *PreToolUseInput
+		wantHookSpecificOutput bool
+		wantPermissionDecision string
+		wantContinue           bool
+	}{
+		{
+			name: "No match - hookSpecificOutput should be nil",
+			config: &Config{
+				PreToolUse: []PreToolUseHook{
+					{
+						Matcher: "Edit",
+						Actions: []Action{
+							{Type: "output", Message: "test", PermissionDecision: stringPtr("deny")},
+						},
+					},
+				},
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+			},
+			wantHookSpecificOutput: false,
+			wantContinue:           true,
+		},
+		{
+			name: "Match + JSON output - hookSpecificOutput should exist",
+			config: &Config{
+				PreToolUse: []PreToolUseHook{
+					{
+						Matcher: "Write",
+						Actions: []Action{
+							{Type: "output", Message: "validation failed", PermissionDecision: stringPtr("deny")},
+						},
+					},
+				},
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+			},
+			wantHookSpecificOutput: true,
+			wantPermissionDecision: "deny",
+			wantContinue:           true,
+		},
+		{
+			name: "Action error - hookSpecificOutput with permissionDecision: deny",
+			config: &Config{
+				PreToolUse: []PreToolUseHook{
+					{
+						Matcher: "Write",
+						Actions: []Action{
+							{Type: "command", Command: "exit 1"},
+						},
+					},
+				},
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+			},
+			wantHookSpecificOutput: true,
+			wantPermissionDecision: "deny",
+			wantContinue:           true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output, err := executePreToolUseHooksJSON(tt.config, tt.input, map[string]interface{}{
+				"tool_name":  tt.input.ToolName,
+				"tool_input": tt.input.ToolInput,
+			})
+
+			if err != nil {
+				t.Fatalf("executePreToolUseHooksJSON() error = %v", err)
+			}
+
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			if tt.wantHookSpecificOutput {
+				if output.HookSpecificOutput == nil {
+					t.Fatal("HookSpecificOutput is nil, want non-nil")
+				}
+				if output.HookSpecificOutput.PermissionDecision != tt.wantPermissionDecision {
+					t.Errorf("PermissionDecision = %q, want %q", output.HookSpecificOutput.PermissionDecision, tt.wantPermissionDecision)
+				}
+			} else {
+				if output.HookSpecificOutput != nil {
+					t.Errorf("HookSpecificOutput = %+v, want nil", output.HookSpecificOutput)
+				}
+			}
+
+			// Test JSON serialization - verify omitempty behavior
+			jsonBytes, err := json.Marshal(output)
+			if err != nil {
+				t.Fatalf("json.Marshal() error = %v", err)
+			}
+
+			var jsonMap map[string]interface{}
+			if err := json.Unmarshal(jsonBytes, &jsonMap); err != nil {
+				t.Fatalf("json.Unmarshal() error = %v", err)
+			}
+
+			_, hasHookSpecificOutput := jsonMap["hookSpecificOutput"]
+			if tt.wantHookSpecificOutput && !hasHookSpecificOutput {
+				t.Error("JSON missing hookSpecificOutput field, want it present")
+			}
+			if !tt.wantHookSpecificOutput && hasHookSpecificOutput {
+				t.Errorf("JSON has hookSpecificOutput field, want it omitted. JSON: %s", string(jsonBytes))
+			}
+		})
+	}
+}
+
+// TestExecutePreToolUseHooksJSON_EmptyStdout tests empty stdout delegation
+func TestExecutePreToolUseHooksJSON_EmptyStdout(t *testing.T) {
+	config := &Config{
+		PreToolUse: []PreToolUseHook{
+			{
+				Matcher: "Write",
+				Actions: []Action{
+					{Type: "command", Command: "echo ''"},
+				},
+			},
+		},
+	}
+
+	input := &PreToolUseInput{
+		ToolName: "Write",
+	}
+
+	output, err := executePreToolUseHooksJSON(config, input, map[string]interface{}{
+		"tool_name":  input.ToolName,
+		"tool_input": input.ToolInput,
+	})
+
+	if err != nil {
+		t.Fatalf("executePreToolUseHooksJSON() error = %v", err)
+	}
+
+	if output.HookSpecificOutput != nil {
+		t.Errorf("HookSpecificOutput = %+v, want nil (empty stdout should delegate)", output.HookSpecificOutput)
+	}
+
+	// Verify JSON omits hookSpecificOutput
+	jsonBytes, err := json.Marshal(output)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+
+	var jsonMap map[string]interface{}
+	if err := json.Unmarshal(jsonBytes, &jsonMap); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+
+	if _, hasHookSpecificOutput := jsonMap["hookSpecificOutput"]; hasHookSpecificOutput {
+		t.Errorf("JSON has hookSpecificOutput field, want it omitted. JSON: %s", string(jsonBytes))
 	}
 }
