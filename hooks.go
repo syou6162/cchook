@@ -1090,7 +1090,7 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 		// Matcher and condition checks
 		shouldExecute, err := shouldExecutePreToolUseHook(hook, input)
 		if err != nil {
-			// プロセス置換検出の場合はdenyとして処理
+			// プロセス置換検出の場合はdenyとして処理し、以降のフックを処理しない
 			if errors.Is(err, ErrProcessSubstitutionDetected) {
 				permissionDecision = "deny"
 				if reasonBuilder.Len() > 0 {
@@ -1100,7 +1100,7 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 				if hookEventName == "" {
 					hookEventName = "PreToolUse"
 				}
-				continue
+				break // denyを確定させるため、以降のフックを処理しない
 			}
 			conditionErrors = append(conditionErrors,
 				fmt.Errorf("hook[PreToolUse][%d]: %w", i, err))
