@@ -1522,6 +1522,7 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 	interrupt := false
 	stopReason := ""
 	suppressOutput := false
+	matchedAny := false // Track if any hook matched
 
 	for i, hook := range config.PermissionRequest {
 		// Matcher and condition checks
@@ -1535,6 +1536,8 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 		if !shouldExecute {
 			continue
 		}
+
+		matchedAny = true // Mark that at least one hook matched
 
 		// Execute hook actions
 		actionOutput, err := executePermissionRequestHook(executor, hook, input, rawJSON)
@@ -1614,7 +1617,11 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 	// Ensure message is set when behavior is deny (required by spec)
 	message := messageBuilder.String()
 	if behavior == "deny" && message == "" {
-		message = "Permission denied by default (no hooks matched or allowed)"
+		if matchedAny {
+			message = "Permission denied"
+		} else {
+			message = "Permission denied (no hooks matched)"
+		}
 	}
 
 	finalOutput.HookSpecificOutput = &PermissionRequestHookSpecificOutput{

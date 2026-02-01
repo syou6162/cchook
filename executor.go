@@ -642,6 +642,7 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 			return &ActionOutput{
 				Continue:      true,
 				Behavior:      "deny",
+				Message:       errMsg,
 				HookEventName: "PermissionRequest",
 				SystemMessage: errMsg,
 			}, nil
@@ -654,6 +655,7 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 			return &ActionOutput{
 				Continue:      true,
 				Behavior:      "deny",
+				Message:       errMsg,
 				HookEventName: "PermissionRequest",
 				SystemMessage: errMsg,
 			}, nil
@@ -667,6 +669,7 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 			return &ActionOutput{
 				Continue:      true,
 				Behavior:      "deny",
+				Message:       errMsg,
 				HookEventName: "PermissionRequest",
 				SystemMessage: errMsg,
 			}, nil
@@ -679,6 +682,7 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 			return &ActionOutput{
 				Continue:      true,
 				Behavior:      "deny",
+				Message:       errMsg,
 				HookEventName: "PermissionRequest",
 				SystemMessage: errMsg,
 			}, nil
@@ -691,6 +695,7 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 			return &ActionOutput{
 				Continue:      true,
 				Behavior:      "deny",
+				Message:       errMsg,
 				HookEventName: "PermissionRequest",
 				SystemMessage: errMsg,
 			}, nil
@@ -703,6 +708,7 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 			return &ActionOutput{
 				Continue:      true,
 				Behavior:      "deny",
+				Message:       errMsg,
 				HookEventName: "PermissionRequest",
 				SystemMessage: errMsg,
 			}, nil
@@ -715,6 +721,7 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 			return &ActionOutput{
 				Continue:      true,
 				Behavior:      "deny",
+				Message:       errMsg,
 				HookEventName: "PermissionRequest",
 				SystemMessage: errMsg,
 			}, nil
@@ -727,6 +734,7 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 			return &ActionOutput{
 				Continue:      true,
 				Behavior:      "deny",
+				Message:       errMsg,
 				HookEventName: "PermissionRequest",
 				SystemMessage: errMsg,
 			}, nil

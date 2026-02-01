@@ -2701,7 +2701,7 @@ func TestExecutePermissionRequestHooks(t *testing.T) {
 				},
 			},
 			wantBehavior:      "deny",
-			wantMessage:       "Permission denied by default (no hooks matched or allowed)",
+			wantMessage:       "Permission denied (no hooks matched)",
 			wantInterrupt:     false,
 			wantContinue:      true,
 			wantHookEventName: "PermissionRequest",
