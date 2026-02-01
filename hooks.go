@@ -1517,7 +1517,7 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 	var messageBuilder strings.Builder
 	var systemMessageBuilder strings.Builder
 	hookEventName := "PermissionRequest"
-	behavior := "deny" // Default: fail-safe to deny
+	behavior := "allow" // Default: allow when no hooks match
 	var updatedInput map[string]interface{}
 	interrupt := false
 	stopReason := ""
@@ -1684,7 +1684,9 @@ func executePermissionRequestHook(executor *ActionExecutor, hook PermissionReque
 		}
 
 		// Merge actionOutput into mergedOutput following PermissionRequest merge rules
-		// Continue: always true (ignore from individual actions)
+
+		// Continue: last value wins
+		mergedOutput.Continue = actionOutput.Continue
 
 		// Behavior: last value wins
 		previousBehavior := mergedOutput.Behavior
