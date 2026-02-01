@@ -1586,10 +1586,7 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 			}
 		}
 
-		// HookEventName: set once by first action
-		if hookEventName == "" && actionOutput.HookEventName != "" {
-			hookEventName = actionOutput.HookEventName
-		}
+		// HookEventName: fixed as "PermissionRequest" (initialized above, no update needed)
 
 		// SystemMessage: concatenate with newline
 		if actionOutput.SystemMessage != "" {
