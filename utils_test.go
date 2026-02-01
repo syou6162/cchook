@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1209,6 +1210,20 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 			want:    false, // git rmはブロック対象ではない
 			wantErr: false,
 		},
+		{
+			name: "process substitution in command returns ErrProcessSubstitutionDetected",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "diff",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "diff -u file1 <(head -48 file2)",
+				},
+			},
+			want:    false,
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1217,6 +1232,12 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("checkPreToolUseCondition() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+			// Phase 2: プロセス置換エラーの種類を確認
+			if err != nil && strings.Contains(tt.name, "process substitution") {
+				if !errors.Is(err, ErrProcessSubstitutionDetected) {
+					t.Errorf("checkPreToolUseCondition() error type = %T, want ErrProcessSubstitutionDetected", err)
+				}
 			}
 			if got != tt.want {
 				t.Errorf("checkPreToolUseCondition() = %v, want %v", got, tt.want)

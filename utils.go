@@ -323,6 +323,12 @@ func checkGitTrackedFileOperation(command string, blockedOps string) (bool, erro
 		return false, nil
 	}
 
+	// プロセス置換 <() や >() を事前チェック
+	// shell.Fieldsはプロセス置換を展開できずpanicするため
+	if containsProcessSubstitution(command) {
+		return false, ErrProcessSubstitutionDetected
+	}
+
 	// コマンドラインをパース（環境変数展開あり）
 	args, err := shell.Fields(command, nil)
 	if err != nil {
