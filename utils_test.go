@@ -1308,6 +1308,20 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 			want:    false,
 			wantErr: false, // globは展開されないため*.txtというファイルは存在しない
 		},
+		{
+			name: "rm with space in filename (quoted)",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: `rm "file with spaces.txt"`,
+				},
+			},
+			want:    false,
+			wantErr: false, // ファイルが存在しないため
+		},
 	}
 
 	for _, tt := range tests {
