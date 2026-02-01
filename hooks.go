@@ -1754,6 +1754,11 @@ func executePermissionRequestHook(executor *ActionExecutor, hook PermissionReque
 
 		// SuppressOutput: last value wins
 		mergedOutput.SuppressOutput = actionOutput.SuppressOutput
+
+		// Early return on continue=false
+		if !actionOutput.Continue {
+			break
+		}
 	}
 
 	return mergedOutput, nil
