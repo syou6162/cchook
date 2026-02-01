@@ -645,11 +645,15 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		stdout, stderr, exitCode, _ := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
+		stdout, stderr, exitCode, err := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
 
 		// Command failed with non-zero exit code
 		if exitCode != 0 {
+			// Include err in message when stderr is empty (e.g., stdin JSON marshal failure)
 			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			if stderr == "" && err != nil {
+				errMsg = fmt.Sprintf("Command failed with exit code %d: %v", exitCode, err)
+			}
 			return createPermissionRequestDenyOutput(errMsg), nil
 		}
 
