@@ -1224,6 +1224,90 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 			want:    false,
 			wantErr: true,
 		},
+		{
+			name: "compound command with && and process substitution returns error",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "rm tracked.txt && echo ok",
+				},
+			},
+			want:    false,
+			wantErr: false, // パースエラーのためfalse, nilを返す
+		},
+		{
+			name: "pipe with process substitution returns error",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "cat <(cmd) | rm tracked.txt",
+				},
+			},
+			want:    false,
+			wantErr: true, // プロセス置換検出
+		},
+		{
+			name: "sudo rm with tracked file",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "sudo rm tracked.txt",
+				},
+			},
+			want:    false,
+			wantErr: false, // cmdNameがsudoのためrmとマッチしない
+		},
+		{
+			name: "rm with -- and option-like filename",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "rm -- -tracked.txt",
+				},
+			},
+			want:    false,
+			wantErr: false, // -tracked.txtは存在しないため
+		},
+		{
+			name: "mv with multiple sources",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "mv",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "mv tracked.txt untracked.txt /tmp",
+				},
+			},
+			want:    true,
+			wantErr: false, // tracked.txtが含まれる
+		},
+		{
+			name: "glob pattern with tracked file",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "rm *.txt",
+				},
+			},
+			want:    false,
+			wantErr: false, // globは展開されないため*.txtというファイルは存在しない
+		},
 	}
 
 	for _, tt := range tests {
