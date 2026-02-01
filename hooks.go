@@ -1657,6 +1657,8 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 		finalOutput.HookSpecificOutput.Decision.Message = errMsg
 		finalOutput.HookSpecificOutput.Decision.Interrupt = interrupt
 		finalOutput.SystemMessage = errMsg
+		// Force continue=true on fail-safe to prevent blocking subsequent hooks
+		finalOutput.Continue = true
 	}
 
 	// Validate final output against JSON schema

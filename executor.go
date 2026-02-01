@@ -765,6 +765,14 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 			if action.Interrupt != nil {
 				resultInterrupt = *action.Interrupt
 			}
+		} else {
+			// allow時: message/interruptが設定されていたら警告
+			if message != "" {
+				fmt.Fprintf(os.Stderr, "Warning: message is set but behavior is 'allow'. message will be ignored (公式仕様: allow時はmessage不可)\n")
+			}
+			if action.Interrupt != nil && *action.Interrupt {
+				fmt.Fprintf(os.Stderr, "Warning: interrupt is set but behavior is 'allow'. interrupt will be ignored (公式仕様: allow時はinterrupt不可)\n")
+			}
 		}
 		// allow時: message=""、interrupt=false（デフォルト値のまま）
 
