@@ -743,9 +743,20 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 		// Check for unsupported fields
 		checkUnsupportedFieldsPermissionRequest(stdout)
 
+		// Determine Continue value: default to true if not specified
+		continueValue := true
+		var rawData map[string]interface{}
+		if err := json.Unmarshal([]byte(stdout), &rawData); err == nil {
+			if val, exists := rawData["continue"]; exists {
+				if boolVal, ok := val.(bool); ok {
+					continueValue = boolVal
+				}
+			}
+		}
+
 		// Return output with all fields
 		return &ActionOutput{
-			Continue:       cmdOutput.Continue,
+			Continue:       continueValue,
 			Behavior:       cmdOutput.HookSpecificOutput.Decision.Behavior,
 			Message:        cmdOutput.HookSpecificOutput.Decision.Message,
 			Interrupt:      cmdOutput.HookSpecificOutput.Decision.Interrupt,
