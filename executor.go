@@ -737,7 +737,7 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 
 		// Return output with all fields
 		return &ActionOutput{
-			Continue:       true,
+			Continue:       cmdOutput.Continue,
 			Behavior:       cmdOutput.HookSpecificOutput.Decision.Behavior,
 			Message:        cmdOutput.HookSpecificOutput.Decision.Message,
 			Interrupt:      cmdOutput.HookSpecificOutput.Decision.Interrupt,

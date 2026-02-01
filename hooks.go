@@ -1549,8 +1549,8 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 
 		// Update finalOutput fields following merge rules
 
-		// Continue: always true (do not overwrite from actionOutput)
-		// finalOutput.Continue remains true
+		// Continue: last value wins
+		finalOutput.Continue = actionOutput.Continue
 
 		// Behavior: last value wins
 		previousBehavior := behavior
