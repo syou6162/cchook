@@ -17,6 +17,7 @@ import (
 	"github.com/invopop/jsonschema"
 	"github.com/xeipuuv/gojsonschema"
 	"mvdan.cc/sh/v3/shell"
+	"mvdan.cc/sh/v3/syntax"
 )
 
 // parseInput関数は parser.go に移動
@@ -859,6 +860,26 @@ func containsProcessSubstitution(command string) bool {
 		return false
 	}
 
-	// 文字列レベルでプロセス置換を検出（シンプルな実装）
-	return strings.Contains(command, "<(") || strings.Contains(command, ">(")
+	// ASTベースでプロセス置換を検出
+	p := syntax.NewParser()
+	f, err := p.Parse(strings.NewReader(command), "")
+	if err != nil {
+		// パースエラーの場合は文字列レベルでフォールバック検出
+		// 安全側に倒すため、疑わしい場合はtrueを返す
+		return strings.Contains(command, "<(") || strings.Contains(command, ">(")
+	}
+
+	found := false
+	syntax.Walk(f, func(node syntax.Node) bool {
+		if found {
+			return false // 既に見つかっていたら子ノードをスキップ
+		}
+		if _, ok := node.(*syntax.ProcSubst); ok {
+			found = true
+			return false // 子ノードをスキップ（注: 兄弟ノードの探索は継続される）
+		}
+		return true // 継続
+	})
+
+	return found
 }
