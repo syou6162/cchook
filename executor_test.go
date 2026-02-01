@@ -1802,6 +1802,7 @@ func TestExecutePermissionRequestAction_TypeOutput(t *testing.T) {
 				ToolName: "Bash",
 			},
 			wantBehavior:      "deny",
+			wantMessage:       "Action output has no message for deny behavior",
 			wantSystemMessage: "Action output has no message for deny behavior",
 			wantHookEventName: "PermissionRequest",
 		},

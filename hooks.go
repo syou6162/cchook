@@ -1630,8 +1630,16 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 	if len(conditionErrors) > 0 || len(actionErrors) > 0 {
 		behavior = "deny"
 		updatedInput = nil // deny時はupdatedInputをクリア
+		// deny時はmessageが必須なので、エラー概要を設定
+		var errMsg string
+		if len(conditionErrors) > 0 {
+			errMsg = "Hook execution failed: condition errors occurred"
+		} else {
+			errMsg = "Hook execution failed: action errors occurred"
+		}
 		finalOutput.HookSpecificOutput.Decision.Behavior = behavior
 		finalOutput.HookSpecificOutput.Decision.UpdatedInput = updatedInput
+		finalOutput.HookSpecificOutput.Decision.Message = errMsg
 	}
 
 	// Validation errors
