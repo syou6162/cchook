@@ -10,6 +10,25 @@ import (
 	"testing"
 )
 
+// stubRunnerWithMultipleOutputs は複数のコマンド実行に対して順番に異なる出力を返すstub
+type stubRunnerWithMultipleOutputs struct {
+	outputs []string
+	index   int
+}
+
+func (s *stubRunnerWithMultipleOutputs) RunCommand(cmd string, useStdin bool, data interface{}) error {
+	return nil
+}
+
+func (s *stubRunnerWithMultipleOutputs) RunCommandWithOutput(cmd string, useStdin bool, data interface{}) (stdout, stderr string, exitCode int, err error) {
+	if s.index >= len(s.outputs) {
+		return "", "", 1, errors.New("no more outputs configured")
+	}
+	output := s.outputs[s.index]
+	s.index++
+	return output, "", 0, nil
+}
+
 func TestShouldExecutePreToolUseHook(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -2761,7 +2780,8 @@ func TestExecutePermissionRequestHooks(t *testing.T) {
 func TestExecutePermissionRequestHooks_BehaviorChange(t *testing.T) {
 	tests := []struct {
 		name             string
-		config           *Config
+		actions          []Action
+		commandOutputs   []string // stubRunnerで返すJSON出力（各アクション用）
 		input            *PermissionRequestInput
 		rawJSON          map[string]interface{}
 		wantBehavior     string
@@ -2771,22 +2791,13 @@ func TestExecutePermissionRequestHooks_BehaviorChange(t *testing.T) {
 	}{
 		{
 			name: "allow→deny: updatedInput should be cleared",
-			config: &Config{
-				PermissionRequest: []PermissionRequestHook{
-					{
-						Matcher: "Write",
-						Actions: []Action{
-							{
-								Type:    "command",
-								Command: "bash testdata/permission_request_hooks/allow_updated_input.sh",
-							},
-							{
-								Type:    "command",
-								Command: "bash testdata/permission_request_hooks/deny_message.sh",
-							},
-						},
-					},
-				},
+			actions: []Action{
+				{Type: "command", Command: "mock_allow_updated_input.sh"},
+				{Type: "command", Command: "mock_deny_message.sh"},
+			},
+			commandOutputs: []string{
+				`{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow","updatedInput":{"file_path":"modified.go"}}}}`,
+				`{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Operation blocked"}}}`,
 			},
 			input: &PermissionRequestInput{
 				BaseInput: BaseInput{
@@ -2800,10 +2811,7 @@ func TestExecutePermissionRequestHooks_BehaviorChange(t *testing.T) {
 				},
 			},
 			rawJSON: map[string]interface{}{
-				"session_id":      "test-session",
-				"transcript_path": "/path/to/transcript",
-				"hook_event_name": "PermissionRequest",
-				"tool_name":       "Write",
+				"tool_name": "Write",
 				"tool_input": map[string]interface{}{
 					"file_path": "test.go",
 				},
@@ -2815,23 +2823,13 @@ func TestExecutePermissionRequestHooks_BehaviorChange(t *testing.T) {
 		},
 		{
 			name: "deny→allow: message and interrupt should be cleared",
-			config: &Config{
-				PermissionRequest: []PermissionRequestHook{
-					{
-						Matcher: "Write",
-						Actions: []Action{
-							{
-								Type:    "command",
-								Command: "bash testdata/permission_request_hooks/deny_message_interrupt.sh",
-							},
-							{
-								Type:     "command",
-								Command:  "bash testdata/permission_request_hooks/allow_updated_input_from_stdin.sh",
-								UseStdin: true,
-							},
-						},
-					},
-				},
+			actions: []Action{
+				{Type: "command", Command: "mock_deny_message_interrupt.sh"},
+				{Type: "command", Command: "mock_allow_updated_input.sh"},
+			},
+			commandOutputs: []string{
+				`{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Blocked","interrupt":true}}}`,
+				`{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow","updatedInput":{"file_path":"test.go"}}}}`,
 			},
 			input: &PermissionRequestInput{
 				BaseInput: BaseInput{
@@ -2845,10 +2843,7 @@ func TestExecutePermissionRequestHooks_BehaviorChange(t *testing.T) {
 				},
 			},
 			rawJSON: map[string]interface{}{
-				"session_id":      "test-session",
-				"transcript_path": "/path/to/transcript",
-				"hook_event_name": "PermissionRequest",
-				"tool_name":       "Write",
+				"tool_name": "Write",
 				"tool_input": map[string]interface{}{
 					"file_path": "test.go",
 				},
@@ -2862,8 +2857,20 @@ func TestExecutePermissionRequestHooks_BehaviorChange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// フック実行
-			output, err := executePermissionRequestHooksJSON(tt.config, tt.input, tt.rawJSON)
+			// stubRunnerWithMultipleOutputsを使用
+			runner := &stubRunnerWithMultipleOutputs{
+				outputs: tt.commandOutputs,
+				index:   0,
+			}
+			executor := NewActionExecutor(runner)
+
+			hook := PermissionRequestHook{
+				Matcher: "Write",
+				Actions: tt.actions,
+			}
+
+			// executePermissionRequestHookを直接呼び出し
+			output, err := executePermissionRequestHook(executor, hook, tt.input, tt.rawJSON)
 
 			// エラーチェック
 			if err != nil {
@@ -2871,21 +2878,21 @@ func TestExecutePermissionRequestHooks_BehaviorChange(t *testing.T) {
 			}
 
 			// Behavior チェック
-			if output.HookSpecificOutput.Decision.Behavior != tt.wantBehavior {
-				t.Errorf("Behavior = %q, want %q", output.HookSpecificOutput.Decision.Behavior, tt.wantBehavior)
+			if output.Behavior != tt.wantBehavior {
+				t.Errorf("Behavior = %q, want %q", output.Behavior, tt.wantBehavior)
 			}
 
 			// UpdatedInput チェック
 			if tt.wantUpdatedInput == nil {
-				if output.HookSpecificOutput.Decision.UpdatedInput != nil {
-					t.Errorf("UpdatedInput = %v, want nil", output.HookSpecificOutput.Decision.UpdatedInput)
+				if output.UpdatedInput != nil {
+					t.Errorf("UpdatedInput = %v, want nil", output.UpdatedInput)
 				}
 			} else {
-				if output.HookSpecificOutput.Decision.UpdatedInput == nil {
+				if output.UpdatedInput == nil {
 					t.Errorf("UpdatedInput = nil, want %v", tt.wantUpdatedInput)
 				} else {
 					// map比較
-					gotJSON, _ := json.Marshal(output.HookSpecificOutput.Decision.UpdatedInput)
+					gotJSON, _ := json.Marshal(output.UpdatedInput)
 					wantJSON, _ := json.Marshal(tt.wantUpdatedInput)
 					if string(gotJSON) != string(wantJSON) {
 						t.Errorf("UpdatedInput = %s, want %s", gotJSON, wantJSON)
@@ -2894,34 +2901,33 @@ func TestExecutePermissionRequestHooks_BehaviorChange(t *testing.T) {
 			}
 
 			// Message チェック
-			if output.HookSpecificOutput.Decision.Message != tt.wantMessage {
-				t.Errorf("Message = %q, want %q", output.HookSpecificOutput.Decision.Message, tt.wantMessage)
+			if output.Message != tt.wantMessage {
+				t.Errorf("Message = %q, want %q", output.Message, tt.wantMessage)
 			}
 
 			// Interrupt チェック
-			if output.HookSpecificOutput.Decision.Interrupt != tt.wantInterrupt {
-				t.Errorf("Interrupt = %v, want %v", output.HookSpecificOutput.Decision.Interrupt, tt.wantInterrupt)
+			if output.Interrupt != tt.wantInterrupt {
+				t.Errorf("Interrupt = %v, want %v", output.Interrupt, tt.wantInterrupt)
 			}
 		})
 	}
 }
 
 func TestExecutePermissionRequestHooks_MultipleActions(t *testing.T) {
-	config := &Config{
-		PermissionRequest: []PermissionRequestHook{
-			{
-				Matcher: "Write",
-				Actions: []Action{
-					{
-						Type:    "command",
-						Command: "bash testdata/permission_request_hooks/deny_message1.sh",
-					},
-					{
-						Type:    "command",
-						Command: "bash testdata/permission_request_hooks/deny_message2.sh",
-					},
-				},
-			},
+	runner := &stubRunnerWithMultipleOutputs{
+		outputs: []string{
+			`{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"First message"}},"systemMessage":"System message"}`,
+			`{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Second message"}}}`,
+		},
+		index: 0,
+	}
+	executor := NewActionExecutor(runner)
+
+	hook := PermissionRequestHook{
+		Matcher: "Write",
+		Actions: []Action{
+			{Type: "command", Command: "mock_deny_message1.sh"},
+			{Type: "command", Command: "mock_deny_message2.sh"},
 		},
 	}
 
@@ -2944,21 +2950,21 @@ func TestExecutePermissionRequestHooks_MultipleActions(t *testing.T) {
 		},
 	}
 
-	output, err := executePermissionRequestHooksJSON(config, input, rawJSON)
+	output, err := executePermissionRequestHook(executor, hook, input, rawJSON)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
 	// Behavior should be deny (last value wins)
-	if output.HookSpecificOutput.Decision.Behavior != "deny" {
-		t.Errorf("Behavior = %q, want %q", output.HookSpecificOutput.Decision.Behavior, "deny")
+	if output.Behavior != "deny" {
+		t.Errorf("Behavior = %q, want %q", output.Behavior, "deny")
 	}
 
 	// Messages should be concatenated
 	expectedMessage := "First message\nSecond message"
-	if output.HookSpecificOutput.Decision.Message != expectedMessage {
-		t.Errorf("Message = %q, want %q", output.HookSpecificOutput.Decision.Message, expectedMessage)
+	if output.Message != expectedMessage {
+		t.Errorf("Message = %q, want %q", output.Message, expectedMessage)
 	}
 
 	// SystemMessage should be set
@@ -2968,21 +2974,20 @@ func TestExecutePermissionRequestHooks_MultipleActions(t *testing.T) {
 }
 
 func TestExecutePermissionRequestHooks_DenyEarlyReturn(t *testing.T) {
-	config := &Config{
-		PermissionRequest: []PermissionRequestHook{
-			{
-				Matcher: "Write",
-				Actions: []Action{
-					{
-						Type:    "command",
-						Command: "bash testdata/permission_request_hooks/deny_message.sh",
-					},
-					{
-						Type:    "command",
-						Command: "bash testdata/permission_request_hooks/should_not_execute.sh",
-					},
-				},
-			},
+	runner := &stubRunnerWithMultipleOutputs{
+		outputs: []string{
+			`{"continue":false,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Operation blocked"}}}`,
+			`{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"This script should not have been executed"}}}`,
+		},
+		index: 0,
+	}
+	executor := NewActionExecutor(runner)
+
+	hook := PermissionRequestHook{
+		Matcher: "Write",
+		Actions: []Action{
+			{Type: "command", Command: "mock_deny_message.sh"},
+			{Type: "command", Command: "mock_should_not_execute.sh"},
 		},
 	}
 
@@ -3005,23 +3010,22 @@ func TestExecutePermissionRequestHooks_DenyEarlyReturn(t *testing.T) {
 		},
 	}
 
-	output, err := executePermissionRequestHooksJSON(config, input, rawJSON)
+	output, err := executePermissionRequestHook(executor, hook, input, rawJSON)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
 	// Behavior should be deny
-	if output.HookSpecificOutput.Decision.Behavior != "deny" {
-		t.Errorf("Behavior = %q, want %q", output.HookSpecificOutput.Decision.Behavior, "deny")
+	if output.Behavior != "deny" {
+		t.Errorf("Behavior = %q, want %q", output.Behavior, "deny")
 	}
 
-	// Messages should be concatenated (no early return - all actions execute)
-	// Note: second action fails but error is captured in message
-	if !strings.Contains(output.HookSpecificOutput.Decision.Message, "Operation blocked") {
-		t.Errorf("Message should contain 'Operation blocked', got %q", output.HookSpecificOutput.Decision.Message)
+	// continue=falseで早期リターンするため、2番目のメッセージは含まれない
+	if !strings.Contains(output.Message, "Operation blocked") {
+		t.Errorf("Message should contain 'Operation blocked', got %q", output.Message)
 	}
-	if !strings.Contains(output.HookSpecificOutput.Decision.Message, "This script should not have been executed") {
-		t.Errorf("Message should contain error from second action, got %q", output.HookSpecificOutput.Decision.Message)
+	if strings.Contains(output.Message, "This script should not have been executed") {
+		t.Errorf("Message should NOT contain second action message (early return), got %q", output.Message)
 	}
 }
