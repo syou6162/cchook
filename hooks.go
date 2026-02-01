@@ -1553,6 +1553,7 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 		// finalOutput.Continue remains true
 
 		// Behavior: last value wins
+		previousBehavior := behavior
 		behavior = actionOutput.Behavior
 
 		// Message: concatenate with newline
@@ -1569,6 +1570,20 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 		// UpdatedInput: last non-null value wins (top-level merge, not deep merge)
 		if actionOutput.UpdatedInput != nil {
 			updatedInput = actionOutput.UpdatedInput
+		}
+
+		// Clear incompatible fields when behavior changes (across multiple hooks)
+		// This must happen AFTER merging fields from actionOutput
+		if previousBehavior != behavior {
+			switch behavior {
+			case "allow":
+				// allow時: message/interruptをクリア
+				messageBuilder.Reset()
+				interrupt = false
+			case "deny":
+				// deny時: updatedInputをクリア
+				updatedInput = nil
+			}
 		}
 
 		// HookEventName: set once by first action
