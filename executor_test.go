@@ -1789,6 +1789,7 @@ func TestExecutePermissionRequestAction_TypeOutput(t *testing.T) {
 				ToolName: "Write",
 			},
 			wantBehavior:      "deny",
+			wantMessage:       "Invalid behavior value in action config: must be 'allow' or 'deny'",
 			wantSystemMessage: "Invalid behavior value in action config: must be 'allow' or 'deny'",
 			wantHookEventName: "PermissionRequest",
 		},

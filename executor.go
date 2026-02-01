@@ -776,11 +776,13 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 			behavior = *action.Behavior
 			// Validate behavior value
 			if behavior != "allow" && behavior != "deny" {
+				errMsg := "Invalid behavior value in action config: must be 'allow' or 'deny'"
 				return &ActionOutput{
 					Continue:      true,
 					Behavior:      "deny",
+					Message:       errMsg,
 					HookEventName: "PermissionRequest",
-					SystemMessage: "Invalid behavior value in action config: must be 'allow' or 'deny'",
+					SystemMessage: errMsg,
 				}, nil
 			}
 		}
