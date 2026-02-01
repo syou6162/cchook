@@ -1656,6 +1656,14 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 		finalOutput.SystemMessage = errMsg
 	}
 
+	// Validate final output against JSON schema
+	finalOutputJSON, err := json.Marshal(finalOutput)
+	if err == nil {
+		if validationErr := validatePermissionRequestOutput(finalOutputJSON); validationErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Final output validation failed: %v\n", validationErr)
+		}
+	}
+
 	// Validation errors
 	if len(conditionErrors) > 0 {
 		return finalOutput, fmt.Errorf("condition evaluation errors: %v", conditionErrors)
