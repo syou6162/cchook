@@ -1348,3 +1348,22 @@ func TestPreToolUseOutputSchemaValidation(t *testing.T) {
 		})
 	}
 }
+
+// TestValidatePreToolUseOutput_ContinueFieldOmitted tests that continue field can be omitted
+// per Claude Code specification (defaults to true)
+func TestValidatePreToolUseOutput_ContinueFieldOmitted(t *testing.T) {
+	// 外部コマンドが返すJSON（continueフィールドなし）
+	// Claude Code公式仕様: continueはオプショナル（デフォルト: true）
+	// https://code.claude.com/docs/en/hooks
+	jsonData := []byte(`{
+		"hookSpecificOutput": {
+			"hookEventName": "PreToolUse",
+			"permissionDecision": "allow"
+		}
+	}`)
+
+	err := validatePreToolUseOutput(jsonData)
+	if err != nil {
+		t.Errorf("Expected valid JSON without 'continue' field (per Claude Code spec), but got error: %v", err)
+	}
+}

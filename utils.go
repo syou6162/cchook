@@ -796,8 +796,10 @@ func validatePreToolUseOutput(jsonData []byte) error {
 	// 1. Allow additional properties at root level
 	schema.AdditionalProperties = nil // nil means allow any additional properties
 
-	// 2. hookSpecificOutput is optional (omitempty) - no required fields at root level
-	// When permissionDecision is empty, hookSpecificOutput is omitted to delegate to Claude Code
+	// 2. No required fields at root level
+	// - continue: optional (defaults to true per Claude Code spec)
+	// - hookSpecificOutput: optional (omitempty tag, omit to delegate)
+	schema.Required = nil
 
 	// 3. Configure hookSpecificOutput
 	if hookSpecificProp, ok := schema.Properties.Get("hookSpecificOutput"); ok {
