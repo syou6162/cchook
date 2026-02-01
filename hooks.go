@@ -1580,12 +1580,12 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 		if previousBehavior != behavior {
 			switch behavior {
 			case "allow":
-				// allow時: message/interrupt/systemMessageをクリア
+				// allow時: decision内のmessage/interruptをクリア（公式仕様: allow時はdecision.message/interrupt不可）
+				// Note: systemMessageはトップレベルのフィールドでdecisionとは独立なので残す
 				messageBuilder.Reset()
 				interrupt = false
-				systemMessageBuilder.Reset()
 			case "deny":
-				// deny時: updatedInputをクリア
+				// deny時: updatedInputをクリア (公式仕様: deny時はupdatedInput不可)
 				updatedInput = nil
 			}
 		}
@@ -1727,10 +1727,10 @@ func executePermissionRequestHook(executor *ActionExecutor, hook PermissionReque
 				// deny時: updatedInputをクリア (公式仕様: deny時はupdatedInput不可)
 				mergedOutput.UpdatedInput = nil
 			case "allow":
-				// allow時: message/interrupt/systemMessageをクリア (公式仕様: allow時はmessage/interrupt不可)
+				// allow時: decision内のmessage/interruptをクリア（公式仕様: allow時はdecision.message/interrupt不可）
+				// Note: systemMessageはトップレベルのフィールドでdecisionとは独立なので残す
 				mergedOutput.Message = ""
 				mergedOutput.Interrupt = false
-				mergedOutput.SystemMessage = ""
 			}
 		}
 
