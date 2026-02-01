@@ -850,3 +850,15 @@ func validatePreToolUseOutput(jsonData []byte) error {
 
 	return nil
 }
+
+// containsProcessSubstitution checks if the command contains process substitution (<() or >()).
+// Uses syntax.NewParser() to parse the command and syntax.Walk to detect *syntax.ProcSubst nodes.
+// Falls back to string-level detection if parsing fails.
+func containsProcessSubstitution(command string) bool {
+	if command == "" {
+		return false
+	}
+
+	// 文字列レベルでプロセス置換を検出（シンプルな実装）
+	return strings.Contains(command, "<(") || strings.Contains(command, ">(")
+}

@@ -1655,3 +1655,46 @@ func TestValidateSessionStartOutput(t *testing.T) {
 		})
 	}
 }
+
+func TestContainsProcessSubstitution(t *testing.T) {
+	tests := []struct {
+		name    string
+		command string
+		want    bool
+	}{
+		{
+			name:    "empty string returns false",
+			command: "",
+			want:    false,
+		},
+		{
+			name:    "normal command returns false",
+			command: "ls -la",
+			want:    false,
+		},
+		{
+			name:    "command with <() returns true",
+			command: "diff -u file1 <(head -48 file2)",
+			want:    true,
+		},
+		{
+			name:    "command with >() returns true",
+			command: "echo foo >(cat > output.txt)",
+			want:    true,
+		},
+		{
+			name:    "double quoted <( returns false",
+			command: `echo "<(cmd)"`,
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := containsProcessSubstitution(tt.command)
+			if got != tt.want {
+				t.Errorf("containsProcessSubstitution(%q) = %v, want %v", tt.command, got, tt.want)
+			}
+		})
+	}
+}
