@@ -1611,12 +1611,18 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 	}
 
 	// Build hookSpecificOutput
+	// Ensure message is set when behavior is deny (required by spec)
+	message := messageBuilder.String()
+	if behavior == "deny" && message == "" {
+		message = "Permission denied by default (no hooks matched or allowed)"
+	}
+
 	finalOutput.HookSpecificOutput = &PermissionRequestHookSpecificOutput{
 		HookEventName: hookEventName,
 		Decision: &PermissionRequestDecision{
 			Behavior:     behavior,
 			UpdatedInput: updatedInput,
-			Message:      messageBuilder.String(),
+			Message:      message,
 			Interrupt:    interrupt,
 		},
 	}
@@ -1630,6 +1636,7 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 	if len(conditionErrors) > 0 || len(actionErrors) > 0 {
 		behavior = "deny"
 		updatedInput = nil // deny時はupdatedInputをクリア
+		interrupt = false  // エラー時はinterruptも明示的にfalseにリセット
 		// deny時はmessageが必須なので、エラー概要を設定
 		var errMsg string
 		if len(conditionErrors) > 0 {
@@ -1640,6 +1647,7 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 		finalOutput.HookSpecificOutput.Decision.Behavior = behavior
 		finalOutput.HookSpecificOutput.Decision.UpdatedInput = updatedInput
 		finalOutput.HookSpecificOutput.Decision.Message = errMsg
+		finalOutput.HookSpecificOutput.Decision.Interrupt = interrupt
 	}
 
 	// Validation errors
@@ -1770,15 +1778,17 @@ func RunPermissionRequestHooks(config *Config) error {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to parse input: %v\n", err)
 		// Fail-safe: output deny decision
+		errMsg := fmt.Sprintf("Failed to parse input: %v", err)
 		output := &PermissionRequestOutput{
 			Continue: true,
 			HookSpecificOutput: &PermissionRequestHookSpecificOutput{
 				HookEventName: "PermissionRequest",
 				Decision: &PermissionRequestDecision{
 					Behavior: "deny",
+					Message:  errMsg,
 				},
 			},
-			SystemMessage: fmt.Sprintf("Failed to parse input: %v", err),
+			SystemMessage: errMsg,
 		}
 		jsonOutput, _ := json.Marshal(output)
 		fmt.Println(string(jsonOutput))
@@ -1797,15 +1807,17 @@ func RunPermissionRequestHooks(config *Config) error {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to marshal output: %v\n", err)
 		// Fail-safe: output deny decision
+		errMsg := fmt.Sprintf("Failed to marshal output: %v", err)
 		fallbackOutput := &PermissionRequestOutput{
 			Continue: true,
 			HookSpecificOutput: &PermissionRequestHookSpecificOutput{
 				HookEventName: "PermissionRequest",
 				Decision: &PermissionRequestDecision{
 					Behavior: "deny",
+					Message:  errMsg,
 				},
 			},
-			SystemMessage: fmt.Sprintf("Failed to marshal output: %v", err),
+			SystemMessage: errMsg,
 		}
 		jsonOutput, _ = json.Marshal(fallbackOutput)
 	}
