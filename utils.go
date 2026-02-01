@@ -17,6 +17,7 @@ import (
 	"github.com/invopop/jsonschema"
 	"github.com/xeipuuv/gojsonschema"
 	"mvdan.cc/sh/v3/shell"
+	"mvdan.cc/sh/v3/syntax"
 )
 
 // parseInput関数は parser.go に移動
@@ -320,6 +321,12 @@ func isGitTracked(filePath string) (bool, error) {
 func checkGitTrackedFileOperation(command string, blockedOps string) (bool, error) {
 	if command == "" {
 		return false, nil
+	}
+
+	// プロセス置換 <() や >() を事前チェック
+	// shell.Fieldsはプロセス置換を展開できずpanicするため
+	if containsProcessSubstitution(command) {
+		return false, ErrProcessSubstitutionDetected
 	}
 
 	// コマンドラインをパース（環境変数展開あり）
@@ -849,4 +856,36 @@ func validatePreToolUseOutput(jsonData []byte) error {
 	}
 
 	return nil
+}
+
+// containsProcessSubstitution checks if the command contains process substitution (<() or >()).
+// Uses syntax.NewParser() to parse the command and syntax.Walk to detect *syntax.ProcSubst nodes.
+// Falls back to string-level detection if parsing fails.
+func containsProcessSubstitution(command string) bool {
+	if command == "" {
+		return false
+	}
+
+	// ASTベースでプロセス置換を検出
+	p := syntax.NewParser()
+	f, err := p.Parse(strings.NewReader(command), "")
+	if err != nil {
+		// パースエラーの場合は文字列レベルでフォールバック検出
+		// 安全側に倒すため、疑わしい場合はtrueを返す
+		return strings.Contains(command, "<(") || strings.Contains(command, ">(")
+	}
+
+	found := false
+	syntax.Walk(f, func(node syntax.Node) bool {
+		if found {
+			return false // 既に見つかっていたら子ノードをスキップ
+		}
+		if _, ok := node.(*syntax.ProcSubst); ok {
+			found = true
+			return false // 子ノードをスキップ（注: 兄弟ノードの探索は継続される）
+		}
+		return true // 継続
+	})
+
+	return found
 }

@@ -1,5 +1,11 @@
 package main
 
+import "errors"
+
+// ErrProcessSubstitutionDetected is returned when process substitution (<() or >()) is detected
+// in a command. This syntax cannot be expanded by shell.Fields due to mvdan.cc/sh/v3 limitations.
+var ErrProcessSubstitutionDetected = errors.New("process substitution (<() or >()) detected: please rewrite command without process substitution")
+
 // ExitError は特定の終了ステータスでプログラムを終了したいことを示すエラー型
 type ExitError struct {
 	Code    int
