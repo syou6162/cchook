@@ -1626,6 +1626,14 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 	finalOutput.StopReason = stopReason
 	finalOutput.SuppressOutput = suppressOutput
 
+	// Fail-safe: force deny on errors
+	if len(conditionErrors) > 0 || len(actionErrors) > 0 {
+		behavior = "deny"
+		updatedInput = nil // deny時はupdatedInputをクリア
+		finalOutput.HookSpecificOutput.Decision.Behavior = behavior
+		finalOutput.HookSpecificOutput.Decision.UpdatedInput = updatedInput
+	}
+
 	// Validation errors
 	if len(conditionErrors) > 0 {
 		return finalOutput, fmt.Errorf("condition evaluation errors: %v", conditionErrors)

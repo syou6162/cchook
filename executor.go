@@ -768,11 +768,13 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 
 		// For deny behavior, message is required
 		if behavior == "deny" && message == "" {
+			errMsg := "Action output has no message for deny behavior"
 			return &ActionOutput{
 				Continue:      true,
 				Behavior:      "deny",
+				Message:       errMsg, // Set message to satisfy deny requirement
 				HookEventName: "PermissionRequest",
-				SystemMessage: "Action output has no message for deny behavior",
+				SystemMessage: errMsg,
 			}, nil
 		}
 

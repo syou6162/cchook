@@ -984,6 +984,10 @@ func validatePermissionRequestOutput(jsonData []byte) error {
 			if len(decision.UpdatedInput) > 0 {
 				return fmt.Errorf("semantic validation failed: 'updatedInput' should be empty when behavior is 'deny'")
 			}
+			// deny時: message は必須
+			if decision.Message == "" {
+				return fmt.Errorf("semantic validation failed: 'message' is required when behavior is 'deny'")
+			}
 		}
 	}
 
