@@ -1607,10 +1607,8 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 		// SuppressOutput: last value wins
 		suppressOutput = actionOutput.SuppressOutput
 
-		// Early return on deny
-		if behavior == "deny" {
-			break
-		}
+		// Note: Unlike PreToolUse, PermissionRequest does NOT early return on deny
+		// All hooks are executed regardless of behavior
 	}
 
 	// Build hookSpecificOutput
