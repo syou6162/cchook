@@ -980,9 +980,9 @@ func validatePermissionRequestOutput(jsonData []byte) error {
 				return fmt.Errorf("semantic validation failed: 'interrupt' should be false when behavior is 'allow'")
 			}
 		case "deny":
-			// deny時: updatedInput は空であるべき
-			if len(decision.UpdatedInput) > 0 {
-				return fmt.Errorf("semantic validation failed: 'updatedInput' should be empty when behavior is 'deny'")
+			// deny時: updatedInput は存在しないべき
+			if decision.UpdatedInput != nil {
+				return fmt.Errorf("semantic validation failed: 'updatedInput' should not exist when behavior is 'deny'")
 			}
 			// deny時: message は必須
 			if decision.Message == "" {
