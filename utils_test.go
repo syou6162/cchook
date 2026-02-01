@@ -1225,7 +1225,7 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "compound command with && and process substitution returns error",
+			name: "compound command with && (no process substitution)",
 			condition: Condition{
 				Type:  ConditionGitTrackedFileOperation,
 				Value: "rm",
@@ -1235,8 +1235,8 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 					Command: "rm tracked.txt && echo ok",
 				},
 			},
-			want:    false,
-			wantErr: false, // パースエラーのためfalse, nilを返す
+			want:    false, // shell.Fieldsがパースできないためfalse
+			wantErr: false,
 		},
 		{
 			name: "pipe with process substitution returns error",
@@ -1833,9 +1833,9 @@ func TestContainsProcessSubstitution(t *testing.T) {
 			want:    false,
 		},
 		{
-			name:    "command with parse error and <( returns true",
-			command: "echo '<unclosed",
-			want:    false,
+			name:    "parse error with <( fallback returns true",
+			command: "echo '<unclosed <(",
+			want:    true,
 		},
 	}
 
