@@ -1690,6 +1690,10 @@ func executePermissionRequestHook(executor *ActionExecutor, hook PermissionReque
 
 		if mergedOutput == nil {
 			mergedOutput = actionOutput
+			// Early return on continue=false (first action)
+			if !actionOutput.Continue {
+				break
+			}
 			continue
 		}
 
