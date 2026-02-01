@@ -1727,9 +1727,10 @@ func executePermissionRequestHook(executor *ActionExecutor, hook PermissionReque
 				// deny時: updatedInputをクリア (公式仕様: deny時はupdatedInput不可)
 				mergedOutput.UpdatedInput = nil
 			case "allow":
-				// allow時: message/interruptをクリア (公式仕様: allow時はmessage/interrupt不可)
+				// allow時: message/interrupt/systemMessageをクリア (公式仕様: allow時はmessage/interrupt不可)
 				mergedOutput.Message = ""
 				mergedOutput.Interrupt = false
+				mergedOutput.SystemMessage = ""
 			}
 		}
 
