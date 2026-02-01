@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1209,6 +1210,118 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 			want:    false, // git rmはブロック対象ではない
 			wantErr: false,
 		},
+		{
+			name: "process substitution in command returns ErrProcessSubstitutionDetected",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "diff",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "diff -u file1 <(head -48 file2)",
+				},
+			},
+			want:    false,
+			wantErr: true,
+		},
+		{
+			name: "compound command with && (no process substitution)",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "rm tracked.txt && echo ok",
+				},
+			},
+			want:    false, // shell.Fieldsがパースできないためfalse
+			wantErr: false,
+		},
+		{
+			name: "pipe with process substitution returns error",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "cat <(cmd) | rm tracked.txt",
+				},
+			},
+			want:    false,
+			wantErr: true, // プロセス置換検出
+		},
+		{
+			name: "sudo rm with tracked file",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "sudo rm tracked.txt",
+				},
+			},
+			want:    false,
+			wantErr: false, // cmdNameがsudoのためrmとマッチしない
+		},
+		{
+			name: "rm with -- and option-like filename",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "rm -- -tracked.txt",
+				},
+			},
+			want:    false,
+			wantErr: false, // -tracked.txtは存在しないため
+		},
+		{
+			name: "mv with multiple sources",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "mv",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "mv tracked.txt untracked.txt /tmp",
+				},
+			},
+			want:    true,
+			wantErr: false, // tracked.txtが含まれる
+		},
+		{
+			name: "glob pattern with tracked file",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: "rm *.txt",
+				},
+			},
+			want:    false,
+			wantErr: false, // globは展開されないため*.txtというファイルは存在しない
+		},
+		{
+			name: "rm with space in filename (quoted)",
+			condition: Condition{
+				Type:  ConditionGitTrackedFileOperation,
+				Value: "rm",
+			},
+			input: &PreToolUseInput{
+				ToolInput: ToolInput{
+					Command: `rm "file with spaces.txt"`,
+				},
+			},
+			want:    false,
+			wantErr: false, // ファイルが存在しないため
+		},
 	}
 
 	for _, tt := range tests {
@@ -1217,6 +1330,12 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("checkPreToolUseCondition() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+			// Phase 2: プロセス置換エラーの種類を確認
+			if err != nil && strings.Contains(tt.name, "process substitution") {
+				if !errors.Is(err, ErrProcessSubstitutionDetected) {
+					t.Errorf("checkPreToolUseCondition() error type = %T, want ErrProcessSubstitutionDetected", err)
+				}
 			}
 			if got != tt.want {
 				t.Errorf("checkPreToolUseCondition() = %v, want %v", got, tt.want)
@@ -1651,6 +1770,94 @@ func TestValidateSessionStartOutput(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
+			}
+		})
+	}
+}
+
+func TestContainsProcessSubstitution(t *testing.T) {
+	tests := []struct {
+		name    string
+		command string
+		want    bool
+	}{
+		{
+			name:    "empty string returns false",
+			command: "",
+			want:    false,
+		},
+		{
+			name:    "normal command returns false",
+			command: "ls -la",
+			want:    false,
+		},
+		{
+			name:    "command with <() returns true",
+			command: "diff -u file1 <(head -48 file2)",
+			want:    true,
+		},
+		{
+			name:    "command with >() returns true",
+			command: "echo foo >(cat > output.txt)",
+			want:    true,
+		},
+		{
+			name:    "double quoted <( returns false",
+			command: `echo "<(cmd)"`,
+			want:    false,
+		},
+		{
+			name:    "single quoted <( returns false",
+			command: `echo '<(cmd)'`,
+			want:    false,
+		},
+		{
+			name:    "escaped <( returns true",
+			command: `echo \<(cmd)`,
+			want:    true,
+		},
+		{
+			name:    "command with && and <() returns true",
+			command: "cmd1 && cmd2 <(cmd)",
+			want:    true,
+		},
+		{
+			name:    "command with || and <() returns true",
+			command: "cmd1 || cmd2 <(cmd)",
+			want:    true,
+		},
+		{
+			name:    "command with ; and <() returns true",
+			command: "cmd1 ; cmd2 <(cmd)",
+			want:    true,
+		},
+		{
+			name:    "command with | and <() returns true",
+			command: "cmd1 | cmd2 <(cmd)",
+			want:    true,
+		},
+		{
+			name:    "nested process substitution returns true",
+			command: "<(diff <(a) <(b))",
+			want:    true,
+		},
+		{
+			name:    "command substitution $(cmd) returns false",
+			command: "echo $(cmd)",
+			want:    false,
+		},
+		{
+			name:    "parse error with <( fallback returns true",
+			command: "echo '<unclosed <(",
+			want:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := containsProcessSubstitution(tt.command)
+			if got != tt.want {
+				t.Errorf("containsProcessSubstitution(%q) = %v, want %v", tt.command, got, tt.want)
 			}
 		})
 	}
