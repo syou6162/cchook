@@ -1580,9 +1580,10 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 		if previousBehavior != behavior {
 			switch behavior {
 			case "allow":
-				// allow時: message/interruptをクリア
+				// allow時: message/interrupt/systemMessageをクリア
 				messageBuilder.Reset()
 				interrupt = false
+				systemMessageBuilder.Reset()
 			case "deny":
 				// deny時: updatedInputをクリア
 				updatedInput = nil
