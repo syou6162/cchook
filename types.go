@@ -197,13 +197,13 @@ type PreToolUseOutput struct {
 	StopReason         string                        `json:"stopReason,omitempty"`
 	SuppressOutput     bool                          `json:"suppressOutput,omitempty"`
 	SystemMessage      string                        `json:"systemMessage,omitempty"`
-	HookSpecificOutput *PreToolUseHookSpecificOutput `json:"hookSpecificOutput"` // Required for PreToolUse (not omitempty)
+	HookSpecificOutput *PreToolUseHookSpecificOutput `json:"hookSpecificOutput,omitempty"` // Omit when permissionDecision is empty
 }
 
 // PreToolUseHookSpecificOutput represents the hookSpecificOutput field for PreToolUse hooks
 type PreToolUseHookSpecificOutput struct {
-	HookEventName            string                 `json:"hookEventName"`      // Always "PreToolUse"
-	PermissionDecision       string                 `json:"permissionDecision"` // Required: "allow", "deny", or "ask"
+	HookEventName            string                 `json:"hookEventName"`                // Always "PreToolUse"
+	PermissionDecision       string                 `json:"permissionDecision,omitempty"` // "allow", "deny", or "ask" (omit when empty to delegate)
 	PermissionDecisionReason string                 `json:"permissionDecisionReason,omitempty"`
 	UpdatedInput             map[string]interface{} `json:"updatedInput,omitempty"`
 }

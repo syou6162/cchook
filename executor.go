@@ -370,15 +370,11 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 			}, nil
 		}
 
-		// Empty stdout - Allow for validation-type CLI tools
+		// Empty stdout - Delegate to Claude Code's permission system
 		// Tools like linters exit 0 with no output when everything is OK.
-		// In this case, we return continue: true with permissionDecision: allow to proceed.
+		// In this case, we return nil to delegate to Claude Code's permission flow.
 		if strings.TrimSpace(stdout) == "" {
-			return &ActionOutput{
-				Continue:           true,
-				PermissionDecision: "allow",
-				HookEventName:      "PreToolUse",
-			}, nil
+			return nil, nil
 		}
 
 		// Parse JSON output
