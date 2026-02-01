@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"strings"
@@ -114,6 +115,21 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 			true,
 			false,
 		},
+		{
+			"Process substitution error returns true with error",
+			PreToolUseHook{
+				Matcher: "Bash",
+				Conditions: []Condition{
+					{Type: ConditionGitTrackedFileOperation, Value: "diff"},
+				},
+			},
+			&PreToolUseInput{
+				ToolName:  "Bash",
+				ToolInput: ToolInput{Command: "diff -u file1 <(head -48 file2)"},
+			},
+			true, // プロセス置換検出時は条件マッチとして扱う
+			true, // エラーを返す
+		},
 	}
 
 	for _, tt := range tests {
@@ -122,6 +138,12 @@ func TestShouldExecutePreToolUseHook(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("shouldExecutePreToolUseHook() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+			// Phase 3: プロセス置換エラーの種類を確認
+			if err != nil && strings.Contains(tt.name, "Process substitution") {
+				if !errors.Is(err, ErrProcessSubstitutionDetected) {
+					t.Errorf("shouldExecutePreToolUseHook() error type = %T, want ErrProcessSubstitutionDetected", err)
+				}
 			}
 			if got != tt.want {
 				t.Errorf("shouldExecutePreToolUseHook() = %v, want %v", got, tt.want)
@@ -2303,5 +2325,66 @@ func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
 				t.Errorf("JSON has hookSpecificOutput field, want it omitted. JSON: %s", string(jsonBytes))
 			}
 		})
+	}
+}
+
+func TestExecutePreToolUseHooksJSON_ProcessSubstitution(t *testing.T) {
+	config := &Config{
+		PreToolUse: []PreToolUseHook{
+			{
+				Matcher: "Bash",
+				Conditions: []Condition{
+					{Type: ConditionGitTrackedFileOperation, Value: "diff"},
+				},
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "Git tracked file operation detected",
+					},
+				},
+			},
+		},
+	}
+
+	input := &PreToolUseInput{
+		BaseInput: BaseInput{
+			SessionID:      "test-session-123",
+			TranscriptPath: "/path/to/transcript",
+			HookEventName:  PreToolUse,
+		},
+		ToolName:  "Bash",
+		ToolInput: ToolInput{Command: "diff -u file1 <(head -48 file2)"},
+	}
+
+	rawJSON := map[string]interface{}{
+		"session_id":      input.SessionID,
+		"transcript_path": input.TranscriptPath,
+		"hook_event_name": string(input.HookEventName),
+		"tool_name":       input.ToolName,
+		"tool_input": map[string]interface{}{
+			"command": input.ToolInput.Command,
+		},
+	}
+
+	output, err := executePreToolUseHooksJSON(config, input, rawJSON)
+
+	// エラーがあってもJSONは返される（常に成功）
+	if err != nil {
+		t.Errorf("executePreToolUseHooksJSON() error = %v, want nil", err)
+	}
+
+	// permissionDecision が "deny" であることを確認
+	if output.HookSpecificOutput.PermissionDecision != "deny" {
+		t.Errorf("PermissionDecision = %v, want deny", output.HookSpecificOutput.PermissionDecision)
+	}
+
+	// 理由メッセージにプロセス置換の警告が含まれることを確認
+	if !strings.Contains(output.HookSpecificOutput.PermissionDecisionReason, "プロセス置換") {
+		t.Errorf("PermissionDecisionReason = %v, want to contain プロセス置換", output.HookSpecificOutput.PermissionDecisionReason)
+	}
+
+	// hookEventName が設定されていることを確認
+	if output.HookSpecificOutput.HookEventName != "PreToolUse" {
+		t.Errorf("HookEventName = %v, want PreToolUse", output.HookSpecificOutput.HookEventName)
 	}
 }

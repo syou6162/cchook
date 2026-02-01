@@ -1075,6 +1075,18 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 		// Matcher and condition checks
 		shouldExecute, err := shouldExecutePreToolUseHook(hook, input)
 		if err != nil {
+			// プロセス置換検出の場合はdenyとして処理
+			if errors.Is(err, ErrProcessSubstitutionDetected) {
+				permissionDecision = "deny"
+				if reasonBuilder.Len() > 0 {
+					reasonBuilder.WriteString("\n")
+				}
+				reasonBuilder.WriteString("⚠️ プロセス置換 (<() または >()) が検出されました。\nこの構文はサポートされていません。一時ファイルを使用するなど、プロセス置換を使わない方法で実行してください。")
+				if hookEventName == "" {
+					hookEventName = "PreToolUse"
+				}
+				continue
+			}
 			conditionErrors = append(conditionErrors,
 				fmt.Errorf("hook[PreToolUse][%d]: %w", i, err))
 			continue // Skip this hook but continue checking others
@@ -1218,6 +1230,10 @@ func shouldExecutePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput) (b
 	for _, condition := range hook.Conditions {
 		matched, err := checkPreToolUseCondition(condition, input)
 		if err != nil {
+			// プロセス置換検出の場合は条件マッチとして扱う
+			if errors.Is(err, ErrProcessSubstitutionDetected) {
+				return true, err
+			}
 			return false, err
 		}
 		if !matched {
