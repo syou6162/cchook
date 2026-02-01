@@ -1216,6 +1216,14 @@ func TestPreToolUseOutputSchemaValidation(t *testing.T) {
 			wantValid: true,
 		},
 		{
+			name: "Valid: hookSpecificOutput omitted (delegation)",
+			output: PreToolUseOutput{
+				Continue:           true,
+				HookSpecificOutput: nil, // Omitted to delegate to Claude Code's permission system
+			},
+			wantValid: true,
+		},
+		{
 			name: "Invalid: missing hookEventName",
 			output: PreToolUseOutput{
 				Continue: true,

@@ -1058,7 +1058,7 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 	var conditionErrors []error
 	var actionErrors []error
 
-	// Initialize finalOutput with Continue: true (always), PermissionDecision: "allow"
+	// Initialize finalOutput with Continue: true (always)
 	finalOutput := &PreToolUseOutput{
 		Continue: true,
 	}
@@ -1066,7 +1066,7 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 	var reasonBuilder strings.Builder
 	var systemMessageBuilder strings.Builder
 	hookEventName := ""
-	permissionDecision := "allow" // Default
+	permissionDecision := "" // Empty = delegate to Claude Code's permission system
 	var updatedInput map[string]interface{}
 	stopReason := ""
 	suppressOutput := false
@@ -1100,12 +1100,15 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 		// Continue: always true (do not overwrite from actionOutput)
 		// finalOutput.Continue remains true
 
-		// PermissionDecision: last value wins
+		// PermissionDecision: last non-empty value wins
+		// Empty permissionDecision means "no opinion" and should not overwrite previous values
 		// If permissionDecision changes, reset permissionDecisionReason to avoid contradictions
-		previousDecision := permissionDecision
-		permissionDecision = actionOutput.PermissionDecision
-		if previousDecision != permissionDecision {
-			reasonBuilder.Reset()
+		if actionOutput.PermissionDecision != "" {
+			previousDecision := permissionDecision
+			permissionDecision = actionOutput.PermissionDecision
+			if previousDecision != permissionDecision {
+				reasonBuilder.Reset()
+			}
 		}
 
 		// HookEventName: set once and preserve
@@ -1148,30 +1151,41 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 		}
 	}
 
-	// Build final output
-	// Always set hookEventName to "PreToolUse"
-	if hookEventName == "" {
-		hookEventName = "PreToolUse"
-	}
-	finalOutput.HookSpecificOutput = &PreToolUseHookSpecificOutput{
-		HookEventName:            hookEventName,
-		PermissionDecision:       permissionDecision,
-		PermissionDecisionReason: reasonBuilder.String(),
-		UpdatedInput:             updatedInput,
-	}
-
-	finalOutput.SystemMessage = systemMessageBuilder.String()
-	finalOutput.StopReason = stopReason
-	finalOutput.SuppressOutput = suppressOutput
-
 	// Collect all errors
 	var allErrors []error
 	allErrors = append(allErrors, conditionErrors...)
 	allErrors = append(allErrors, actionErrors...)
 
+	// Build final output
+	// Set HookSpecificOutput only when permissionDecision is set or errors occurred
+	if permissionDecision != "" || len(allErrors) > 0 {
+		// Always set hookEventName to "PreToolUse"
+		if hookEventName == "" {
+			hookEventName = "PreToolUse"
+		}
+
+		// For errors, override permissionDecision to "deny" (fail-safe)
+		if len(allErrors) > 0 {
+			permissionDecision = "deny"
+			// Clear previous permission decision reason to avoid inconsistency
+			reasonBuilder.Reset()
+		}
+
+		finalOutput.HookSpecificOutput = &PreToolUseHookSpecificOutput{
+			HookEventName:            hookEventName,
+			PermissionDecision:       permissionDecision,
+			PermissionDecisionReason: reasonBuilder.String(),
+			UpdatedInput:             updatedInput,
+		}
+	}
+	// Otherwise, leave HookSpecificOutput as nil to delegate to Claude Code's permission system
+
+	finalOutput.SystemMessage = systemMessageBuilder.String()
+	finalOutput.StopReason = stopReason
+	finalOutput.SuppressOutput = suppressOutput
+
 	if len(allErrors) > 0 {
-		// Requirement 6.4: On error, set permissionDecision to "deny" and include error in systemMessage
-		finalOutput.HookSpecificOutput.PermissionDecision = "deny"
+		// Requirement 6.4: On error, include error in systemMessage
 
 		// Build error message
 		var errorMessages []string
@@ -1239,10 +1253,10 @@ func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput)
 // This function implements Phase 3 JSON output functionality for PreToolUse hooks.
 func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input *PreToolUseInput, rawJSON interface{}) (*ActionOutput, error) {
 	// Initialize output with Continue: true (always true for PreToolUse)
-	// and default permissionDecision: allow
+	// permissionDecision starts empty and will be set by actions or remain empty to delegate
 	output := &ActionOutput{
 		Continue:           true,
-		PermissionDecision: "allow",
+		PermissionDecision: "",
 		HookEventName:      "PreToolUse",
 	}
 
@@ -1262,12 +1276,15 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 
 		// Update output fields following merge rules
 
-		// PermissionDecision: last value wins
+		// PermissionDecision: last non-empty value wins
+		// Empty permissionDecision means "no opinion" and should not overwrite previous values
 		// If permissionDecision changes, reset permissionDecisionReason to avoid contradictions
-		previousDecision := output.PermissionDecision
-		output.PermissionDecision = actionOutput.PermissionDecision
-		if previousDecision != output.PermissionDecision {
-			reasonBuilder.Reset()
+		if actionOutput.PermissionDecision != "" {
+			previousDecision := output.PermissionDecision
+			output.PermissionDecision = actionOutput.PermissionDecision
+			if previousDecision != output.PermissionDecision {
+				reasonBuilder.Reset()
+			}
 		}
 
 		// PermissionDecisionReason: concatenate with "\n" if decision unchanged, otherwise replace
@@ -1303,6 +1320,17 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 		if actionOutput.PermissionDecision == "deny" {
 			break
 		}
+	}
+
+	// If no actions produced any output, return nil to delegate completely
+	// This prevents empty ActionOutput from overwriting previous hooks' decisions
+	if output.PermissionDecision == "" &&
+		reasonBuilder.Len() == 0 &&
+		systemMessageBuilder.Len() == 0 &&
+		updatedInput == nil &&
+		output.StopReason == "" &&
+		!output.SuppressOutput {
+		return nil, nil
 	}
 
 	// Build final output
