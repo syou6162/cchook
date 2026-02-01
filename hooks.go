@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -544,6 +545,12 @@ func executePostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON in
 	for i, hook := range config.PostToolUse {
 		shouldExecute, err := shouldExecutePostToolUseHook(hook, input)
 		if err != nil {
+			// プロセス置換検出の場合は警告をstderrに出力
+			if errors.Is(err, ErrProcessSubstitutionDetected) {
+				fmt.Fprintln(os.Stderr, "⚠️ プロセス置換 (<() または >()) が検出されました。")
+				fmt.Fprintln(os.Stderr, "この構文はサポートされていません。一時ファイルを使用するなど、プロセス置換を使わない方法で実行してください。")
+				continue
+			}
 			conditionErrors = append(conditionErrors,
 				fmt.Errorf("hook[PostToolUse][%d]: %w", i, err))
 			continue
@@ -1255,6 +1262,10 @@ func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput)
 	for _, condition := range hook.Conditions {
 		matched, err := checkPostToolUseCondition(condition, input)
 		if err != nil {
+			// プロセス置換検出の場合は条件マッチとして扱う
+			if errors.Is(err, ErrProcessSubstitutionDetected) {
+				return true, err
+			}
 			return false, err
 		}
 		if !matched {

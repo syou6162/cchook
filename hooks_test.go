@@ -643,6 +643,21 @@ func TestShouldExecutePostToolUseHook(t *testing.T) {
 			false,
 			false,
 		},
+		{
+			"Process substitution error returns true with error",
+			PostToolUseHook{
+				Matcher: "Bash",
+				Conditions: []Condition{
+					{Type: ConditionGitTrackedFileOperation, Value: "diff"},
+				},
+			},
+			&PostToolUseInput{
+				ToolName:  "Bash",
+				ToolInput: ToolInput{Command: "diff -u file1 <(head -48 file2)"},
+			},
+			true, // プロセス置換検出時は条件マッチとして扱う
+			true, // エラーを返す
+		},
 	}
 
 	for _, tt := range tests {
@@ -651,6 +666,12 @@ func TestShouldExecutePostToolUseHook(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("shouldExecutePostToolUseHook() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+			// Phase 4: プロセス置換エラーの種類を確認
+			if err != nil && strings.Contains(tt.name, "Process substitution") {
+				if !errors.Is(err, ErrProcessSubstitutionDetected) {
+					t.Errorf("shouldExecutePostToolUseHook() error type = %T, want ErrProcessSubstitutionDetected", err)
+				}
 			}
 			if got != tt.want {
 				t.Errorf("shouldExecutePostToolUseHook() = %v, want %v", got, tt.want)
@@ -2386,5 +2407,70 @@ func TestExecutePreToolUseHooksJSON_ProcessSubstitution(t *testing.T) {
 	// hookEventName が設定されていることを確認
 	if output.HookSpecificOutput.HookEventName != "PreToolUse" {
 		t.Errorf("HookEventName = %v, want PreToolUse", output.HookSpecificOutput.HookEventName)
+	}
+}
+
+func TestExecutePostToolUseHooks_ProcessSubstitution(t *testing.T) {
+	// 標準エラー出力をキャプチャ
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	config := &Config{
+		PostToolUse: []PostToolUseHook{
+			{
+				Matcher: "Bash",
+				Conditions: []Condition{
+					{Type: ConditionGitTrackedFileOperation, Value: "diff"},
+				},
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "Git tracked file operation detected",
+					},
+				},
+			},
+		},
+	}
+
+	input := &PostToolUseInput{
+		BaseInput: BaseInput{
+			SessionID:      "test-session-123",
+			TranscriptPath: "/path/to/transcript",
+			HookEventName:  PostToolUse,
+		},
+		ToolName:  "Bash",
+		ToolInput: ToolInput{Command: "diff -u file1 <(head -48 file2)"},
+	}
+
+	rawJSON := map[string]interface{}{
+		"session_id":      input.SessionID,
+		"transcript_path": input.TranscriptPath,
+		"hook_event_name": string(input.HookEventName),
+		"tool_name":       input.ToolName,
+		"tool_input": map[string]interface{}{
+			"command": input.ToolInput.Command,
+		},
+	}
+
+	err := executePostToolUseHooks(config, input, rawJSON)
+
+	// 標準エラー出力を元に戻す
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	// 出力を読み取る
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	stderrOutput := buf.String()
+
+	// エラーがないこと（警告のみ）
+	if err != nil {
+		t.Errorf("executePostToolUseHooks() error = %v, want nil", err)
+	}
+
+	// 標準エラーにプロセス置換の警告が出力されていることを確認
+	if !strings.Contains(stderrOutput, "プロセス置換") {
+		t.Errorf("stderr output = %v, want to contain プロセス置換", stderrOutput)
 	}
 }
