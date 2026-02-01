@@ -1687,6 +1687,51 @@ func TestContainsProcessSubstitution(t *testing.T) {
 			command: `echo "<(cmd)"`,
 			want:    false,
 		},
+		{
+			name:    "single quoted <( returns false",
+			command: `echo '<(cmd)'`,
+			want:    false,
+		},
+		{
+			name:    "escaped <( returns true",
+			command: `echo \<(cmd)`,
+			want:    true,
+		},
+		{
+			name:    "command with && and <() returns true",
+			command: "cmd1 && cmd2 <(cmd)",
+			want:    true,
+		},
+		{
+			name:    "command with || and <() returns true",
+			command: "cmd1 || cmd2 <(cmd)",
+			want:    true,
+		},
+		{
+			name:    "command with ; and <() returns true",
+			command: "cmd1 ; cmd2 <(cmd)",
+			want:    true,
+		},
+		{
+			name:    "command with | and <() returns true",
+			command: "cmd1 | cmd2 <(cmd)",
+			want:    true,
+		},
+		{
+			name:    "nested process substitution returns true",
+			command: "<(diff <(a) <(b))",
+			want:    true,
+		},
+		{
+			name:    "command substitution $(cmd) returns false",
+			command: "echo $(cmd)",
+			want:    false,
+		},
+		{
+			name:    "command with parse error and <( returns true",
+			command: "echo '<unclosed",
+			want:    false,
+		},
 	}
 
 	for _, tt := range tests {
