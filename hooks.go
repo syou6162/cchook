@@ -166,6 +166,10 @@ func dryRunPreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inter
 	for i, hook := range config.PreToolUse {
 		shouldExecute, err := shouldExecutePreToolUseHook(hook, input)
 		if err != nil {
+			if errors.Is(err, ErrProcessSubstitutionDetected) {
+				fmt.Printf("[Hook %d] Process substitution detected - would deny\n", i+1)
+				continue
+			}
 			fmt.Printf("[Hook %d] Condition check error: %v\n", i+1, err)
 			continue
 		}
@@ -199,6 +203,10 @@ func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON int
 	for i, hook := range config.PostToolUse {
 		shouldExecute, err := shouldExecutePostToolUseHook(hook, input)
 		if err != nil {
+			if errors.Is(err, ErrProcessSubstitutionDetected) {
+				fmt.Printf("[Hook %d] Process substitution detected - would warn\n", i+1)
+				continue
+			}
 			fmt.Printf("[Hook %d] Condition check error: %v\n", i+1, err)
 			continue
 		}
