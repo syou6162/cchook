@@ -628,6 +628,18 @@ func checkUnsupportedFieldsPreToolUse(stdout string) {
 	}
 }
 
+// createPermissionRequestDenyOutput creates a deny ActionOutput with the given error message
+func createPermissionRequestDenyOutput(errMsg string) *ActionOutput {
+	fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+	return &ActionOutput{
+		Continue:      true,
+		Behavior:      "deny",
+		Message:       errMsg,
+		HookEventName: "PermissionRequest",
+		SystemMessage: errMsg,
+	}
+}
+
 // ExecutePermissionRequestAction executes a PermissionRequest action
 func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *PermissionRequestInput, rawJSON interface{}) (*ActionOutput, error) {
 	switch action.Type {
@@ -638,106 +650,47 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 		// Command failed with non-zero exit code
 		if exitCode != 0 {
 			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
-			return &ActionOutput{
-				Continue:      true,
-				Behavior:      "deny",
-				Message:       errMsg,
-				HookEventName: "PermissionRequest",
-				SystemMessage: errMsg,
-			}, nil
+			return createPermissionRequestDenyOutput(errMsg), nil
 		}
 
 		// Empty stdout - fail-safe to deny (different from PreToolUse)
 		if strings.TrimSpace(stdout) == "" {
-			errMsg := "Command output is empty"
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
-			return &ActionOutput{
-				Continue:      true,
-				Behavior:      "deny",
-				Message:       errMsg,
-				HookEventName: "PermissionRequest",
-				SystemMessage: errMsg,
-			}, nil
+			return createPermissionRequestDenyOutput("Command output is empty"), nil
 		}
 
 		// Parse JSON output
 		var cmdOutput PermissionRequestOutput
 		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
 			errMsg := fmt.Sprintf("Command output is not valid JSON: %s", stdout)
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
-			return &ActionOutput{
-				Continue:      true,
-				Behavior:      "deny",
-				Message:       errMsg,
-				HookEventName: "PermissionRequest",
-				SystemMessage: errMsg,
-			}, nil
+			return createPermissionRequestDenyOutput(errMsg), nil
 		}
 
 		// Check for required field: hookSpecificOutput.hookEventName
 		if cmdOutput.HookSpecificOutput == nil || cmdOutput.HookSpecificOutput.HookEventName == "" {
-			errMsg := "Command output is missing required field: hookSpecificOutput.hookEventName"
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
-			return &ActionOutput{
-				Continue:      true,
-				Behavior:      "deny",
-				Message:       errMsg,
-				HookEventName: "PermissionRequest",
-				SystemMessage: errMsg,
-			}, nil
+			return createPermissionRequestDenyOutput("Command output is missing required field: hookSpecificOutput.hookEventName"), nil
 		}
 
 		// Validate hookEventName value
 		if cmdOutput.HookSpecificOutput.HookEventName != "PermissionRequest" {
 			errMsg := fmt.Sprintf("Invalid hookEventName: expected 'PermissionRequest', got '%s'", cmdOutput.HookSpecificOutput.HookEventName)
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
-			return &ActionOutput{
-				Continue:      true,
-				Behavior:      "deny",
-				Message:       errMsg,
-				HookEventName: "PermissionRequest",
-				SystemMessage: errMsg,
-			}, nil
+			return createPermissionRequestDenyOutput(errMsg), nil
 		}
 
 		// Check for required field: hookSpecificOutput.decision.behavior
 		if cmdOutput.HookSpecificOutput.Decision == nil || cmdOutput.HookSpecificOutput.Decision.Behavior == "" {
-			errMsg := "Command output is missing required field: hookSpecificOutput.decision.behavior"
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
-			return &ActionOutput{
-				Continue:      true,
-				Behavior:      "deny",
-				Message:       errMsg,
-				HookEventName: "PermissionRequest",
-				SystemMessage: errMsg,
-			}, nil
+			return createPermissionRequestDenyOutput("Command output is missing required field: hookSpecificOutput.decision.behavior"), nil
 		}
 
 		// Validate behavior value (only "allow" or "deny")
 		if cmdOutput.HookSpecificOutput.Decision.Behavior != "allow" && cmdOutput.HookSpecificOutput.Decision.Behavior != "deny" {
 			errMsg := fmt.Sprintf("Invalid behavior value: must be 'allow' or 'deny', got '%s'", cmdOutput.HookSpecificOutput.Decision.Behavior)
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
-			return &ActionOutput{
-				Continue:      true,
-				Behavior:      "deny",
-				Message:       errMsg,
-				HookEventName: "PermissionRequest",
-				SystemMessage: errMsg,
-			}, nil
+			return createPermissionRequestDenyOutput(errMsg), nil
 		}
 
 		// Validate JSON output schema and semantic rules
 		if err := validatePermissionRequestOutput([]byte(stdout)); err != nil {
 			errMsg := fmt.Sprintf("Command output validation failed: %s", err.Error())
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
-			return &ActionOutput{
-				Continue:      true,
-				Behavior:      "deny",
-				Message:       errMsg,
-				HookEventName: "PermissionRequest",
-				SystemMessage: errMsg,
-			}, nil
+			return createPermissionRequestDenyOutput(errMsg), nil
 		}
 
 		// Check for unsupported fields
