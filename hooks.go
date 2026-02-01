@@ -1653,6 +1653,7 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 		finalOutput.HookSpecificOutput.Decision.UpdatedInput = updatedInput
 		finalOutput.HookSpecificOutput.Decision.Message = errMsg
 		finalOutput.HookSpecificOutput.Decision.Interrupt = interrupt
+		finalOutput.SystemMessage = errMsg
 	}
 
 	// Validation errors
