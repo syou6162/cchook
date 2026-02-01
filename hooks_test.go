@@ -2688,7 +2688,7 @@ func TestExecutePermissionRequestHooks(t *testing.T) {
 			wantHookEventName: "PermissionRequest",
 		},
 		{
-			name: "No matcher matches - default deny",
+			name: "No matcher matches - default allow",
 			input: &PermissionRequestInput{
 				BaseInput: BaseInput{
 					SessionID:      "test-session-789",
@@ -2903,5 +2903,125 @@ func TestExecutePermissionRequestHooks_BehaviorChange(t *testing.T) {
 				t.Errorf("Interrupt = %v, want %v", output.HookSpecificOutput.Decision.Interrupt, tt.wantInterrupt)
 			}
 		})
+	}
+}
+
+func TestExecutePermissionRequestHooks_MultipleActions(t *testing.T) {
+	config := &Config{
+		PermissionRequest: []PermissionRequestHook{
+			{
+				Matcher: "Write",
+				Actions: []Action{
+					{
+						Type:    "command",
+						Command: "bash testdata/permission_request_hooks/deny_message1.sh",
+					},
+					{
+						Type:    "command",
+						Command: "bash testdata/permission_request_hooks/deny_message2.sh",
+					},
+				},
+			},
+		},
+	}
+
+	input := &PermissionRequestInput{
+		BaseInput: BaseInput{
+			SessionID:      "test-session",
+			TranscriptPath: "/path/to/transcript",
+			HookEventName:  PermissionRequest,
+		},
+		ToolName: "Write",
+		ToolInput: ToolInput{
+			FilePath: "test.go",
+		},
+	}
+
+	rawJSON := map[string]interface{}{
+		"tool_name": "Write",
+		"tool_input": map[string]interface{}{
+			"file_path": "test.go",
+		},
+	}
+
+	output, err := executePermissionRequestHooksJSON(config, input, rawJSON)
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Behavior should be deny (last value wins)
+	if output.HookSpecificOutput.Decision.Behavior != "deny" {
+		t.Errorf("Behavior = %q, want %q", output.HookSpecificOutput.Decision.Behavior, "deny")
+	}
+
+	// Messages should be concatenated
+	expectedMessage := "First message\nSecond message"
+	if output.HookSpecificOutput.Decision.Message != expectedMessage {
+		t.Errorf("Message = %q, want %q", output.HookSpecificOutput.Decision.Message, expectedMessage)
+	}
+
+	// SystemMessage should be set
+	if output.SystemMessage != "System message" {
+		t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, "System message")
+	}
+}
+
+func TestExecutePermissionRequestHooks_DenyEarlyReturn(t *testing.T) {
+	config := &Config{
+		PermissionRequest: []PermissionRequestHook{
+			{
+				Matcher: "Write",
+				Actions: []Action{
+					{
+						Type:    "command",
+						Command: "bash testdata/permission_request_hooks/deny_message.sh",
+					},
+					{
+						Type:    "command",
+						Command: "bash testdata/permission_request_hooks/should_not_execute.sh",
+					},
+				},
+			},
+		},
+	}
+
+	input := &PermissionRequestInput{
+		BaseInput: BaseInput{
+			SessionID:      "test-session",
+			TranscriptPath: "/path/to/transcript",
+			HookEventName:  PermissionRequest,
+		},
+		ToolName: "Write",
+		ToolInput: ToolInput{
+			FilePath: "test.go",
+		},
+	}
+
+	rawJSON := map[string]interface{}{
+		"tool_name": "Write",
+		"tool_input": map[string]interface{}{
+			"file_path": "test.go",
+		},
+	}
+
+	output, err := executePermissionRequestHooksJSON(config, input, rawJSON)
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Behavior should be deny
+	if output.HookSpecificOutput.Decision.Behavior != "deny" {
+		t.Errorf("Behavior = %q, want %q", output.HookSpecificOutput.Decision.Behavior, "deny")
+	}
+
+	// Messages should be concatenated (no early return - all actions execute)
+	// Note: second action fails but error is captured in message
+	if !strings.Contains(output.HookSpecificOutput.Decision.Message, "Operation blocked") {
+		t.Errorf("Message should contain 'Operation blocked', got %q", output.HookSpecificOutput.Decision.Message)
+	}
+	if !strings.Contains(output.HookSpecificOutput.Decision.Message, "This script should not have been executed") {
+		t.Errorf("Message should contain error from second action, got %q", output.HookSpecificOutput.Decision.Message)
 	}
 }
