@@ -10,6 +10,25 @@ import (
 	"testing"
 )
 
+// stubRunnerWithMultipleOutputs は複数のコマンド実行に対して順番に異なる出力を返すstub
+type stubRunnerWithMultipleOutputs struct {
+	outputs []string
+	index   int
+}
+
+func (s *stubRunnerWithMultipleOutputs) RunCommand(cmd string, useStdin bool, data interface{}) error {
+	return nil
+}
+
+func (s *stubRunnerWithMultipleOutputs) RunCommandWithOutput(cmd string, useStdin bool, data interface{}) (stdout, stderr string, exitCode int, err error) {
+	if s.index >= len(s.outputs) {
+		return "", "", 1, errors.New("no more outputs configured")
+	}
+	output := s.outputs[s.index]
+	s.index++
+	return output, "", 0, nil
+}
+
 func TestShouldExecutePreToolUseHook(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -2602,5 +2621,411 @@ func TestDryRunPostToolUseHooks_ProcessSubstitution(t *testing.T) {
 	// 標準出力に"would warn"が含まれることを確認
 	if !strings.Contains(stdoutOutput, "would warn") {
 		t.Errorf("stdout output = %v, want to contain 'would warn'", stdoutOutput)
+	}
+}
+func TestExecutePermissionRequestHooks(t *testing.T) {
+	config := &Config{
+		PermissionRequest: []PermissionRequestHook{
+			{
+				Matcher: "Bash",
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "Command: {.tool_input.command}",
+						Behavior: func() *string {
+							s := "allow"
+							return &s
+						}(),
+					},
+				},
+			},
+			{
+				Matcher: "Write",
+				Actions: []Action{
+					{
+						Type:    "output",
+						Message: "Dangerous operation",
+						Behavior: func() *string {
+							s := "deny"
+							return &s
+						}(),
+						Interrupt: func() *bool {
+							b := true
+							return &b
+						}(),
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name              string
+		input             *PermissionRequestInput
+		wantBehavior      string
+		wantMessage       string
+		wantInterrupt     bool
+		wantContinue      bool
+		wantHookEventName string
+	}{
+		{
+			name: "Bash matcher matches - allow",
+			input: &PermissionRequestInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session-123",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  PermissionRequest,
+				},
+				ToolName: "Bash",
+				ToolInput: ToolInput{
+					Command: "ls -la",
+				},
+			},
+			wantBehavior:      "allow",
+			wantMessage:       "", // 公式仕様: allow時はmessageは空
+			wantInterrupt:     false,
+			wantContinue:      true,
+			wantHookEventName: "PermissionRequest",
+		},
+		{
+			name: "Write matcher matches - deny with interrupt",
+			input: &PermissionRequestInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session-456",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  PermissionRequest,
+				},
+				ToolName: "Write",
+				ToolInput: ToolInput{
+					FilePath: "test.go",
+				},
+			},
+			wantBehavior:      "deny",
+			wantMessage:       "Dangerous operation",
+			wantInterrupt:     true,
+			wantContinue:      true,
+			wantHookEventName: "PermissionRequest",
+		},
+		{
+			name: "No matcher matches - default allow",
+			input: &PermissionRequestInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session-789",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  PermissionRequest,
+				},
+				ToolName: "Read",
+				ToolInput: ToolInput{
+					FilePath: "test.go",
+				},
+			},
+			wantBehavior:      "allow",
+			wantMessage:       "",
+			wantInterrupt:     false,
+			wantContinue:      true,
+			wantHookEventName: "PermissionRequest",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// rawJSON作成
+			rawJSON := map[string]interface{}{
+				"session_id":      tt.input.SessionID,
+				"transcript_path": tt.input.TranscriptPath,
+				"hook_event_name": string(tt.input.HookEventName),
+				"tool_name":       tt.input.ToolName,
+				"tool_input": map[string]interface{}{
+					"command":   tt.input.ToolInput.Command,
+					"file_path": tt.input.ToolInput.FilePath,
+				},
+			}
+
+			// フック実行
+			output, err := executePermissionRequestHooksJSON(config, tt.input, rawJSON)
+
+			// エラーチェック
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			// Continue チェック
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			// HookEventName チェック
+			if output.HookSpecificOutput.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName = %q, want %q", output.HookSpecificOutput.HookEventName, tt.wantHookEventName)
+			}
+
+			// Behavior チェック
+			if output.HookSpecificOutput.Decision.Behavior != tt.wantBehavior {
+				t.Errorf("Behavior = %q, want %q", output.HookSpecificOutput.Decision.Behavior, tt.wantBehavior)
+			}
+
+			// Message チェック
+			if output.HookSpecificOutput.Decision.Message != tt.wantMessage {
+				t.Errorf("Message = %q, want %q", output.HookSpecificOutput.Decision.Message, tt.wantMessage)
+			}
+
+			// Interrupt チェック
+			if output.HookSpecificOutput.Decision.Interrupt != tt.wantInterrupt {
+				t.Errorf("Interrupt = %v, want %v", output.HookSpecificOutput.Decision.Interrupt, tt.wantInterrupt)
+			}
+		})
+	}
+}
+
+func TestExecutePermissionRequestHooks_BehaviorChange(t *testing.T) {
+	tests := []struct {
+		name             string
+		actions          []Action
+		commandOutputs   []string // stubRunnerで返すJSON出力（各アクション用）
+		input            *PermissionRequestInput
+		rawJSON          map[string]interface{}
+		wantBehavior     string
+		wantUpdatedInput map[string]interface{}
+		wantMessage      string
+		wantInterrupt    bool
+	}{
+		{
+			name: "allow→deny: updatedInput should be cleared",
+			actions: []Action{
+				{Type: "command", Command: "mock_allow_updated_input.sh"},
+				{Type: "command", Command: "mock_deny_message.sh"},
+			},
+			commandOutputs: []string{
+				`{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow","updatedInput":{"file_path":"modified.go"}}}}`,
+				`{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Operation blocked"}}}`,
+			},
+			input: &PermissionRequestInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  PermissionRequest,
+				},
+				ToolName: "Write",
+				ToolInput: ToolInput{
+					FilePath: "test.go",
+				},
+			},
+			rawJSON: map[string]interface{}{
+				"tool_name": "Write",
+				"tool_input": map[string]interface{}{
+					"file_path": "test.go",
+				},
+			},
+			wantBehavior:     "deny",
+			wantUpdatedInput: nil, // クリアされるべき
+			wantMessage:      "Operation blocked",
+			wantInterrupt:    false,
+		},
+		{
+			name: "deny→allow: message and interrupt should be cleared",
+			actions: []Action{
+				{Type: "command", Command: "mock_deny_message_interrupt.sh"},
+				{Type: "command", Command: "mock_allow_updated_input.sh"},
+			},
+			commandOutputs: []string{
+				`{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Blocked","interrupt":true}}}`,
+				`{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow","updatedInput":{"file_path":"test.go"}}}}`,
+			},
+			input: &PermissionRequestInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-session",
+					TranscriptPath: "/path/to/transcript",
+					HookEventName:  PermissionRequest,
+				},
+				ToolName: "Write",
+				ToolInput: ToolInput{
+					FilePath: "test.go",
+				},
+			},
+			rawJSON: map[string]interface{}{
+				"tool_name": "Write",
+				"tool_input": map[string]interface{}{
+					"file_path": "test.go",
+				},
+			},
+			wantBehavior:     "allow",
+			wantUpdatedInput: map[string]interface{}{"file_path": "test.go"},
+			wantMessage:      "",    // クリアされるべき
+			wantInterrupt:    false, // クリアされるべき
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// stubRunnerWithMultipleOutputsを使用
+			runner := &stubRunnerWithMultipleOutputs{
+				outputs: tt.commandOutputs,
+				index:   0,
+			}
+			executor := NewActionExecutor(runner)
+
+			hook := PermissionRequestHook{
+				Matcher: "Write",
+				Actions: tt.actions,
+			}
+
+			// executePermissionRequestHookを直接呼び出し
+			output, err := executePermissionRequestHook(executor, hook, tt.input, tt.rawJSON)
+
+			// エラーチェック
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			// Behavior チェック
+			if output.Behavior != tt.wantBehavior {
+				t.Errorf("Behavior = %q, want %q", output.Behavior, tt.wantBehavior)
+			}
+
+			// UpdatedInput チェック
+			if tt.wantUpdatedInput == nil {
+				if output.UpdatedInput != nil {
+					t.Errorf("UpdatedInput = %v, want nil", output.UpdatedInput)
+				}
+			} else {
+				if output.UpdatedInput == nil {
+					t.Errorf("UpdatedInput = nil, want %v", tt.wantUpdatedInput)
+				} else {
+					// map比較
+					gotJSON, _ := json.Marshal(output.UpdatedInput)
+					wantJSON, _ := json.Marshal(tt.wantUpdatedInput)
+					if string(gotJSON) != string(wantJSON) {
+						t.Errorf("UpdatedInput = %s, want %s", gotJSON, wantJSON)
+					}
+				}
+			}
+
+			// Message チェック
+			if output.Message != tt.wantMessage {
+				t.Errorf("Message = %q, want %q", output.Message, tt.wantMessage)
+			}
+
+			// Interrupt チェック
+			if output.Interrupt != tt.wantInterrupt {
+				t.Errorf("Interrupt = %v, want %v", output.Interrupt, tt.wantInterrupt)
+			}
+		})
+	}
+}
+
+func TestExecutePermissionRequestHooks_MultipleActions(t *testing.T) {
+	runner := &stubRunnerWithMultipleOutputs{
+		outputs: []string{
+			`{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"First message"}},"systemMessage":"System message"}`,
+			`{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Second message"}}}`,
+		},
+		index: 0,
+	}
+	executor := NewActionExecutor(runner)
+
+	hook := PermissionRequestHook{
+		Matcher: "Write",
+		Actions: []Action{
+			{Type: "command", Command: "mock_deny_message1.sh"},
+			{Type: "command", Command: "mock_deny_message2.sh"},
+		},
+	}
+
+	input := &PermissionRequestInput{
+		BaseInput: BaseInput{
+			SessionID:      "test-session",
+			TranscriptPath: "/path/to/transcript",
+			HookEventName:  PermissionRequest,
+		},
+		ToolName: "Write",
+		ToolInput: ToolInput{
+			FilePath: "test.go",
+		},
+	}
+
+	rawJSON := map[string]interface{}{
+		"tool_name": "Write",
+		"tool_input": map[string]interface{}{
+			"file_path": "test.go",
+		},
+	}
+
+	output, err := executePermissionRequestHook(executor, hook, input, rawJSON)
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Behavior should be deny (last value wins)
+	if output.Behavior != "deny" {
+		t.Errorf("Behavior = %q, want %q", output.Behavior, "deny")
+	}
+
+	// Messages should be concatenated
+	expectedMessage := "First message\nSecond message"
+	if output.Message != expectedMessage {
+		t.Errorf("Message = %q, want %q", output.Message, expectedMessage)
+	}
+
+	// SystemMessage should be set
+	if output.SystemMessage != "System message" {
+		t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, "System message")
+	}
+}
+
+func TestExecutePermissionRequestHooks_DenyEarlyReturn(t *testing.T) {
+	runner := &stubRunnerWithMultipleOutputs{
+		outputs: []string{
+			`{"continue":false,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Operation blocked"}}}`,
+			`{"continue":true,"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"This script should not have been executed"}}}`,
+		},
+		index: 0,
+	}
+	executor := NewActionExecutor(runner)
+
+	hook := PermissionRequestHook{
+		Matcher: "Write",
+		Actions: []Action{
+			{Type: "command", Command: "mock_deny_message.sh"},
+			{Type: "command", Command: "mock_should_not_execute.sh"},
+		},
+	}
+
+	input := &PermissionRequestInput{
+		BaseInput: BaseInput{
+			SessionID:      "test-session",
+			TranscriptPath: "/path/to/transcript",
+			HookEventName:  PermissionRequest,
+		},
+		ToolName: "Write",
+		ToolInput: ToolInput{
+			FilePath: "test.go",
+		},
+	}
+
+	rawJSON := map[string]interface{}{
+		"tool_name": "Write",
+		"tool_input": map[string]interface{}{
+			"file_path": "test.go",
+		},
+	}
+
+	output, err := executePermissionRequestHook(executor, hook, input, rawJSON)
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Behavior should be deny
+	if output.Behavior != "deny" {
+		t.Errorf("Behavior = %q, want %q", output.Behavior, "deny")
+	}
+
+	// continue=falseで早期リターンするため、2番目のメッセージは含まれない
+	if !strings.Contains(output.Message, "Operation blocked") {
+		t.Errorf("Message should contain 'Operation blocked', got %q", output.Message)
+	}
+	if strings.Contains(output.Message, "This script should not have been executed") {
+		t.Errorf("Message should NOT contain second action message (early return), got %q", output.Message)
 	}
 }
