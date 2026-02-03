@@ -169,6 +169,7 @@ func TestExecuteSessionStartAction_TypeCommand(t *testing.T) {
 		stdout            string
 		stderr            string
 		exitCode          int
+		stubErr           error
 		wantContinue      bool
 		wantHookEventName string
 		wantAdditionalCtx string
@@ -318,6 +319,38 @@ func TestExecuteSessionStartAction_TypeCommand(t *testing.T) {
 			wantSystemMessage: "Command output is missing required field: hookSpecificOutput.hookEventName",
 			wantErr:           false,
 		},
+		{
+			name: "Command failure with err variable when stderr is empty",
+			action: Action{
+				Type:    "command",
+				Command: "failing-command.sh",
+			},
+			stdout:            "",
+			stderr:            "",
+			exitCode:          1,
+			stubErr:           fmt.Errorf("failed to marshal JSON for stdin: unsupported type"),
+			wantContinue:      false,
+			wantHookEventName: "",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "Command failed with exit code 1: failed to marshal JSON for stdin: unsupported type",
+			wantErr:           false,
+		},
+		{
+			name: "Command failure with stderr takes precedence over err",
+			action: Action{
+				Type:    "command",
+				Command: "failing-command.sh",
+			},
+			stdout:            "",
+			stderr:            "explicit error from stderr",
+			exitCode:          1,
+			stubErr:           fmt.Errorf("exit status 1"),
+			wantContinue:      false,
+			wantHookEventName: "",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "Command failed with exit code 1: explicit error from stderr",
+			wantErr:           false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -326,6 +359,7 @@ func TestExecuteSessionStartAction_TypeCommand(t *testing.T) {
 				stdout:   tt.stdout,
 				stderr:   tt.stderr,
 				exitCode: tt.exitCode,
+				err:      tt.stubErr,
 			}
 			executor := NewActionExecutor(runner)
 			input := &SessionStartInput{
