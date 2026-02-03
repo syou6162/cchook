@@ -785,6 +785,40 @@ func TestExecuteUserPromptSubmitAction_TypeCommand(t *testing.T) {
 			wantSystemMessage: "Command output validation failed: schema validation failed: decision: decision must be one of the following: \"block\"",
 			wantErr:           false,
 		},
+		{
+			name: "Command failure with err variable when stderr is empty",
+			action: Action{
+				Type:    "command",
+				Command: "exit 1",
+			},
+			stubStdout:        "",
+			stubStderr:        "",
+			stubExitCode:      1,
+			stubErr:           fmt.Errorf("exit status 1"),
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantHookEventName: "UserPromptSubmit",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "Command failed with exit code 1: exit status 1",
+			wantErr:           false,
+		},
+		{
+			name: "Command failure with stderr takes precedence over err",
+			action: Action{
+				Type:    "command",
+				Command: "exit 1",
+			},
+			stubStdout:        "",
+			stubStderr:        "explicit error from stderr",
+			stubExitCode:      1,
+			stubErr:           fmt.Errorf("exit status 1"),
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantHookEventName: "UserPromptSubmit",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "Command failed with exit code 1: explicit error from stderr",
+			wantErr:           false,
+		},
 	}
 
 	for _, tt := range tests {
