@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -168,6 +169,7 @@ func TestExecuteSessionStartAction_TypeCommand(t *testing.T) {
 		stdout            string
 		stderr            string
 		exitCode          int
+		stubErr           error
 		wantContinue      bool
 		wantHookEventName string
 		wantAdditionalCtx string
@@ -317,6 +319,38 @@ func TestExecuteSessionStartAction_TypeCommand(t *testing.T) {
 			wantSystemMessage: "Command output is missing required field: hookSpecificOutput.hookEventName",
 			wantErr:           false,
 		},
+		{
+			name: "Command failure with err variable when stderr is empty",
+			action: Action{
+				Type:    "command",
+				Command: "failing-command.sh",
+			},
+			stdout:            "",
+			stderr:            "",
+			exitCode:          1,
+			stubErr:           fmt.Errorf("failed to marshal JSON for stdin: unsupported type"),
+			wantContinue:      false,
+			wantHookEventName: "",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "Command failed with exit code 1: failed to marshal JSON for stdin: unsupported type",
+			wantErr:           false,
+		},
+		{
+			name: "Command failure with stderr takes precedence over err",
+			action: Action{
+				Type:    "command",
+				Command: "failing-command.sh",
+			},
+			stdout:            "",
+			stderr:            "explicit error from stderr",
+			exitCode:          1,
+			stubErr:           fmt.Errorf("exit status 1"),
+			wantContinue:      false,
+			wantHookEventName: "",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "Command failed with exit code 1: explicit error from stderr",
+			wantErr:           false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -325,6 +359,7 @@ func TestExecuteSessionStartAction_TypeCommand(t *testing.T) {
 				stdout:   tt.stdout,
 				stderr:   tt.stderr,
 				exitCode: tt.exitCode,
+				err:      tt.stubErr,
 			}
 			executor := NewActionExecutor(runner)
 			input := &SessionStartInput{
@@ -750,6 +785,40 @@ func TestExecuteUserPromptSubmitAction_TypeCommand(t *testing.T) {
 			wantSystemMessage: "Command output validation failed: schema validation failed: decision: decision must be one of the following: \"block\"",
 			wantErr:           false,
 		},
+		{
+			name: "Command failure with err variable when stderr is empty",
+			action: Action{
+				Type:    "command",
+				Command: "exit 1",
+			},
+			stubStdout:        "",
+			stubStderr:        "",
+			stubExitCode:      1,
+			stubErr:           fmt.Errorf("exit status 1"),
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantHookEventName: "UserPromptSubmit",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "Command failed with exit code 1: exit status 1",
+			wantErr:           false,
+		},
+		{
+			name: "Command failure with stderr takes precedence over err",
+			action: Action{
+				Type:    "command",
+				Command: "exit 1",
+			},
+			stubStdout:        "",
+			stubStderr:        "explicit error from stderr",
+			stubExitCode:      1,
+			stubErr:           fmt.Errorf("exit status 1"),
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantHookEventName: "UserPromptSubmit",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "Command failed with exit code 1: explicit error from stderr",
+			wantErr:           false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -957,7 +1026,9 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 		action                       Action
 		input                        *PreToolUseInput
 		commandOutput                string
+		commandStderr                string
 		commandExitCode              int
+		commandErr                   error
 		wantPermissionDecision       string
 		wantPermissionDecisionReason string
 		wantUpdatedInput             map[string]interface{}
@@ -1236,13 +1307,49 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 			wantSystemMessage:      "Invalid permissionDecision value: must be 'allow', 'deny', or 'ask'",
 			wantHookEventName:      "PreToolUse",
 		},
+		{
+			name: "Command failure with err variable (JSON marshal failure simulation)",
+			action: Action{
+				Type:    "command",
+				Command: "failing.sh",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Bash",
+			},
+			commandOutput:          "",
+			commandStderr:          "",
+			commandExitCode:        1,
+			commandErr:             fmt.Errorf("failed to marshal JSON for stdin: json: unsupported type: chan int"),
+			wantPermissionDecision: "deny",
+			wantSystemMessage:      "Command failed with exit code 1: failed to marshal JSON for stdin: json: unsupported type: chan int",
+			wantHookEventName:      "PreToolUse",
+		},
+		{
+			name: "Command failure with stderr takes precedence over err",
+			action: Action{
+				Type:    "command",
+				Command: "failing.sh",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Bash",
+			},
+			commandOutput:          "",
+			commandStderr:          "explicit error message",
+			commandExitCode:        1,
+			commandErr:             fmt.Errorf("exit status 1"),
+			wantPermissionDecision: "deny",
+			wantSystemMessage:      "Command failed with exit code 1: explicit error message",
+			wantHookEventName:      "PreToolUse",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			runner := &stubRunnerWithOutput{
 				stdout:   tt.commandOutput,
+				stderr:   tt.commandStderr,
 				exitCode: tt.commandExitCode,
+				err:      tt.commandErr,
 			}
 			executor := NewActionExecutor(runner)
 			rawJSON := map[string]interface{}{
