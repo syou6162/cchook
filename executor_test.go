@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -957,7 +958,9 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 		action                       Action
 		input                        *PreToolUseInput
 		commandOutput                string
+		commandStderr                string
 		commandExitCode              int
+		commandErr                   error
 		wantPermissionDecision       string
 		wantPermissionDecisionReason string
 		wantUpdatedInput             map[string]interface{}
@@ -1236,13 +1239,49 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 			wantSystemMessage:      "Invalid permissionDecision value: must be 'allow', 'deny', or 'ask'",
 			wantHookEventName:      "PreToolUse",
 		},
+		{
+			name: "Command failure with err variable (JSON marshal failure simulation)",
+			action: Action{
+				Type:    "command",
+				Command: "failing.sh",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Bash",
+			},
+			commandOutput:          "",
+			commandStderr:          "",
+			commandExitCode:        1,
+			commandErr:             fmt.Errorf("failed to marshal JSON for stdin: json: unsupported type: chan int"),
+			wantPermissionDecision: "deny",
+			wantSystemMessage:      "Command failed with exit code 1: failed to marshal JSON for stdin: json: unsupported type: chan int",
+			wantHookEventName:      "PreToolUse",
+		},
+		{
+			name: "Command failure with stderr takes precedence over err",
+			action: Action{
+				Type:    "command",
+				Command: "failing.sh",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Bash",
+			},
+			commandOutput:          "",
+			commandStderr:          "explicit error message",
+			commandExitCode:        1,
+			commandErr:             fmt.Errorf("exit status 1"),
+			wantPermissionDecision: "deny",
+			wantSystemMessage:      "Command failed with exit code 1: explicit error message",
+			wantHookEventName:      "PreToolUse",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			runner := &stubRunnerWithOutput{
 				stdout:   tt.commandOutput,
+				stderr:   tt.commandStderr,
 				exitCode: tt.commandExitCode,
+				err:      tt.commandErr,
 			}
 			executor := NewActionExecutor(runner)
 			rawJSON := map[string]interface{}{
