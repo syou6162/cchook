@@ -422,6 +422,8 @@ func (c *ConditionType) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		*c = ConditionCwdContains
 	case "cwd_not_contains":
 		*c = ConditionCwdNotContains
+	case "permission_mode_is":
+		*c = ConditionPermissionModeIs
 	default:
 		return fmt.Errorf("invalid condition type: %s", s)
 	}
