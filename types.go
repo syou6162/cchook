@@ -352,6 +352,7 @@ var (
 	ConditionDirExistsRecursive     = ConditionType{"dir_exists_recursive"}
 	ConditionDirNotExists           = ConditionType{"dir_not_exists"}
 	ConditionDirNotExistsRecursive  = ConditionType{"dir_not_exists_recursive"}
+	ConditionPermissionModeIs       = ConditionType{"permission_mode_is"}
 
 	// Tool-related conditions (PreToolUse/PostToolUse)
 	ConditionFileExtension     = ConditionType{"file_extension"}
