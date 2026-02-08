@@ -153,15 +153,34 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 			decision = *action.Decision
 		}
 
-		// Determine reason
+		// Determine reason with template expansion
 		reason := processedMessage
 		if action.Reason != nil {
-			reason = *action.Reason
+			// Apply template expansion to reason
+			reasonValue := unifiedTemplateReplace(*action.Reason, rawJSON)
+			// Empty/whitespace reason with "block" decision should fallback to processedMessage
+			if strings.TrimSpace(reasonValue) == "" && decision == "block" {
+				reason = processedMessage
+			} else {
+				reason = reasonValue
+			}
 		}
 
 		// For allow (decision=""), clear reason (not applicable)
 		if decision == "" {
 			reason = ""
+		}
+
+		// Final validation: decision "block" requires non-empty reason
+		if decision == "block" && strings.TrimSpace(reason) == "" {
+			errMsg := "Empty reason when decision is 'block' (reason is required for block)"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
 		}
 
 		return &ActionOutput{

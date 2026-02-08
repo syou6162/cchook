@@ -2249,6 +2249,32 @@ func TestExecuteStopAction_TypeOutput(t *testing.T) {
 			wantSystemMessage: "Empty message in Stop action",
 			wantErr:           false,
 		},
+		{
+			name: "decision: block + empty reason -> fallback to processedMessage",
+			action: Action{
+				Type:     "output",
+				Message:  "Cannot stop now",
+				Decision: stringPtr("block"),
+				Reason:   stringPtr(""),
+			},
+			wantDecision:      "block",
+			wantReason:        "Cannot stop now",
+			wantSystemMessage: "Cannot stop now",
+			wantErr:           false,
+		},
+		{
+			name: "decision: block + whitespace-only reason -> fallback to processedMessage",
+			action: Action{
+				Type:     "output",
+				Message:  "Must complete task",
+				Decision: stringPtr("block"),
+				Reason:   stringPtr("   "),
+			},
+			wantDecision:      "block",
+			wantReason:        "Must complete task",
+			wantSystemMessage: "Must complete task",
+			wantErr:           false,
+		},
 	}
 
 	for _, tt := range tests {
