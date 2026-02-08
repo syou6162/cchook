@@ -3114,14 +3114,14 @@ func TestExecuteStopHooksJSON(t *testing.T) {
 			wantErr:           false,
 		},
 		{
-			name: "4. Output action without decision (defaults to block)",
+			name: "4. Output action without decision (defaults to allow)",
 			config: &Config{
 				Stop: []StopHook{
 					{
 						Actions: []Action{
 							{
 								Type:    "output",
-								Message: "Default block message",
+								Message: "Default allow message",
 							},
 						},
 					},
@@ -3130,9 +3130,9 @@ func TestExecuteStopHooksJSON(t *testing.T) {
 			input:             &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
 			rawJSON:           map[string]interface{}{},
 			wantContinue:      true,
-			wantDecision:      "block",
-			wantReason:        "Default block message",
-			wantSystemMessage: "Default block message",
+			wantDecision:      "",
+			wantReason:        "",
+			wantSystemMessage: "Default allow message",
 			wantErr:           false,
 		},
 		{

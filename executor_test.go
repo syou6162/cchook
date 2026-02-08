@@ -2179,13 +2179,13 @@ func TestExecuteStopAction_TypeOutput(t *testing.T) {
 		wantErr           bool
 	}{
 		{
-			name: "Message only (decision unspecified) -> decision=block, reason=processedMessage (backward compat)",
+			name: "Message only (decision unspecified) -> decision empty (allow stop)",
 			action: Action{
 				Type:    "output",
 				Message: "Please continue working",
 			},
-			wantDecision:      "block",
-			wantReason:        "Please continue working",
+			wantDecision:      "",
+			wantReason:        "",
 			wantSystemMessage: "Please continue working",
 			wantErr:           false,
 		},

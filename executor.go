@@ -142,8 +142,8 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 		}
 
 		// Validate action.Decision if set
-		// Default to "block" for backward compatibility (formerly exit status 2)
-		decision := "block"
+		// Default to "" (allow stop) - Stop fires every turn end, blocking by default causes infinite loops
+		decision := ""
 		if action.Decision != nil {
 			if *action.Decision != "" && *action.Decision != "block" {
 				errMsg := "Invalid decision value in action config: must be 'block' or field must be omitted"
