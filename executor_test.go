@@ -2167,3 +2167,462 @@ func TestExecutePreToolUseAction_EmptyStdout(t *testing.T) {
 		t.Errorf("Expected nil output (delegate to Claude Code), got: %+v", output)
 	}
 }
+
+// TestExecuteStopAction_TypeOutput tests ExecuteStopAction with type: output
+func TestExecuteStopAction_TypeOutput(t *testing.T) {
+	tests := []struct {
+		name              string
+		action            Action
+		wantDecision      string
+		wantReason        string
+		wantSystemMessage string
+		wantErr           bool
+	}{
+		{
+			name: "Message only (decision unspecified) -> decision empty (allow stop)",
+			action: Action{
+				Type:    "output",
+				Message: "Please continue working",
+			},
+			wantDecision:      "",
+			wantReason:        "",
+			wantSystemMessage: "Please continue working",
+			wantErr:           false,
+		},
+		{
+			name: "decision: block + reason specified -> decision=block, reason=specified value",
+			action: Action{
+				Type:     "output",
+				Message:  "Stop blocked by hook",
+				Decision: stringPtr("block"),
+				Reason:   stringPtr("Tests are still running"),
+			},
+			wantDecision:      "block",
+			wantReason:        "Tests are still running",
+			wantSystemMessage: "Stop blocked by hook",
+			wantErr:           false,
+		},
+		{
+			name: "decision: block + reason unspecified -> decision=block, reason=processedMessage",
+			action: Action{
+				Type:     "output",
+				Message:  "Blocking stop",
+				Decision: stringPtr("block"),
+			},
+			wantDecision:      "block",
+			wantReason:        "Blocking stop",
+			wantSystemMessage: "Blocking stop",
+			wantErr:           false,
+		},
+		{
+			name: "decision: empty string (explicit allow) -> decision empty (allow stop)",
+			action: Action{
+				Type:     "output",
+				Message:  "Stop is allowed",
+				Decision: stringPtr(""),
+			},
+			wantDecision:      "",
+			wantReason:        "",
+			wantSystemMessage: "Stop is allowed",
+			wantErr:           false,
+		},
+		{
+			name: "Invalid decision value -> fail-safe (decision: block)",
+			action: Action{
+				Type:     "output",
+				Message:  "Invalid decision test",
+				Decision: stringPtr("invalid"),
+			},
+			wantDecision:      "block",
+			wantReason:        "Invalid decision test",
+			wantSystemMessage: "Invalid decision value in action config: must be 'block' or field must be omitted",
+			wantErr:           false,
+		},
+		{
+			name: "Empty message -> fail-safe (decision: block, reason=fixed message)",
+			action: Action{
+				Type:    "output",
+				Message: "",
+			},
+			wantDecision:      "block",
+			wantReason:        "Empty message in Stop action",
+			wantSystemMessage: "Empty message in Stop action",
+			wantErr:           false,
+		},
+		{
+			name: "decision: block + empty reason -> fallback to processedMessage",
+			action: Action{
+				Type:     "output",
+				Message:  "Cannot stop now",
+				Decision: stringPtr("block"),
+				Reason:   stringPtr(""),
+			},
+			wantDecision:      "block",
+			wantReason:        "Cannot stop now",
+			wantSystemMessage: "Cannot stop now",
+			wantErr:           false,
+		},
+		{
+			name: "decision: block + whitespace-only reason -> fallback to processedMessage",
+			action: Action{
+				Type:     "output",
+				Message:  "Must complete task",
+				Decision: stringPtr("block"),
+				Reason:   stringPtr("   "),
+			},
+			wantDecision:      "block",
+			wantReason:        "Must complete task",
+			wantSystemMessage: "Must complete task",
+			wantErr:           false,
+		},
+		{
+			name: "exit_status set (deprecated) -> should warn but process normally",
+			action: Action{
+				Type:       "output",
+				Message:    "Stop blocked",
+				Decision:   stringPtr("block"),
+				ExitStatus: intPtr(2),
+			},
+			wantDecision:      "block",
+			wantReason:        "Stop blocked",
+			wantSystemMessage: "Stop blocked",
+			wantErr:           false,
+			// Note: stderr warning is emitted but not checked in this test
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := NewActionExecutor(nil)
+			input := &StopInput{
+				BaseInput: BaseInput{
+					SessionID: "test-session-123",
+				},
+				StopHookActive: false,
+			}
+			rawJSON := map[string]interface{}{
+				"session_id":       "test-session-123",
+				"stop_hook_active": false,
+			}
+
+			output, err := executor.ExecuteStopAction(tt.action, input, rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ExecuteStopAction() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if output == nil {
+				t.Fatal("ExecuteStopAction() returned nil output")
+			}
+
+			if output.Decision != tt.wantDecision {
+				t.Errorf("Decision = %q, want %q", output.Decision, tt.wantDecision)
+			}
+
+			if output.Reason != tt.wantReason {
+				t.Errorf("Reason = %q, want %q", output.Reason, tt.wantReason)
+			}
+
+			if output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+
+			// Continue should always be true for Stop
+			if output.Continue != true {
+				t.Errorf("Continue should always be true for Stop, got: %v", output.Continue)
+			}
+		})
+	}
+}
+
+// TestExecuteStopAction_TypeCommand tests ExecuteStopAction with type: command
+func TestExecuteStopAction_TypeCommand(t *testing.T) {
+	tests := []struct {
+		name              string
+		action            Action
+		stubStdout        string
+		stubStderr        string
+		stubExitCode      int
+		stubErr           error
+		wantDecision      string
+		wantReason        string
+		wantSystemMessage string
+		wantStopReason    string
+		wantSuppressOut   bool
+		wantErr           bool
+	}{
+		{
+			name: "Valid JSON with decision: block + reason -> all fields parsed correctly",
+			action: Action{
+				Type:    "command",
+				Command: "check-stop.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"decision": "block",
+				"reason": "Tests are still running",
+				"systemMessage": "Stop blocked by hook"
+			}`,
+			stubExitCode:      0,
+			wantDecision:      "block",
+			wantReason:        "Tests are still running",
+			wantSystemMessage: "Stop blocked by hook",
+			wantErr:           false,
+		},
+		{
+			name: "Valid JSON with decision omitted (allow stop) -> decision empty",
+			action: Action{
+				Type:    "command",
+				Command: "allow-stop.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"systemMessage": "Stop is allowed"
+			}`,
+			stubExitCode:      0,
+			wantDecision:      "",
+			wantReason:        "",
+			wantSystemMessage: "Stop is allowed",
+			wantErr:           false,
+		},
+		{
+			name: "Command failure (exit != 0) -> fail-safe block",
+			action: Action{
+				Type:    "command",
+				Command: "failing-stop.sh",
+			},
+			stubStdout:        "",
+			stubStderr:        "Permission denied",
+			stubExitCode:      1,
+			wantDecision:      "block",
+			wantReason:        "Command failed with exit code 1: Permission denied",
+			wantSystemMessage: "Command failed with exit code 1: Permission denied",
+			wantErr:           false,
+		},
+		{
+			name: "Empty stdout -> allow stop (decision empty)",
+			action: Action{
+				Type:    "command",
+				Command: "silent-check.sh",
+			},
+			stubStdout:   "",
+			stubExitCode: 0,
+			wantDecision: "",
+			wantReason:   "",
+			wantErr:      false,
+		},
+		{
+			name: "Invalid JSON -> fail-safe block",
+			action: Action{
+				Type:    "command",
+				Command: "invalid-json.sh",
+			},
+			stubStdout:        `{invalid json}`,
+			stubExitCode:      0,
+			wantDecision:      "block",
+			wantReason:        "Command output is not valid JSON: {invalid json}",
+			wantSystemMessage: "Command output is not valid JSON: {invalid json}",
+			wantErr:           false,
+		},
+		{
+			name: "decision: block + reason missing -> fail-safe with reason warning",
+			action: Action{
+				Type:    "command",
+				Command: "missing-reason.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"decision": "block"
+			}`,
+			stubExitCode:      0,
+			wantDecision:      "block",
+			wantReason:        "Missing required field 'reason' when decision is 'block'",
+			wantSystemMessage: "Missing required field 'reason' when decision is 'block'",
+			wantErr:           false,
+		},
+		{
+			name: "Invalid decision value -> fail-safe block",
+			action: Action{
+				Type:    "command",
+				Command: "invalid-decision.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"decision": "invalid",
+				"reason": "should not matter"
+			}`,
+			stubExitCode:      0,
+			wantDecision:      "block",
+			wantReason:        "Invalid decision value: must be 'block' or field must be omitted entirely",
+			wantSystemMessage: "Invalid decision value: must be 'block' or field must be omitted entirely",
+			wantErr:           false,
+		},
+		{
+			name: "Unsupported field -> stderr warning (but still processes valid fields)",
+			action: Action{
+				Type:    "command",
+				Command: "unsupported-field.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"decision": "block",
+				"reason": "Blocking stop",
+				"hookSpecificOutput": {"hookEventName": "Stop"}
+			}`,
+			stubExitCode:      0,
+			wantDecision:      "block",
+			wantReason:        "Blocking stop",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "stopReason/suppressOutput included -> fields reflected correctly",
+			action: Action{
+				Type:    "command",
+				Command: "full-output.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"decision": "block",
+				"reason": "Custom block reason",
+				"stopReason": "hook_blocked",
+				"suppressOutput": true,
+				"systemMessage": "Full output test"
+			}`,
+			stubExitCode:      0,
+			wantDecision:      "block",
+			wantReason:        "Custom block reason",
+			wantStopReason:    "hook_blocked",
+			wantSuppressOut:   true,
+			wantSystemMessage: "Full output test",
+			wantErr:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &stubRunnerWithOutput{
+				stdout:   tt.stubStdout,
+				stderr:   tt.stubStderr,
+				exitCode: tt.stubExitCode,
+				err:      tt.stubErr,
+			}
+			executor := NewActionExecutor(runner)
+			input := &StopInput{
+				BaseInput: BaseInput{
+					SessionID: "test-session-123",
+				},
+				StopHookActive: false,
+			}
+			rawJSON := map[string]interface{}{
+				"session_id":       "test-session-123",
+				"stop_hook_active": false,
+			}
+
+			output, err := executor.ExecuteStopAction(tt.action, input, rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ExecuteStopAction() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if output == nil {
+				t.Fatal("ExecuteStopAction() returned nil output")
+			}
+
+			// Continue should always be true for Stop
+			if output.Continue != true {
+				t.Errorf("Continue should always be true for Stop, got: %v", output.Continue)
+			}
+
+			if output.Decision != tt.wantDecision {
+				t.Errorf("Decision = %q, want %q", output.Decision, tt.wantDecision)
+			}
+
+			if output.Reason != tt.wantReason {
+				t.Errorf("Reason = %q, want %q", output.Reason, tt.wantReason)
+			}
+
+			if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+
+			if output.StopReason != tt.wantStopReason {
+				t.Errorf("StopReason = %q, want %q", output.StopReason, tt.wantStopReason)
+			}
+
+			if output.SuppressOutput != tt.wantSuppressOut {
+				t.Errorf("SuppressOutput = %v, want %v", output.SuppressOutput, tt.wantSuppressOut)
+			}
+		})
+	}
+}
+
+// TestExecuteStopAction_TypeCommand_StderrWarnings tests that stderr warnings are logged correctly
+func TestExecuteStopAction_TypeCommand_StderrWarnings(t *testing.T) {
+	tests := []struct {
+		name       string
+		stdout     string
+		wantStderr string
+	}{
+		{
+			name: "Unsupported field logs warning to stderr",
+			stdout: `{
+				"continue": true,
+				"decision": "block",
+				"reason": "test",
+				"hookSpecificOutput": {"hookEventName": "Stop"}
+			}`,
+			wantStderr: "Warning: Field 'hookSpecificOutput' is not supported for Stop hooks",
+		},
+		{
+			name: "Missing reason with decision block logs warning",
+			stdout: `{
+				"continue": true,
+				"decision": "block"
+			}`,
+			wantStderr: "Warning: Missing required field 'reason' when decision is 'block'",
+		},
+		{
+			name: "Invalid decision value logs warning",
+			stdout: `{
+				"continue": true,
+				"decision": "invalid"
+			}`,
+			wantStderr: "Warning: Invalid decision value",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &stubRunnerWithOutput{
+				stdout:   tt.stdout,
+				exitCode: 0,
+			}
+			executor := NewActionExecutor(runner)
+
+			// Capture stderr
+			oldStderr := os.Stderr
+			r, w, _ := os.Pipe()
+			os.Stderr = w
+
+			_, _ = executor.ExecuteStopAction(
+				Action{Type: "command", Command: "test.sh"},
+				&StopInput{},
+				map[string]interface{}{},
+			)
+
+			_ = w.Close()
+			os.Stderr = oldStderr
+
+			var buf bytes.Buffer
+			_, _ = io.Copy(&buf, r)
+			stderr := buf.String()
+
+			if !strings.Contains(stderr, tt.wantStderr) {
+				t.Errorf("Expected stderr to contain %q, got: %s", tt.wantStderr, stderr)
+			}
+		})
+	}
+}

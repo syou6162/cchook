@@ -183,6 +183,7 @@ type ActionOutput struct {
 	Behavior                 string                 // "allow" or "deny" (PermissionRequest only)
 	Message                  string                 // Deny message (PermissionRequest only)
 	Interrupt                bool                   // Interrupt flag for deny (PermissionRequest only)
+	Reason                   string                 // Reason for decision (Stop/SubagentStop only, required when decision is "block")
 	StopReason               string
 	SuppressOutput           bool
 	SystemMessage            string
@@ -257,6 +258,17 @@ type UserPromptSubmitOutput struct {
 type UserPromptSubmitHookSpecificOutput struct {
 	HookEventName     string `json:"hookEventName"`
 	AdditionalContext string `json:"additionalContext"`
+}
+
+// StopOutput はStopフックのJSON出力全体を表す（Claude Code共通フィールド含む）
+// hookSpecificOutputは存在しない（Common JSON Fieldsとdecision/reasonのみ）
+type StopOutput struct {
+	Continue       bool   `json:"continue"`
+	Decision       string `json:"decision,omitempty"` // "block" only; omit field to allow stop
+	Reason         string `json:"reason,omitempty"`   // Required when decision is "block"
+	StopReason     string `json:"stopReason,omitempty"`
+	SuppressOutput bool   `json:"suppressOutput,omitempty"`
+	SystemMessage  string `json:"systemMessage,omitempty"`
 }
 
 // SessionEnd用
@@ -453,6 +465,7 @@ type Action struct {
 	PermissionDecision *string `yaml:"permission_decision,omitempty"` // "allow", "deny", or "ask" (PreToolUse only)
 	Behavior           *string `yaml:"behavior,omitempty"`            // "allow" or "deny" (PermissionRequest only)
 	Interrupt          *bool   `yaml:"interrupt,omitempty"`           // deny時のみ (PermissionRequest only)
+	Reason             *string `yaml:"reason,omitempty"`              // Reason for decision (Stop/SubagentStop only)
 }
 
 // 設定ファイル構造

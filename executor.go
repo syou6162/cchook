@@ -39,19 +39,164 @@ func (e *ActionExecutor) ExecuteNotificationAction(action Action, input *Notific
 }
 
 // ExecuteStopAction executes an action for the Stop event.
-// Command failures result in exit status 2 to block the stop operation.
-func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJSON interface{}) error {
+// Returns ActionOutput for JSON serialization with decision/reason fields.
+// Stop hooks use top-level decision pattern (no hookSpecificOutput).
+func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJSON interface{}) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := e.runner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			// Stopでコマンドが失敗した場合はexit 2で停止をブロック
-			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
+		stdout, stderr, exitCode, err := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
+
+		// Command failed with non-zero exit code
+		if exitCode != 0 {
+			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			if strings.TrimSpace(stderr) == "" && err != nil {
+				errMsg = fmt.Sprintf("Command failed with exit code %d: %v", exitCode, err)
+			}
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
 		}
+
+		// Empty stdout - Allow stop (validation-type CLI tools: silence = OK)
+		if strings.TrimSpace(stdout) == "" {
+			return &ActionOutput{
+				Continue: true,
+				Decision: "", // Allow stop
+			}, nil
+		}
+
+		// Parse JSON output (StopOutput has no hookSpecificOutput)
+		var cmdOutput StopOutput
+		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			errMsg := fmt.Sprintf("Command output is not valid JSON: %s", stdout)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Validate decision field (optional: "block" only, or field must be omitted entirely)
+		decision := cmdOutput.Decision
+		if decision != "" && decision != "block" {
+			errMsg := "Invalid decision value: must be 'block' or field must be omitted entirely"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Validate reason: required when decision is "block"
+		if decision == "block" && cmdOutput.Reason == "" {
+			errMsg := "Missing required field 'reason' when decision is 'block'"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Check for unsupported fields and log warnings to stderr
+		checkUnsupportedFieldsStop(stdout)
+
+		// Build ActionOutput from parsed JSON
+		return &ActionOutput{
+			Continue:       true,
+			Decision:       decision,
+			Reason:         cmdOutput.Reason,
+			StopReason:     cmdOutput.StopReason,
+			SuppressOutput: cmdOutput.SuppressOutput,
+			SystemMessage:  cmdOutput.SystemMessage,
+		}, nil
+
 	case "output":
-		return handleOutput(action.Message, action.ExitStatus, rawJSON)
+		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
+
+		// Empty message check → fail-safe (decision: block)
+		if strings.TrimSpace(processedMessage) == "" {
+			errMsg := "Empty message in Stop action"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Warn if exit_status is set (deprecated for Stop in JSON mode)
+		if action.ExitStatus != nil {
+			fmt.Fprintf(os.Stderr, "Warning: exit_status field is deprecated for Stop hooks and will be ignored. Use 'decision' field instead.\n")
+		}
+
+		// Validate action.Decision if set
+		// Default to "" (allow stop) - Stop fires every turn end, blocking by default causes infinite loops
+		decision := ""
+		if action.Decision != nil {
+			if *action.Decision != "" && *action.Decision != "block" {
+				errMsg := "Invalid decision value in action config: must be 'block' or field must be omitted"
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+				return &ActionOutput{
+					Continue:      true,
+					Decision:      "block",
+					Reason:        processedMessage,
+					SystemMessage: errMsg,
+				}, nil
+			}
+			decision = *action.Decision
+		}
+
+		// Determine reason with template expansion
+		reason := processedMessage
+		if action.Reason != nil {
+			// Apply template expansion to reason
+			reasonValue := unifiedTemplateReplace(*action.Reason, rawJSON)
+			// Empty/whitespace reason with "block" decision should fallback to processedMessage
+			if strings.TrimSpace(reasonValue) == "" && decision == "block" {
+				reason = processedMessage
+			} else {
+				reason = reasonValue
+			}
+		}
+
+		// For allow (decision=""), clear reason (not applicable)
+		if decision == "" {
+			reason = ""
+		}
+
+		// Final validation: decision "block" requires non-empty reason
+		if decision == "block" && strings.TrimSpace(reason) == "" {
+			errMsg := "Empty reason when decision is 'block' (reason is required for block)"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		return &ActionOutput{
+			Continue:      true,
+			Decision:      decision,
+			Reason:        reason,
+			SystemMessage: processedMessage,
+		}, nil
 	}
-	return nil
+
+	return nil, nil
 }
 
 // ExecuteSubagentStopAction executes an action for the SubagentStop event.
@@ -633,6 +778,31 @@ func checkUnsupportedFieldsPreToolUse(stdout string) {
 	for field := range data {
 		if !supportedFields[field] {
 			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for PreToolUse hooks\n", field)
+		}
+	}
+}
+
+// checkUnsupportedFieldsStop checks for unsupported fields in Stop JSON output
+// and logs warnings to stderr. Stop uses top-level decision/reason (no hookSpecificOutput).
+func checkUnsupportedFieldsStop(stdout string) {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+		return
+	}
+
+	supportedFields := map[string]bool{
+		"continue":       true,
+		"decision":       true, // Stop specific (top-level)
+		"reason":         true, // Stop specific (top-level)
+		"stopReason":     true,
+		"suppressOutput": true,
+		"systemMessage":  true,
+		// Note: hookSpecificOutput is NOT supported for Stop hooks
+	}
+
+	for field := range data {
+		if !supportedFields[field] {
+			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for Stop hooks\n", field)
 		}
 	}
 }
