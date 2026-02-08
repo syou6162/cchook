@@ -30,7 +30,8 @@ func runHooks(config *Config, eventType HookEventType) error {
 		if err != nil {
 			return err
 		}
-		return executeStopHooks(config, input, rawJSON)
+		_, err = executeStopHooks(config, input, rawJSON)
+		return err
 	case SubagentStop:
 		input, rawJSON, err := parseInput[*SubagentStopInput](eventType)
 		if err != nil {
@@ -653,11 +654,21 @@ func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON 
 	return nil
 }
 
-// executeStopHooks executes all matching Stop hooks based on condition checks.
-// Returns an error to block the stop operation if any hook fails.
-func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) error {
+// executeStopHooks executes all matching Stop hooks and returns JSON output.
+// Stop uses top-level decision pattern (no hookSpecificOutput).
+// Returns (*StopOutput, error) where output is always non-nil.
+func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) (*StopOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
+	var actionErrors []error
+
+	// Initialize finalOutput: Continue always true, Decision "" (allow stop)
+	finalOutput := &StopOutput{
+		Continue: true,
+		Decision: "",
+	}
+
+	var systemMessageBuilder strings.Builder
 
 	for i, hook := range config.Stop {
 		// 条件チェック
@@ -680,22 +691,97 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) err
 		}
 
 		for _, action := range hook.Actions {
-			// TODO: Step 9でJSON出力対応に書き換え予定
-			_, err := executor.ExecuteStopAction(action, input, rawJSON)
+			actionOutput, err := executor.ExecuteStopAction(action, input, rawJSON)
 			if err != nil {
-				actionErr := fmt.Errorf("Stop hook %d failed: %w", i, err)
-				if len(conditionErrors) > 0 {
-					return errors.Join(append(conditionErrors, actionErr)...)
-				}
-				return actionErr
+				actionErrors = append(actionErrors, fmt.Errorf("stop hook %d action failed: %w", i, err))
+				continue
 			}
+
+			if actionOutput == nil {
+				continue
+			}
+
+			// Decision: 後勝ち。decision変更時はReasonリセット
+			prevDecision := finalOutput.Decision
+			finalOutput.Decision = actionOutput.Decision
+
+			// Reason: decision変更時はリセット、同一decision内では改行連結
+			if actionOutput.Decision != prevDecision {
+				finalOutput.Reason = actionOutput.Reason
+			} else if actionOutput.Reason != "" {
+				if finalOutput.Reason != "" {
+					finalOutput.Reason += "\n" + actionOutput.Reason
+				} else {
+					finalOutput.Reason = actionOutput.Reason
+				}
+			}
+
+			// SystemMessage: 改行連結
+			if actionOutput.SystemMessage != "" {
+				if systemMessageBuilder.Len() > 0 {
+					systemMessageBuilder.WriteString("\n")
+				}
+				systemMessageBuilder.WriteString(actionOutput.SystemMessage)
+			}
+
+			// StopReason: 最後の非空値が勝ち
+			if actionOutput.StopReason != "" {
+				finalOutput.StopReason = actionOutput.StopReason
+			}
+
+			// SuppressOutput: 最後の値が勝ち
+			finalOutput.SuppressOutput = actionOutput.SuppressOutput
+
+			// Early return on decision: "block"
+			if actionOutput.Decision == "block" {
+				break
+			}
+		}
+
+		// Early return if decision is "block" (across hooks)
+		if finalOutput.Decision == "block" {
+			break
 		}
 	}
 
-	if len(conditionErrors) > 0 {
-		return errors.Join(conditionErrors...)
+	finalOutput.SystemMessage = systemMessageBuilder.String()
+
+	// Collect all errors
+	var allErrors []error
+	allErrors = append(allErrors, conditionErrors...)
+
+	// アクションエラーがある場合はfail-safe: decision "block"
+	if len(actionErrors) > 0 {
+		finalOutput.Decision = "block"
+
+		errorMsg := errors.Join(actionErrors...).Error()
+		if finalOutput.Reason == "" {
+			finalOutput.Reason = errorMsg
+		}
+		if finalOutput.SystemMessage != "" {
+			finalOutput.SystemMessage += "\n" + errorMsg
+		} else {
+			finalOutput.SystemMessage = errorMsg
+		}
+
+		allErrors = append(allErrors, actionErrors...)
 	}
-	return nil
+
+	if len(allErrors) > 0 {
+		return finalOutput, errors.Join(allErrors...)
+	}
+
+	return finalOutput, nil
+}
+
+// RunStopHooks parses input from stdin and executes Stop hooks.
+// Returns StopOutput for JSON serialization.
+func RunStopHooks(config *Config) (*StopOutput, error) {
+	input, rawJSON, err := parseInput[*StopInput](Stop)
+	if err != nil {
+		return nil, err
+	}
+	return executeStopHooks(config, input, rawJSON)
 }
 
 // executeSubagentStopHooks executes all matching SubagentStop hooks based on condition checks.
