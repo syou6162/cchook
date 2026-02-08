@@ -334,6 +334,41 @@ func TestCheckCondition(t *testing.T) {
 			false,
 		},
 		{
+			"permission_mode_is match - plan",
+			Condition{Type: ConditionPermissionModeIs, Value: "plan"},
+			&PreToolUseInput{BaseInput: BaseInput{PermissionMode: "plan"}},
+			true,
+			false,
+		},
+		{
+			"permission_mode_is no match",
+			Condition{Type: ConditionPermissionModeIs, Value: "plan"},
+			&PreToolUseInput{BaseInput: BaseInput{PermissionMode: "default"}},
+			false,
+			false,
+		},
+		{
+			"permission_mode_is match - default",
+			Condition{Type: ConditionPermissionModeIs, Value: "default"},
+			&PreToolUseInput{BaseInput: BaseInput{PermissionMode: "default"}},
+			true,
+			false,
+		},
+		{
+			"permission_mode_is match - acceptEdits",
+			Condition{Type: ConditionPermissionModeIs, Value: "acceptEdits"},
+			&PreToolUseInput{BaseInput: BaseInput{PermissionMode: "acceptEdits"}},
+			true,
+			false,
+		},
+		{
+			"permission_mode_is empty permission_mode",
+			Condition{Type: ConditionPermissionModeIs, Value: "plan"},
+			&PreToolUseInput{BaseInput: BaseInput{PermissionMode: ""}},
+			false,
+			false,
+		},
+		{
 			"unknown condition type - error",
 			Condition{Type: ConditionType{"unknown_type"}, Value: "test"},
 			&PreToolUseInput{},
@@ -1858,6 +1893,147 @@ func TestContainsProcessSubstitution(t *testing.T) {
 			got := containsProcessSubstitution(tt.command)
 			if got != tt.want {
 				t.Errorf("containsProcessSubstitution(%q) = %v, want %v", tt.command, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCheckSessionStartCondition(t *testing.T) {
+	tests := []struct {
+		name      string
+		condition Condition
+		input     *SessionStartInput
+		want      bool
+		wantErr   bool
+	}{
+		{
+			name: "permission_mode_is match - plan",
+			condition: Condition{
+				Type:  ConditionPermissionModeIs,
+				Value: "plan",
+			},
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test123",
+					HookEventName:  SessionStart,
+					PermissionMode: "plan",
+				},
+				Source: "startup",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "permission_mode_is no match - default vs plan",
+			condition: Condition{
+				Type:  ConditionPermissionModeIs,
+				Value: "plan",
+			},
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test456",
+					HookEventName:  SessionStart,
+					PermissionMode: "default",
+				},
+				Source: "startup",
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "permission_mode_is match - default",
+			condition: Condition{
+				Type:  ConditionPermissionModeIs,
+				Value: "default",
+			},
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test789",
+					HookEventName:  SessionStart,
+					PermissionMode: "default",
+				},
+				Source: "startup",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "permission_mode_is match - acceptEdits",
+			condition: Condition{
+				Type:  ConditionPermissionModeIs,
+				Value: "acceptEdits",
+			},
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-ae",
+					HookEventName:  SessionStart,
+					PermissionMode: "acceptEdits",
+				},
+				Source: "startup",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "permission_mode_is empty permission_mode",
+			condition: Condition{
+				Type:  ConditionPermissionModeIs,
+				Value: "plan",
+			},
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-empty",
+					HookEventName:  SessionStart,
+					PermissionMode: "",
+				},
+				Source: "startup",
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "file_exists common condition still works",
+			condition: Condition{
+				Type:  ConditionFileExists,
+				Value: "go.mod",
+			},
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-common",
+					HookEventName: SessionStart,
+				},
+				Source: "startup",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "unsupported condition type for SessionStart",
+			condition: Condition{
+				Type:  ConditionFileExtension,
+				Value: ".go",
+			},
+			input: &SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-unsupported",
+					HookEventName: SessionStart,
+				},
+				Source: "startup",
+			},
+			want:    false,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := checkSessionStartCondition(tt.condition, tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkSessionStartCondition() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("checkSessionStartCondition() = %v, want %v", got, tt.want)
 			}
 		})
 	}
