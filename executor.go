@@ -96,6 +96,9 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 		// Command failed with non-zero exit code
 		if exitCode != 0 {
 			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			if strings.TrimSpace(stderr) == "" && err != nil {
+				errMsg = fmt.Sprintf("Command failed with exit code %d: %v", exitCode, err)
+			}
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      false,
@@ -205,6 +208,9 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 		// Command failed with non-zero exit code
 		if exitCode != 0 {
 			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			if strings.TrimSpace(stderr) == "" && err != nil {
+				errMsg = fmt.Sprintf("Command failed with exit code %d: %v", exitCode, err)
+			}
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
@@ -361,6 +367,9 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 		// Command failed with non-zero exit code
 		if exitCode != 0 {
 			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			if strings.TrimSpace(stderr) == "" && err != nil {
+				errMsg = fmt.Sprintf("Command failed with exit code %d: %v", exitCode, err)
+			}
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:           true,
