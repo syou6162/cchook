@@ -2275,6 +2275,20 @@ func TestExecuteStopAction_TypeOutput(t *testing.T) {
 			wantSystemMessage: "Must complete task",
 			wantErr:           false,
 		},
+		{
+			name: "exit_status set (deprecated) -> should warn but process normally",
+			action: Action{
+				Type:       "output",
+				Message:    "Stop blocked",
+				Decision:   stringPtr("block"),
+				ExitStatus: intPtr(2),
+			},
+			wantDecision:      "block",
+			wantReason:        "Stop blocked",
+			wantSystemMessage: "Stop blocked",
+			wantErr:           false,
+			// Note: stderr warning is emitted but not checked in this test
+		},
 	}
 
 	for _, tt := range tests {

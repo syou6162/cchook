@@ -136,6 +136,11 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 			}, nil
 		}
 
+		// Warn if exit_status is set (deprecated for Stop in JSON mode)
+		if action.ExitStatus != nil {
+			fmt.Fprintf(os.Stderr, "Warning: exit_status field is deprecated for Stop hooks and will be ignored. Use 'decision' field instead.\n")
+		}
+
 		// Validate action.Decision if set
 		// Default to "block" for backward compatibility (formerly exit status 2)
 		decision := "block"
