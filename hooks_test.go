@@ -702,10 +702,7 @@ func TestShouldExecutePostToolUseHook(t *testing.T) {
 // TODO: Task 7 - Implement UserPromptSubmit integration tests with JSON output
 
 // TestExecuteStopHook_FailingCommandReturnsExit2 tests that failing commands
-// result in errors from executeStopHooks.
-// TODO: Step 9/11でJSON出力対応に書き換え予定。新しいJSON出力パターンでは
-// ExecuteStopActionがdecision: "block"を返すが、executeStopHooksはまだ
-// 旧error返却パターンのため、このテストは暫定的に修正。
+// result in decision="block" (fail-safe) from executeStopHooks.
 func TestExecuteStopHook_FailingCommandReturnsExit2(t *testing.T) {
 	config := &Config{
 		Stop: []StopHook{
