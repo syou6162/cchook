@@ -246,6 +246,7 @@ Available condition types:
   - File operations: `file_exists`, `file_exists_recursive`, `file_not_exists`, `file_not_exists_recursive`
   - Directory operations: `dir_exists`, `dir_exists_recursive`, `dir_not_exists`, `dir_not_exists_recursive`
   - Working directory: `cwd_is`, `cwd_is_not`, `cwd_contains`, `cwd_not_contains`
+  - Permission mode: `permission_mode_is`
 - **Tool-specific** (PreToolUse/PostToolUse): `file_extension`, `command_contains`, `command_starts_with`, `url_starts_with`, `git_tracked_file_operation`
 - **Prompt-specific** (UserPromptSubmit):
   - `prompt_regex`: Supports regex patterns including OR conditions with `|`

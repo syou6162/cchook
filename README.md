@@ -556,6 +556,10 @@ All conditions return proper error messages for unknown condition types, ensurin
 - `cwd_not_contains`
   - Check if current working directory does not contain the specified substring
 
+**Permission Mode:**
+- `permission_mode_is`
+  - Check if the current permission mode exactly matches the specified value (e.g., "default", "plan", "acceptEdits", "dontAsk", "bypassPermissions")
+
 #### PreToolUse & PostToolUse
 - All common conditions, plus:
 - `file_extension`
