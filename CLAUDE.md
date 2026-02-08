@@ -453,6 +453,75 @@ PreToolUse:
         permission_decision: "ask"
 ```
 
+### Stop JSON Output
+
+Stop hooks support JSON output format for Claude Code integration. Actions can return structured output with decision control to block or allow Claude's stopping:
+
+**Output Action** (type: `output`):
+```yaml
+Stop:
+  - actions:
+      - type: output
+        message: "Stop reason message"
+        decision: "block"  # optional: "block" only; omit to allow stop
+        reason: "Detailed reason for blocking"  # required when decision is "block"
+```
+
+**Command Action** (type: `command`):
+Commands must output JSON with the following structure:
+```json
+{
+  "continue": true,
+  "decision": "block",
+  "reason": "Detailed reason for blocking",
+  "stopReason": "Optional stop reason",
+  "suppressOutput": false,
+  "systemMessage": "Optional system message"
+}
+```
+
+Note: To allow the stop, omit the `decision` field entirely.
+
+**Important**: Unlike other hook types, Stop does NOT use `hookSpecificOutput`. All fields are at the top level.
+
+**Field Merging**:
+When multiple actions execute:
+- `continue`: Always `true` (cannot be changed for Stop)
+- `decision`: Last value wins (early return on `"block"`)
+- `reason`: Reset when decision changes; concatenated with newline within same decision
+- `systemMessage`: Concatenated with newline separator
+- `stopReason` and `suppressOutput`: Last value wins
+
+**Exit Code Behavior**:
+Stop hooks **always exit with code 0**. The `decision` field controls whether Claude's stopping is blocked:
+- `decision` field omitted: Stop proceeds normally
+- `"block"`: Stop is blocked (early return)
+
+Errors are logged to stderr as warnings, but cchook continues to output JSON and exits successfully. On errors, `decision` defaults to `"block"` for safety (fail-safe).
+
+**Backward Compatibility**:
+Prior to JSON output support, Stop hooks used exit codes:
+- `exit_status: 0` allowed the stop
+- `exit_status: 2` (default) blocked the stop
+
+After JSON migration:
+- `exit_status` field is **ignored** in output actions
+- Use `decision` field instead: omit for allow, `"block"` for deny
+- A stderr warning is emitted if `exit_status` is set (migration reminder)
+
+**Example**:
+```yaml
+Stop:
+  - conditions:
+      - type: cwd_contains
+        value: "/important-project"
+    actions:
+      - type: output
+        message: "Cannot stop in important project directory"
+        decision: "block"
+        reason: "Stopping Claude in this directory may lose work context"
+```
+
 ## Common Workflows
 
 ### Adding a New Hook Type

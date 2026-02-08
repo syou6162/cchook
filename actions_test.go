@@ -442,36 +442,42 @@ func TestExecuteNotificationAction_CommandWithStubRunner(t *testing.T) {
 	}
 }
 
+// TestExecuteStopAction_CommandWithStubRunner tests Stop command actions using stubRunnerWithOutput.
+// Updated for JSON output: uses RunCommandWithOutput instead of RunCommand.
 func TestExecuteStopAction_CommandWithStubRunner(t *testing.T) {
 	tests := []struct {
-		name     string
-		command  string
-		runFunc  func(cmd string, useStdin bool, data interface{}) error
-		wantErr  bool
-		wantCode int
+		name         string
+		command      string
+		stdout       string
+		stderr       string
+		exitCode     int
+		wantDecision string
 	}{
 		{
-			name:    "command success allows stop",
-			command: "exit 0",
-			runFunc: func(cmd string, useStdin bool, data interface{}) error {
-				return nil
-			},
-			wantErr: false,
+			name:     "command success allows stop (empty stdout)",
+			command:  "exit 0",
+			stdout:   "",
+			exitCode: 0,
+			// Empty stdout → allow stop
+			wantDecision: "",
 		},
 		{
-			name:    "command failure blocks stop with exit 2",
-			command: "exit 1",
-			runFunc: func(cmd string, useStdin bool, data interface{}) error {
-				return fmt.Errorf("stop command failed")
-			},
-			wantErr:  true,
-			wantCode: 2,
+			name:     "command failure blocks stop with decision: block",
+			command:  "exit 1",
+			stderr:   "stop command failed",
+			exitCode: 1,
+			// Non-zero exit → fail-safe block
+			wantDecision: "block",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			runner := &stubRunner{runFunc: tt.runFunc}
+			runner := &stubRunnerWithOutput{
+				stdout:   tt.stdout,
+				stderr:   tt.stderr,
+				exitCode: tt.exitCode,
+			}
 			executor := NewActionExecutor(runner)
 
 			action := Action{
@@ -479,23 +485,18 @@ func TestExecuteStopAction_CommandWithStubRunner(t *testing.T) {
 				Command: tt.command,
 			}
 
-			err := executor.ExecuteStopAction(action, &StopInput{}, map[string]interface{}{})
+			output, err := executor.ExecuteStopAction(action, &StopInput{}, map[string]interface{}{})
 
-			if tt.wantErr {
-				if err == nil {
-					t.Fatal("Expected error, got nil")
-				}
-				exitErr, ok := err.(*ExitError)
-				if !ok {
-					t.Fatalf("Expected *ExitError, got %T", err)
-				}
-				if exitErr.Code != tt.wantCode {
-					t.Errorf("Expected exit code %d, got %d", tt.wantCode, exitErr.Code)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Expected no error, got %v", err)
-				}
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			if output == nil {
+				t.Fatal("Expected output, got nil")
+			}
+
+			if output.Decision != tt.wantDecision {
+				t.Errorf("Expected decision=%q, got %q", tt.wantDecision, output.Decision)
 			}
 		})
 	}

@@ -372,16 +372,19 @@ PreToolUse:
 
 ### Notifications
 
-Send completion notifications:
+Send completion notifications (JSON output):
 
 ```yaml
 Stop:
   - actions:
       - type: command
-        command: >
-          cat '{.transcript_path}' |
-          jq -s 'reverse | map(select(.type == "assistant" and .message.content[0].type == "text")) | .[0].message.content[0].text' |
-          xargs -I {} ntfy publish --markdown --title 'Claude Code Complete' "{}"
+        command: |
+          # Extract last assistant message
+          LAST_MSG=$(cat '{.transcript_path}' | jq -s 'reverse | map(select(.type == "assistant" and .message.content[0].type == "text")) | .[0].message.content[0].text')
+          ntfy publish --markdown --title 'Claude Code Complete' "$LAST_MSG"
+
+          # Return JSON to allow stop
+          echo '{"continue": true, "systemMessage": "Notification sent"}'
 ```
 
 ### Session Management
@@ -609,10 +612,18 @@ All conditions return proper error messages for unknown condition types, ensurin
   - Print message
   - Default `exit_status`:
     - 0 for SessionStart, SessionEnd, UserPromptSubmit (non-blocking events)
-    - 2 for PreToolUse, PostToolUse, Stop, SubagentStop, Notification, PreCompact
+    - 2 for PostToolUse, SubagentStop, Notification, PreCompact
+  - Note: PreToolUse and Stop use JSON output (exit_status ignored)
 
 ### Exit Status Control
 
+**JSON Output Events** (SessionStart, UserPromptSubmit, PreToolUse, Stop):
+- Always exit with code 0
+- Control behavior via JSON fields (`decision`, `permissionDecision`, etc.)
+- Errors logged to stderr as warnings
+- See CLAUDE.md for detailed JSON output format
+
+**Legacy Exit Code Events** (PostToolUse, SubagentStop, Notification, PreCompact, SessionEnd):
 - 0
   - Success, allow execution, output to stdout
 - 2
@@ -621,6 +632,11 @@ All conditions return proper error messages for unknown condition types, ensurin
 - Other (1, 3, etc.)
   - Non-blocking error, stderr shown to user
   - Execution continues normally
+
+**Migration Note** (Stop):
+- Prior to JSON support, Stop used `exit_status: 0` (allow) or `exit_status: 2` (block, default)
+- After JSON migration, use `decision` field: omit for allow, `"block"` for deny
+- `exit_status` field is ignored in JSON mode (stderr warning emitted)
 
 ### Template Syntax
 
@@ -677,15 +693,32 @@ PostToolUse:
         message: "✅ Go file formatted and vetted: {.tool_input.file_path}"
 ```
 
-### Complex Notifications
+### Session End Notifications (JSON Output)
 
 ```yaml
 Stop:
   - actions:
       - type: command
         command: |
+          # Extract last assistant message and send notification
           LAST_MSG=$(cat '{.transcript_path}' | jq -s 'reverse | map(select(.type == "assistant" and .message.content[0].type == "text")) | .[0].message.content[0].text' | head -c 100)
           ntfy publish --markdown --title 'Claude Code Session Complete' --tags 'checkmark' "$LAST_MSG..."
+
+          # Return JSON to allow stop (decision field omitted)
+          echo '{"continue": true, "systemMessage": "Notification sent"}'
+```
+
+**Blocking Stop Example**:
+```yaml
+Stop:
+  - conditions:
+      - type: cwd_contains
+        value: "/critical-project"
+    actions:
+      - type: output
+        message: "Cannot stop in critical project directory"
+        decision: "block"
+        reason: "Stopping may lose important work context"
 ```
 
 ## Input Format

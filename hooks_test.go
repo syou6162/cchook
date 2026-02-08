@@ -701,6 +701,8 @@ func TestShouldExecutePostToolUseHook(t *testing.T) {
 
 // TODO: Task 7 - Implement UserPromptSubmit integration tests with JSON output
 
+// TestExecuteStopHook_FailingCommandReturnsExit2 tests that failing commands
+// result in decision="block" (fail-safe) from executeStopHooks.
 func TestExecuteStopHook_FailingCommandReturnsExit2(t *testing.T) {
 	config := &Config{
 		Stop: []StopHook{
@@ -719,20 +721,20 @@ func TestExecuteStopHook_FailingCommandReturnsExit2(t *testing.T) {
 		},
 	}
 
-	err := executeStopHooks(config, input, nil)
+	output, err := executeStopHooks(config, input, nil)
 
-	// ExitError型でexit code 2であることを確認
-	if err == nil {
-		t.Fatal("Expected error for failing command, got nil")
+	// JSON出力パターン: コマンド失敗時はdecision="block"（fail-safe）
+	// エラーは返さない（JSON出力で制御）
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
 	}
 
-	exitErr, ok := err.(*ExitError)
-	if !ok {
-		t.Fatalf("Expected ExitError, got %T", err)
+	if output == nil {
+		t.Fatal("Expected output, got nil")
 	}
 
-	if exitErr.Code != 2 {
-		t.Errorf("Expected exit code 2, got %d", exitErr.Code)
+	if output.Decision != "block" {
+		t.Errorf("Expected decision 'block' for failing command, got %q", output.Decision)
 	}
 }
 
@@ -909,9 +911,18 @@ func TestExecuteStopHooks(t *testing.T) {
 	config := &Config{}
 	input := &StopInput{}
 
-	err := executeStopHooks(config, input, nil)
+	output, err := executeStopHooks(config, input, nil)
 	if err != nil {
 		t.Errorf("executeStopHooks() error = %v, expected nil", err)
+	}
+	if output == nil {
+		t.Fatal("Expected output, got nil")
+	}
+	if !output.Continue {
+		t.Error("Expected Continue=true")
+	}
+	if output.Decision != "" {
+		t.Errorf("Expected empty decision, got %q", output.Decision)
 	}
 }
 
@@ -3027,5 +3038,249 @@ func TestExecutePermissionRequestHooks_DenyEarlyReturn(t *testing.T) {
 	}
 	if strings.Contains(output.Message, "This script should not have been executed") {
 		t.Errorf("Message should NOT contain second action message (early return), got %q", output.Message)
+	}
+}
+
+// TestExecuteStopHooksJSON tests the executeStopHooks function with JSON output
+// (new signature returning (*StopOutput, error)).
+// Stop uses top-level decision pattern (no hookSpecificOutput).
+func TestExecuteStopHooksJSON(t *testing.T) {
+	tests := []struct {
+		name              string
+		config            *Config
+		input             *StopInput
+		rawJSON           interface{}
+		wantContinue      bool
+		wantDecision      string
+		wantReason        string
+		wantSystemMessage string
+		wantErr           bool
+		wantErrContains   string
+	}{
+		{
+			name:         "1. No hooks configured - allow stop",
+			config:       &Config{},
+			input:        &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
+			rawJSON:      map[string]interface{}{},
+			wantContinue: true,
+			wantDecision: "",
+			wantErr:      false,
+		},
+		{
+			name: "2. Output action with decision block",
+			config: &Config{
+				Stop: []StopHook{
+					{
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "Stop is blocked",
+								Decision: stringPtr("block"),
+								Reason:   stringPtr("Not safe to stop"),
+							},
+						},
+					},
+				},
+			},
+			input:             &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantReason:        "Not safe to stop",
+			wantSystemMessage: "Stop is blocked",
+			wantErr:           false,
+		},
+		{
+			name: "3. Output action with explicit allow (decision empty string)",
+			config: &Config{
+				Stop: []StopHook{
+					{
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "Stop allowed",
+								Decision: stringPtr(""),
+							},
+						},
+					},
+				},
+			},
+			input:             &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantDecision:      "",
+			wantReason:        "",
+			wantSystemMessage: "Stop allowed",
+			wantErr:           false,
+		},
+		{
+			name: "4. Output action without decision (defaults to allow)",
+			config: &Config{
+				Stop: []StopHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Default allow message",
+							},
+						},
+					},
+				},
+			},
+			input:             &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantDecision:      "",
+			wantReason:        "",
+			wantSystemMessage: "Default allow message",
+			wantErr:           false,
+		},
+		{
+			name: "5. Multiple actions - decision last wins (allow then block)",
+			config: &Config{
+				Stop: []StopHook{
+					{
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "First allows",
+								Decision: stringPtr(""),
+							},
+							{
+								Type:     "output",
+								Message:  "Second blocks",
+								Decision: stringPtr("block"),
+								Reason:   stringPtr("Second reason"),
+							},
+						},
+					},
+				},
+			},
+			input:             &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantReason:        "Second reason",
+			wantSystemMessage: "First allows\nSecond blocks",
+			wantErr:           false,
+		},
+		{
+			name: "6. Early return on decision block",
+			config: &Config{
+				Stop: []StopHook{
+					{
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "Block stop",
+								Decision: stringPtr("block"),
+								Reason:   stringPtr("Blocked reason"),
+							},
+							{
+								Type:     "output",
+								Message:  "Should not execute",
+								Decision: stringPtr(""),
+							},
+						},
+					},
+				},
+			},
+			input:             &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantReason:        "Blocked reason",
+			wantSystemMessage: "Block stop",
+			wantErr:           false,
+		},
+		{
+			name: "7. SystemMessage concatenation with newline",
+			config: &Config{
+				Stop: []StopHook{
+					{
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "First system msg",
+								Decision: stringPtr(""),
+							},
+							{
+								Type:     "output",
+								Message:  "Second system msg",
+								Decision: stringPtr(""),
+							},
+						},
+					},
+				},
+			},
+			input:             &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantDecision:      "",
+			wantReason:        "",
+			wantSystemMessage: "First system msg\nSecond system msg",
+			wantErr:           false,
+		},
+		{
+			name: "8. Action error - fail-safe block",
+			config: &Config{
+				Stop: []StopHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "", // Empty message triggers error in ExecuteStopAction
+							},
+						},
+					},
+				},
+			},
+			input:        &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
+			rawJSON:      map[string]interface{}{},
+			wantContinue: true,
+			wantDecision: "block",
+			wantErr:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output, err := executeStopHooks(tt.config, tt.input, tt.rawJSON)
+
+			// Error check
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("Expected error, got nil")
+				}
+				if tt.wantErrContains != "" && !strings.Contains(err.Error(), tt.wantErrContains) {
+					t.Errorf("Expected error containing %q, got: %v", tt.wantErrContains, err)
+				}
+			}
+
+			// Output should always be non-nil
+			if output == nil {
+				t.Fatal("Expected output, got nil")
+			}
+
+			// Continue is always true for Stop
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			// Decision check
+			if output.Decision != tt.wantDecision {
+				t.Errorf("Decision = %q, want %q", output.Decision, tt.wantDecision)
+			}
+
+			// Reason check
+			if tt.wantReason != "" && output.Reason != tt.wantReason {
+				t.Errorf("Reason = %q, want %q", output.Reason, tt.wantReason)
+			}
+
+			// SystemMessage check
+			if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+		})
 	}
 }
