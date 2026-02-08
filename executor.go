@@ -44,11 +44,15 @@ func (e *ActionExecutor) ExecuteNotificationAction(action Action, input *Notific
 func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJSON interface{}) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
-		// TODO: Step 5で完全なcommand type実装に置き換え
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := e.runner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			// Stopでコマンドが失敗した場合はdecision: blockで停止をブロック
-			errMsg := fmt.Sprintf("Command failed: %v", err)
+		stdout, stderr, exitCode, err := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
+
+		// Command failed with non-zero exit code
+		if exitCode != 0 {
+			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			if strings.TrimSpace(stderr) == "" && err != nil {
+				errMsg = fmt.Sprintf("Command failed with exit code %d: %v", exitCode, err)
+			}
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
@@ -57,8 +61,64 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 				SystemMessage: errMsg,
 			}, nil
 		}
+
+		// Empty stdout - Allow stop (validation-type CLI tools: silence = OK)
+		if strings.TrimSpace(stdout) == "" {
+			return &ActionOutput{
+				Continue: true,
+				Decision: "", // Allow stop
+			}, nil
+		}
+
+		// Parse JSON output (StopOutput has no hookSpecificOutput)
+		var cmdOutput StopOutput
+		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			errMsg := fmt.Sprintf("Command output is not valid JSON: %s", stdout)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Validate decision field (optional: "block" only, or field must be omitted entirely)
+		decision := cmdOutput.Decision
+		if decision != "" && decision != "block" {
+			errMsg := "Invalid decision value: must be 'block' or field must be omitted entirely"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Validate reason: required when decision is "block"
+		if decision == "block" && cmdOutput.Reason == "" {
+			errMsg := "Missing required field 'reason' when decision is 'block'"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Check for unsupported fields and log warnings to stderr
+		checkUnsupportedFieldsStop(stdout)
+
+		// Build ActionOutput from parsed JSON
 		return &ActionOutput{
-			Continue: true,
+			Continue:       true,
+			Decision:       decision,
+			Reason:         cmdOutput.Reason,
+			StopReason:     cmdOutput.StopReason,
+			SuppressOutput: cmdOutput.SuppressOutput,
+			SystemMessage:  cmdOutput.SystemMessage,
 		}, nil
 
 	case "output":
@@ -694,6 +754,31 @@ func checkUnsupportedFieldsPreToolUse(stdout string) {
 	for field := range data {
 		if !supportedFields[field] {
 			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for PreToolUse hooks\n", field)
+		}
+	}
+}
+
+// checkUnsupportedFieldsStop checks for unsupported fields in Stop JSON output
+// and logs warnings to stderr. Stop uses top-level decision/reason (no hookSpecificOutput).
+func checkUnsupportedFieldsStop(stdout string) {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+		return
+	}
+
+	supportedFields := map[string]bool{
+		"continue":       true,
+		"decision":       true, // Stop specific (top-level)
+		"reason":         true, // Stop specific (top-level)
+		"stopReason":     true,
+		"suppressOutput": true,
+		"systemMessage":  true,
+		// Note: hookSpecificOutput is NOT supported for Stop hooks
+	}
+
+	for field := range data {
+		if !supportedFields[field] {
+			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for Stop hooks\n", field)
 		}
 	}
 }
