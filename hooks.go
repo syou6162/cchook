@@ -680,19 +680,9 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) err
 		}
 
 		for _, action := range hook.Actions {
-			if err := executor.ExecuteStopAction(action, input, rawJSON); err != nil {
-				// Stopフックはブロッキング可能なのでエラーを返す
-				if exitErr, ok := err.(*ExitError); ok {
-					actionErr := &ExitError{
-						Code:    exitErr.Code,
-						Message: fmt.Sprintf("Stop hook %d failed: %s", i, exitErr.Message),
-						Stderr:  exitErr.Stderr,
-					}
-					if len(conditionErrors) > 0 {
-						return errors.Join(append(conditionErrors, actionErr)...)
-					}
-					return actionErr
-				}
+			// TODO: Step 9でJSON出力対応に書き換え予定
+			_, err := executor.ExecuteStopAction(action, input, rawJSON)
+			if err != nil {
 				actionErr := fmt.Errorf("Stop hook %d failed: %w", i, err)
 				if len(conditionErrors) > 0 {
 					return errors.Join(append(conditionErrors, actionErr)...)

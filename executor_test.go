@@ -2167,3 +2167,131 @@ func TestExecutePreToolUseAction_EmptyStdout(t *testing.T) {
 		t.Errorf("Expected nil output (delegate to Claude Code), got: %+v", output)
 	}
 }
+
+// TestExecuteStopAction_TypeOutput tests ExecuteStopAction with type: output
+func TestExecuteStopAction_TypeOutput(t *testing.T) {
+	tests := []struct {
+		name              string
+		action            Action
+		wantDecision      string
+		wantReason        string
+		wantSystemMessage string
+		wantErr           bool
+	}{
+		{
+			name: "Message only (decision unspecified) -> decision=block, reason=processedMessage (backward compat)",
+			action: Action{
+				Type:    "output",
+				Message: "Please continue working",
+			},
+			wantDecision:      "block",
+			wantReason:        "Please continue working",
+			wantSystemMessage: "Please continue working",
+			wantErr:           false,
+		},
+		{
+			name: "decision: block + reason specified -> decision=block, reason=specified value",
+			action: Action{
+				Type:     "output",
+				Message:  "Stop blocked by hook",
+				Decision: stringPtr("block"),
+				Reason:   stringPtr("Tests are still running"),
+			},
+			wantDecision:      "block",
+			wantReason:        "Tests are still running",
+			wantSystemMessage: "Stop blocked by hook",
+			wantErr:           false,
+		},
+		{
+			name: "decision: block + reason unspecified -> decision=block, reason=processedMessage",
+			action: Action{
+				Type:     "output",
+				Message:  "Blocking stop",
+				Decision: stringPtr("block"),
+			},
+			wantDecision:      "block",
+			wantReason:        "Blocking stop",
+			wantSystemMessage: "Blocking stop",
+			wantErr:           false,
+		},
+		{
+			name: "decision: empty string (explicit allow) -> decision empty (allow stop)",
+			action: Action{
+				Type:     "output",
+				Message:  "Stop is allowed",
+				Decision: stringPtr(""),
+			},
+			wantDecision:      "",
+			wantReason:        "",
+			wantSystemMessage: "Stop is allowed",
+			wantErr:           false,
+		},
+		{
+			name: "Invalid decision value -> fail-safe (decision: block)",
+			action: Action{
+				Type:     "output",
+				Message:  "Invalid decision test",
+				Decision: stringPtr("invalid"),
+			},
+			wantDecision:      "block",
+			wantReason:        "Invalid decision test",
+			wantSystemMessage: "Invalid decision value in action config: must be 'block' or field must be omitted",
+			wantErr:           false,
+		},
+		{
+			name: "Empty message -> fail-safe (decision: block, reason=fixed message)",
+			action: Action{
+				Type:    "output",
+				Message: "",
+			},
+			wantDecision:      "block",
+			wantReason:        "Empty message in Stop action",
+			wantSystemMessage: "Empty message in Stop action",
+			wantErr:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := NewActionExecutor(nil)
+			input := &StopInput{
+				BaseInput: BaseInput{
+					SessionID: "test-session-123",
+				},
+				StopHookActive: false,
+			}
+			rawJSON := map[string]interface{}{
+				"session_id":       "test-session-123",
+				"stop_hook_active": false,
+			}
+
+			output, err := executor.ExecuteStopAction(tt.action, input, rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ExecuteStopAction() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if output == nil {
+				t.Fatal("ExecuteStopAction() returned nil output")
+			}
+
+			if output.Decision != tt.wantDecision {
+				t.Errorf("Decision = %q, want %q", output.Decision, tt.wantDecision)
+			}
+
+			if output.Reason != tt.wantReason {
+				t.Errorf("Reason = %q, want %q", output.Reason, tt.wantReason)
+			}
+
+			if output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+
+			// Continue should always be true for Stop
+			if output.Continue != true {
+				t.Errorf("Continue should always be true for Stop, got: %v", output.Continue)
+			}
+		})
+	}
+}

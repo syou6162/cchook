@@ -479,22 +479,23 @@ func TestExecuteStopAction_CommandWithStubRunner(t *testing.T) {
 				Command: tt.command,
 			}
 
-			err := executor.ExecuteStopAction(action, &StopInput{}, map[string]interface{}{})
+			output, err := executor.ExecuteStopAction(action, &StopInput{}, map[string]interface{}{})
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
 			if tt.wantErr {
-				if err == nil {
-					t.Fatal("Expected error, got nil")
+				// New JSON output: command failure returns decision: "block" instead of ExitError
+				if output == nil {
+					t.Fatal("Expected output, got nil")
 				}
-				exitErr, ok := err.(*ExitError)
-				if !ok {
-					t.Fatalf("Expected *ExitError, got %T", err)
-				}
-				if exitErr.Code != tt.wantCode {
-					t.Errorf("Expected exit code %d, got %d", tt.wantCode, exitErr.Code)
+				if output.Decision != "block" {
+					t.Errorf("Expected decision=block for failure, got %q", output.Decision)
 				}
 			} else {
-				if err != nil {
-					t.Errorf("Expected no error, got %v", err)
+				if output == nil {
+					t.Fatal("Expected output, got nil")
 				}
 			}
 		})

@@ -39,19 +39,80 @@ func (e *ActionExecutor) ExecuteNotificationAction(action Action, input *Notific
 }
 
 // ExecuteStopAction executes an action for the Stop event.
-// Command failures result in exit status 2 to block the stop operation.
-func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJSON interface{}) error {
+// Returns ActionOutput for JSON serialization with decision/reason fields.
+// Stop hooks use top-level decision pattern (no hookSpecificOutput).
+func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJSON interface{}) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
+		// TODO: Step 5で完全なcommand type実装に置き換え
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
 		if err := e.runner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			// Stopでコマンドが失敗した場合はexit 2で停止をブロック
-			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
+			// Stopでコマンドが失敗した場合はdecision: blockで停止をブロック
+			errMsg := fmt.Sprintf("Command failed: %v", err)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
 		}
+		return &ActionOutput{
+			Continue: true,
+		}, nil
+
 	case "output":
-		return handleOutput(action.Message, action.ExitStatus, rawJSON)
+		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
+
+		// Empty message check → fail-safe (decision: block)
+		if strings.TrimSpace(processedMessage) == "" {
+			errMsg := "Empty message in Stop action"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Validate action.Decision if set
+		// Default to "block" for backward compatibility (formerly exit status 2)
+		decision := "block"
+		if action.Decision != nil {
+			if *action.Decision != "" && *action.Decision != "block" {
+				errMsg := "Invalid decision value in action config: must be 'block' or field must be omitted"
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+				return &ActionOutput{
+					Continue:      true,
+					Decision:      "block",
+					Reason:        processedMessage,
+					SystemMessage: errMsg,
+				}, nil
+			}
+			decision = *action.Decision
+		}
+
+		// Determine reason
+		reason := processedMessage
+		if action.Reason != nil {
+			reason = *action.Reason
+		}
+
+		// For allow (decision=""), clear reason (not applicable)
+		if decision == "" {
+			reason = ""
+		}
+
+		return &ActionOutput{
+			Continue:      true,
+			Decision:      decision,
+			Reason:        reason,
+			SystemMessage: processedMessage,
+		}, nil
 	}
-	return nil
+
+	return nil, nil
 }
 
 // ExecuteSubagentStopAction executes an action for the SubagentStop event.
