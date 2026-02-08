@@ -245,6 +245,9 @@ func checkCommonCondition(condition Condition, baseInput *BaseInput) (bool, erro
 	case ConditionCwdNotContains:
 		// cwdが特定の文字列を含まない
 		return !strings.Contains(baseInput.Cwd, condition.Value), nil
+	case ConditionPermissionModeIs:
+		// permission_modeが完全一致
+		return baseInput.PermissionMode == condition.Value, nil
 	default:
 		// この関数では汎用条件のみをチェック
 		// 処理できない条件タイプの場合はErrConditionNotHandledを返す

@@ -352,6 +352,7 @@ var (
 	ConditionDirExistsRecursive     = ConditionType{"dir_exists_recursive"}
 	ConditionDirNotExists           = ConditionType{"dir_not_exists"}
 	ConditionDirNotExistsRecursive  = ConditionType{"dir_not_exists_recursive"}
+	ConditionPermissionModeIs       = ConditionType{"permission_mode_is"}
 
 	// Tool-related conditions (PreToolUse/PostToolUse)
 	ConditionFileExtension     = ConditionType{"file_extension"}
@@ -422,6 +423,8 @@ func (c *ConditionType) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		*c = ConditionCwdContains
 	case "cwd_not_contains":
 		*c = ConditionCwdNotContains
+	case "permission_mode_is":
+		*c = ConditionPermissionModeIs
 	default:
 		return fmt.Errorf("invalid condition type: %s", s)
 	}
