@@ -2818,3 +2818,171 @@ func TestExecutePostToolUseAction_TypeOutput(t *testing.T) {
 		})
 	}
 }
+
+func TestExecuteSubagentStopAction_TypeOutput(t *testing.T) {
+	tests := []struct {
+		name               string
+		action             Action
+		wantDecision       string
+		wantReason         string
+		wantSystemMessage  string
+		wantContinue       bool
+		wantStdoutContains string
+		wantStderrContains string
+	}{
+		{
+			name: "message only (decision unspecified) - allow",
+			action: Action{
+				Type:    "output",
+				Message: "SubagentStop allowed",
+			},
+			wantDecision:      "",
+			wantReason:        "",
+			wantSystemMessage: "",
+			wantContinue:      true,
+		},
+		{
+			name: "decision: block with reason specified",
+			action: Action{
+				Type:     "output",
+				Message:  "Blocking subagent stop",
+				Decision: stringPtr("block"),
+				Reason:   stringPtr("Subagent should continue"),
+			},
+			wantDecision:      "block",
+			wantReason:        "Subagent should continue",
+			wantSystemMessage: "",
+			wantContinue:      true,
+		},
+		{
+			name: "decision: block with reason unspecified (use processedMessage)",
+			action: Action{
+				Type:     "output",
+				Message:  "Blocking subagent stop",
+				Decision: stringPtr("block"),
+			},
+			wantDecision:      "block",
+			wantReason:        "Blocking subagent stop",
+			wantSystemMessage: "",
+			wantContinue:      true,
+		},
+		{
+			name: "decision: empty string (explicit allow)",
+			action: Action{
+				Type:     "output",
+				Message:  "Allowing subagent stop",
+				Decision: stringPtr(""),
+			},
+			wantDecision:      "",
+			wantReason:        "",
+			wantSystemMessage: "",
+			wantContinue:      true,
+		},
+		{
+			name: "invalid decision value - fail-safe block",
+			action: Action{
+				Type:     "output",
+				Message:  "Invalid decision",
+				Decision: stringPtr("invalid"),
+			},
+			wantDecision:      "block",
+			wantReason:        "Invalid decision",
+			wantSystemMessage: "",
+			wantContinue:      true,
+		},
+		{
+			name: "empty message - fail-safe block",
+			action: Action{
+				Type:    "output",
+				Message: "",
+			},
+			wantDecision:      "block",
+			wantReason:        "",
+			wantSystemMessage: "",
+			wantContinue:      true,
+		},
+		{
+			name: "decision: block with empty reason (use processedMessage)",
+			action: Action{
+				Type:     "output",
+				Message:  "Blocking with empty reason",
+				Decision: stringPtr("block"),
+				Reason:   stringPtr(""),
+			},
+			wantDecision:      "block",
+			wantReason:        "Blocking with empty reason",
+			wantSystemMessage: "",
+			wantContinue:      true,
+		},
+		{
+			name: "decision: block with whitespace-only reason (use processedMessage)",
+			action: Action{
+				Type:     "output",
+				Message:  "Blocking with whitespace reason",
+				Decision: stringPtr("block"),
+				Reason:   stringPtr("   "),
+			},
+			wantDecision:      "block",
+			wantReason:        "Blocking with whitespace reason",
+			wantSystemMessage: "",
+			wantContinue:      true,
+		},
+		{
+			name: "exit_status set (deprecated, should warn)",
+			action: Action{
+				Type:       "output",
+				Message:    "Using deprecated exit_status",
+				ExitStatus: intPtr(2),
+			},
+			wantDecision:       "",
+			wantReason:         "",
+			wantSystemMessage:  "",
+			wantContinue:       true,
+			wantStderrContains: "exit_status",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := NewActionExecutor(nil)
+			input := &SubagentStopInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session-123",
+					HookEventName: "SubagentStop",
+				},
+				StopHookActive: true,
+			}
+			rawJSON := map[string]interface{}{
+				"session_id":       "test-session-123",
+				"hook_event_name":  "SubagentStop",
+				"stop_hook_active": true,
+			}
+
+			output, err := executor.ExecuteSubagentStopAction(tt.action, input, rawJSON)
+
+			if err != nil {
+				t.Fatalf("ExecuteSubagentStopAction() error = %v", err)
+			}
+
+			if output == nil {
+				t.Fatal("ExecuteSubagentStopAction() returned nil output")
+			}
+
+			if output.Decision != tt.wantDecision {
+				t.Errorf("Decision = %q, want %q", output.Decision, tt.wantDecision)
+			}
+
+			if output.Reason != tt.wantReason {
+				t.Errorf("Reason = %q, want %q", output.Reason, tt.wantReason)
+			}
+
+			if output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+		})
+	}
+}

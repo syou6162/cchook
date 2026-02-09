@@ -201,18 +201,10 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 
 // ExecuteSubagentStopAction executes an action for the SubagentStop event.
 // Command failures result in exit status 2 to block the subagent stop operation.
-func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *SubagentStopInput, rawJSON interface{}) error {
-	switch action.Type {
-	case "command":
-		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := e.runner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			// SubagentStopでコマンドが失敗した場合はexit 2でサブエージェント停止をブロック
-			return NewExitError(2, fmt.Sprintf("Command failed: %v", err), true)
-		}
-	case "output":
-		return handleOutput(action.Message, action.ExitStatus, rawJSON)
-	}
-	return nil
+func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *SubagentStopInput, rawJSON interface{}) (*ActionOutput, error) {
+	// TODO: Implement JSON output support (TDD Red phase)
+	// This is a stub implementation to make tests compile
+	return nil, fmt.Errorf("not implemented yet")
 }
 
 // ExecutePreCompactAction executes an action for the PreCompact event.

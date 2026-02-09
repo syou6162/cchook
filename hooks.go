@@ -926,7 +926,8 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 		}
 
 		for _, action := range hook.Actions {
-			if err := executor.ExecuteSubagentStopAction(action, input, rawJSON); err != nil {
+			_, err := executor.ExecuteSubagentStopAction(action, input, rawJSON)
+			if err != nil {
 				// SubagentStopフックもブロッキング可能なのでエラーを返す
 				if exitErr, ok := err.(*ExitError); ok {
 					actionErr := &ExitError{
