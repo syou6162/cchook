@@ -837,42 +837,8 @@ func TestExecutePostToolUseHooks_ConditionErrorAggregation(t *testing.T) {
 	}
 }
 
-func TestExecuteNotificationHooks_ConditionErrorAggregation(t *testing.T) {
-	// Notificationでは使えない条件タイプを設定
-	config := &Config{
-		Notification: []NotificationHook{
-			{
-				Conditions: []Condition{
-					{Type: ConditionFileExtension, Value: ".go"}, // Notificationでは無効
-				},
-				Actions: []Action{
-					{Type: "output", Message: "test"},
-				},
-			},
-		},
-	}
-
-	input := &NotificationInput{
-		BaseInput: BaseInput{Cwd: "/tmp"},
-		Message:   "test notification",
-	}
-
-	err := executeNotificationHooks(config, input, nil)
-
-	// エラーが返されることを確認
-	if err == nil {
-		t.Fatal("Expected error for invalid condition type, got nil")
-	}
-
-	// エラーメッセージの確認
-	errMsg := err.Error()
-	if !strings.Contains(errMsg, "hook[Notification][0]") {
-		t.Errorf("Expected error message to contain hook identifier, got: %q", errMsg)
-	}
-	if !strings.Contains(errMsg, "unknown condition type") {
-		t.Errorf("Expected error message to contain 'unknown condition type', got: %q", errMsg)
-	}
-}
+// TestExecuteNotification_ConditionErrorAggregation removed - old implementation used executeNotification,
+// new implementation uses executeNotificationHooksJSON with JSON output pattern.
 
 func TestExecutePostToolUseHooks_Integration(t *testing.T) {
 	config := &Config{
@@ -897,15 +863,8 @@ func TestExecutePostToolUseHooks_Integration(t *testing.T) {
 	}
 }
 
-func TestExecuteNotificationHooks(t *testing.T) {
-	config := &Config{}
-	input := &NotificationInput{Message: "test"}
-
-	err := executeNotificationHooks(config, input, nil)
-	if err != nil {
-		t.Errorf("executeNotificationHooks() error = %v, expected nil", err)
-	}
-}
+// TestExecuteNotification removed - old implementation used executeNotification,
+// new implementation uses executeNotificationHooksJSON. See TestExecuteNotificationJSON in hooks_test.go.
 
 func TestExecuteStopHooks(t *testing.T) {
 	config := &Config{}
@@ -3702,6 +3661,165 @@ func TestExecuteSubagentStopHooksJSON(t *testing.T) {
 
 				if output.Reason != tt.wantReason {
 					t.Errorf("Reason = %q, want %q", output.Reason, tt.wantReason)
+				}
+
+				if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
+					t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+				}
+			}
+		})
+	}
+}
+
+func TestExecuteNotificationHooksJSON(t *testing.T) {
+	tests := []struct {
+		name                  string
+		config                *Config
+		input                 *NotificationInput
+		rawJSON               map[string]interface{}
+		wantContinue          bool
+		wantHookEventName     string
+		wantAdditionalContext string
+		wantSystemMessage     string
+		wantErr               bool
+		wantErrContains       string
+	}{
+		{
+			name: "No hooks - continue true",
+			config: &Config{
+				Notification: []NotificationHook{},
+			},
+			input:             &NotificationInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "Notification"}},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantHookEventName: "Notification",
+			wantErr:           false,
+		},
+		{
+			name: "Single action - output type",
+			config: &Config{
+				Notification: []NotificationHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Test notification",
+							},
+						},
+					},
+				},
+			},
+			input:                 &NotificationInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "Notification"}},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantHookEventName:     "Notification",
+			wantAdditionalContext: "Test notification",
+			wantErr:               false,
+		},
+		{
+			name: "Multiple actions - additionalContext concatenated",
+			config: &Config{
+				Notification: []NotificationHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "First message",
+							},
+							{
+								Type:    "output",
+								Message: "Second message",
+							},
+						},
+					},
+				},
+			},
+			input:                 &NotificationInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "Notification"}},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantHookEventName:     "Notification",
+			wantAdditionalContext: "First message\nSecond message",
+			wantErr:               false,
+		},
+		{
+			name: "SystemMessage concatenation",
+			config: &Config{
+				Notification: []NotificationHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Message with system warning",
+							},
+						},
+					},
+				},
+			},
+			input:                 &NotificationInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "Notification"}},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantHookEventName:     "Notification",
+			wantAdditionalContext: "Message with system warning",
+			wantErr:               false,
+		},
+		{
+			name: "Condition error - continue true maintained",
+			config: &Config{
+				Notification: []NotificationHook{
+					{
+						Conditions: []Condition{
+							{
+								Type:  ConditionFileExists,
+								Value: "", // Invalid value
+							},
+						},
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Should not execute",
+							},
+						},
+					},
+				},
+			},
+			input:             &NotificationInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "Notification"}},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantHookEventName: "Notification",
+			wantErr:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output, err := executeNotificationHooksJSON(tt.config, tt.input, tt.rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("executeNotificationHooksJSON() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantErr && tt.wantErrContains != "" && !strings.Contains(err.Error(), tt.wantErrContains) {
+				t.Errorf("error message should contain %q, got %q", tt.wantErrContains, err.Error())
+			}
+
+			if output == nil && !tt.wantErr {
+				t.Fatal("executeNotificationHooksJSON() returned nil output")
+			}
+
+			if output != nil {
+				if output.Continue != tt.wantContinue {
+					t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+				}
+
+				if output.HookSpecificOutput != nil {
+					if output.HookSpecificOutput.HookEventName != tt.wantHookEventName {
+						t.Errorf("HookEventName = %q, want %q", output.HookSpecificOutput.HookEventName, tt.wantHookEventName)
+					}
+
+					if output.HookSpecificOutput.AdditionalContext != tt.wantAdditionalContext {
+						t.Errorf("AdditionalContext = %q, want %q", output.HookSpecificOutput.AdditionalContext, tt.wantAdditionalContext)
+					}
 				}
 
 				if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
