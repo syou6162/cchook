@@ -11,12 +11,6 @@ import (
 // runHooks parses input and executes hooks for the specified event type.
 func runHooks(config *Config, eventType HookEventType) error {
 	switch eventType {
-	case PostToolUse:
-		input, rawJSON, err := parseInput[*PostToolUseInput](eventType)
-		if err != nil {
-			return err
-		}
-		return executePostToolUseHooks(config, input, rawJSON)
 	case PermissionRequest:
 		return RunPermissionRequestHooks(config)
 	case Notification:
@@ -110,18 +104,18 @@ func dryRunHooks(config *Config, eventType HookEventType) error {
 			return err
 		}
 		return dryRunPreToolUseHooks(config, input, rawJSON)
-	case PostToolUse:
-		input, rawJSON, err := parseInput[*PostToolUseInput](eventType)
-		if err != nil {
-			return err
-		}
-		return dryRunPostToolUseHooks(config, input, rawJSON)
 	case PermissionRequest:
 		input, rawJSON, err := parseInput[*PermissionRequestInput](eventType)
 		if err != nil {
 			return err
 		}
 		return dryRunPermissionRequestHooks(config, input, rawJSON)
+	case PostToolUse:
+		input, rawJSON, err := parseInput[*PostToolUseInput](eventType)
+		if err != nil {
+			return err
+		}
+		return dryRunPostToolUseHooks(config, input, rawJSON)
 	case Notification:
 		input, rawJSON, err := parseInput[*NotificationInput](eventType)
 		if err != nil {
@@ -556,51 +550,6 @@ func dryRunUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, r
 
 // executePostToolUseHooks executes all matching PostToolUse hooks based on matcher and condition checks.
 // Collects all condition check errors and returns them aggregated.
-func executePostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON interface{}) error {
-	executor := NewActionExecutor(nil)
-	var conditionErrors []error
-
-	for i, hook := range config.PostToolUse {
-		shouldExecute, err := shouldExecutePostToolUseHook(hook, input)
-		if err != nil {
-			// プロセス置換検出の場合は警告をstderrに出力
-			if errors.Is(err, ErrProcessSubstitutionDetected) {
-				fmt.Fprintln(os.Stderr, "⚠️ プロセス置換 (<() または >()) が検出されました。")
-				fmt.Fprintln(os.Stderr, "この構文はサポートされていません。一時ファイルを使用するなど、プロセス置換を使わない方法で実行してください。")
-				continue
-			}
-			conditionErrors = append(conditionErrors,
-				fmt.Errorf("hook[PostToolUse][%d]: %w", i, err))
-			continue
-		}
-		if shouldExecute {
-			if err := executePostToolUseHook(executor, hook, input, rawJSON); err != nil {
-				if exitErr, ok := err.(*ExitError); ok {
-					actionErr := &ExitError{
-						Code:    exitErr.Code,
-						Message: fmt.Sprintf("PostToolUse hook %d failed: %s", i, exitErr.Message),
-						Stderr:  exitErr.Stderr,
-					}
-					if len(conditionErrors) > 0 {
-						return errors.Join(append(conditionErrors, actionErr)...)
-					}
-					return actionErr
-				}
-				actionErr := fmt.Errorf("PostToolUse hook %d failed: %w", i, err)
-				if len(conditionErrors) > 0 {
-					return errors.Join(append(conditionErrors, actionErr)...)
-				}
-				return actionErr
-			}
-		}
-	}
-
-	if len(conditionErrors) > 0 {
-		return errors.Join(conditionErrors...)
-	}
-	return nil
-}
-
 // executeNotificationHooks executes all matching Notification hooks based on condition checks.
 func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON interface{}) error {
 	executor := NewActionExecutor(nil)
@@ -774,6 +723,162 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) (*S
 	return finalOutput, nil
 }
 
+// executePostToolUseHooksJSON executes all matching PostToolUse hooks and returns JSON output.
+// Implements merging rules for multiple hook outputs.
+func executePostToolUseHooksJSON(config *Config, input *PostToolUseInput, rawJSON interface{}) (*PostToolUseOutput, error) {
+	executor := NewActionExecutor(nil)
+	var conditionErrors []error
+	var actionErrors []error
+
+	// Initialize finalOutput: Continue always true, Decision "" (allow tool result)
+	finalOutput := &PostToolUseOutput{
+		Continue: true,
+		Decision: "",
+	}
+
+	var systemMessageBuilder strings.Builder
+	var additionalContextBuilder strings.Builder
+	var hookEventName string
+
+	for i, hook := range config.PostToolUse {
+		// マッチャーチェック
+		if !checkMatcher(hook.Matcher, input.ToolName) {
+			continue
+		}
+
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			matched, err := checkPostToolUseCondition(condition, input)
+			if err != nil {
+				// プロセス置換検出の場合は警告をstderrに出力してフック継続
+				if errors.Is(err, ErrProcessSubstitutionDetected) {
+					fmt.Fprintln(os.Stderr, "⚠️ プロセス置換 (<() または >()) が検出されました。")
+					fmt.Fprintln(os.Stderr, "この構文はサポートされていません。一時ファイルを使用するなど、プロセス置換を使わない方法で実行してください。")
+					shouldExecute = false
+					break
+				}
+				conditionErrors = append(conditionErrors,
+					fmt.Errorf("hook[PostToolUse][%d]: %w", i, err))
+				shouldExecute = false
+				break
+			}
+			if !matched {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+
+		for _, action := range hook.Actions {
+			actionOutput, err := executor.ExecutePostToolUseAction(action, input, rawJSON)
+			if err != nil {
+				actionErrors = append(actionErrors, fmt.Errorf("PostToolUse hook %d action failed: %w", i, err))
+				continue
+			}
+
+			if actionOutput == nil {
+				continue
+			}
+
+			// Decision: 後勝ち。decision変更時はReasonリセット
+			prevDecision := finalOutput.Decision
+			finalOutput.Decision = actionOutput.Decision
+
+			// Reason: decision変更時はリセット、同一decision内では改行連結
+			if actionOutput.Decision != prevDecision {
+				finalOutput.Reason = actionOutput.Reason
+			} else if actionOutput.Reason != "" {
+				if finalOutput.Reason != "" {
+					finalOutput.Reason += "\n" + actionOutput.Reason
+				} else {
+					finalOutput.Reason = actionOutput.Reason
+				}
+			}
+
+			// SystemMessage: 改行連結
+			if actionOutput.SystemMessage != "" {
+				if systemMessageBuilder.Len() > 0 {
+					systemMessageBuilder.WriteString("\n")
+				}
+				systemMessageBuilder.WriteString(actionOutput.SystemMessage)
+			}
+
+			// HookEventName: 初回設定のみ（set once）
+			if hookEventName == "" && actionOutput.HookEventName != "" {
+				hookEventName = actionOutput.HookEventName
+			}
+
+			// AdditionalContext: 改行連結
+			if actionOutput.AdditionalContext != "" {
+				if additionalContextBuilder.Len() > 0 {
+					additionalContextBuilder.WriteString("\n")
+				}
+				additionalContextBuilder.WriteString(actionOutput.AdditionalContext)
+			}
+
+			// StopReason: 最後の非空値が勝ち
+			if actionOutput.StopReason != "" {
+				finalOutput.StopReason = actionOutput.StopReason
+			}
+
+			// SuppressOutput: 最後の値が勝ち
+			finalOutput.SuppressOutput = actionOutput.SuppressOutput
+
+		}
+
+	}
+
+	finalOutput.SystemMessage = systemMessageBuilder.String()
+
+	// HookSpecificOutputの構築（hookEventNameまたはadditionalContextがある場合のみ）
+	additionalContext := additionalContextBuilder.String()
+	if hookEventName != "" || additionalContext != "" {
+		finalOutput.HookSpecificOutput = &PostToolUseHookSpecificOutput{
+			HookEventName:     hookEventName,
+			AdditionalContext: additionalContext,
+		}
+	}
+
+	// Collect all errors
+	var allErrors []error
+	allErrors = append(allErrors, conditionErrors...)
+
+	// Fail-safe: conditionErrorsまたはactionErrorsのいずれかがあればdecision="block"
+	// PermissionRequestパターン（L1720-1728）踏襲
+	if len(conditionErrors) > 0 || len(actionErrors) > 0 {
+		finalOutput.Decision = "block"
+
+		var errorMsg string
+		if len(conditionErrors) > 0 && len(actionErrors) > 0 {
+			errorMsg = errors.Join(append(conditionErrors, actionErrors...)...).Error()
+		} else if len(conditionErrors) > 0 {
+			errorMsg = errors.Join(conditionErrors...).Error()
+		} else {
+			errorMsg = errors.Join(actionErrors...).Error()
+		}
+
+		if finalOutput.Reason == "" {
+			finalOutput.Reason = errorMsg
+		}
+		if finalOutput.SystemMessage != "" {
+			finalOutput.SystemMessage += "\n" + errorMsg
+		} else {
+			finalOutput.SystemMessage = errorMsg
+		}
+
+		allErrors = append(allErrors, actionErrors...)
+	}
+
+	if len(allErrors) > 0 {
+		return finalOutput, errors.Join(allErrors...)
+	}
+
+	return finalOutput, nil
+}
+
 // RunStopHooks parses input from stdin and executes Stop hooks.
 // Returns StopOutput for JSON serialization.
 func RunStopHooks(config *Config) (*StopOutput, error) {
@@ -782,6 +887,16 @@ func RunStopHooks(config *Config) (*StopOutput, error) {
 		return nil, err
 	}
 	return executeStopHooks(config, input, rawJSON)
+}
+
+// RunPostToolUseHooks parses input from stdin and executes PostToolUse hooks.
+// Returns PostToolUseOutput for JSON serialization.
+func RunPostToolUseHooks(config *Config) (*PostToolUseOutput, error) {
+	input, rawJSON, err := parseInput[*PostToolUseInput](PostToolUse)
+	if err != nil {
+		return nil, err
+	}
+	return executePostToolUseHooksJSON(config, input, rawJSON)
 }
 
 // executeSubagentStopHooks executes all matching SubagentStop hooks based on condition checks.
@@ -1462,14 +1577,8 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 }
 
 // executePostToolUseHook executes all actions for a single PostToolUse hook.
-func executePostToolUseHook(executor *ActionExecutor, hook PostToolUseHook, input *PostToolUseInput, rawJSON interface{}) error {
-	for _, action := range hook.Actions {
-		if err := executor.ExecutePostToolUseAction(action, input, rawJSON); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// Note: This is a temporary implementation for compatibility.
+// Will be replaced with executePostToolUseHooksJSON in Step 4.
 
 // executeSessionEndHooks executes all matching SessionEnd hooks based on condition checks.
 // Returns errors to inform users of failures, though session end cannot be blocked.

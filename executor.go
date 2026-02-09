@@ -671,19 +671,196 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 	return nil, nil
 }
 
-// ExecutePostToolUseAction executes an action for the PostToolUse event.
+// ExecutePostToolUseAction executes an action for the PostToolUse event with JSON output format.
 // Supports command execution and output actions.
-func (e *ActionExecutor) ExecutePostToolUseAction(action Action, input *PostToolUseInput, rawJSON interface{}) error {
+// Returns (*ActionOutput, error) following the new JSON output pattern.
+func (e *ActionExecutor) ExecutePostToolUseAction(action Action, input *PostToolUseInput, rawJSON interface{}) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := e.runner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			return err
+		stdout, stderr, exitCode, err := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
+
+		// Command failed with non-zero exit code
+		if exitCode != 0 {
+			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			if strings.TrimSpace(stderr) == "" && err != nil {
+				errMsg = fmt.Sprintf("Command failed with exit code %d: %v", exitCode, err)
+			}
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+				HookEventName: "PostToolUse",
+			}, nil
 		}
+
+		// Empty stdout - Allow tool result (validation-type CLI tools: silence = OK)
+		if strings.TrimSpace(stdout) == "" {
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "", // Allow tool result
+				HookEventName: "PostToolUse",
+			}, nil
+		}
+
+		// Parse JSON output (PostToolUseOutput with hookSpecificOutput)
+		var cmdOutput PostToolUseOutput
+		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			errMsg := fmt.Sprintf("Command output is not valid JSON: %s", stdout)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+				HookEventName: "PostToolUse",
+			}, nil
+		}
+
+		// Validate decision field (optional: "block" only, or field must be omitted entirely)
+		decision := cmdOutput.Decision
+		if decision != "" && decision != "block" {
+			errMsg := "Invalid decision value: must be 'block' or field must be omitted entirely"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+				HookEventName: "PostToolUse",
+			}, nil
+		}
+
+		// Validate reason: required when decision is "block"
+		if decision == "block" && cmdOutput.Reason == "" {
+			errMsg := "Missing required field 'reason' when decision is 'block'"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+				HookEventName: "PostToolUse",
+			}, nil
+		}
+
+		// Validate hookSpecificOutput if present
+		hookEventName := "PostToolUse"
+		additionalContext := ""
+		if cmdOutput.HookSpecificOutput != nil {
+			if cmdOutput.HookSpecificOutput.HookEventName != "PostToolUse" {
+				errMsg := fmt.Sprintf("Invalid hookEventName: expected 'PostToolUse', got '%s'", cmdOutput.HookSpecificOutput.HookEventName)
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+				return &ActionOutput{
+					Continue:      true,
+					Decision:      "block",
+					Reason:        errMsg,
+					SystemMessage: errMsg,
+					HookEventName: "PostToolUse",
+				}, nil
+			}
+			additionalContext = cmdOutput.HookSpecificOutput.AdditionalContext
+		}
+
+		// Check for unsupported fields and log warnings to stderr
+		checkUnsupportedFieldsPostToolUse(stdout)
+
+		// Build ActionOutput from parsed JSON
+		return &ActionOutput{
+			Continue:          true,
+			Decision:          decision,
+			Reason:            cmdOutput.Reason,
+			StopReason:        cmdOutput.StopReason,
+			SuppressOutput:    cmdOutput.SuppressOutput,
+			SystemMessage:     cmdOutput.SystemMessage,
+			HookEventName:     hookEventName,
+			AdditionalContext: additionalContext,
+		}, nil
+
 	case "output":
-		return handleOutput(action.Message, action.ExitStatus, rawJSON)
+		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
+
+		// Empty message check → fail-safe (decision: block)
+		if strings.TrimSpace(processedMessage) == "" {
+			errMsg := "Empty message in PostToolUse action"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+				HookEventName: "PostToolUse",
+			}, nil
+		}
+
+		// Warn if exit_status is set (deprecated for PostToolUse in JSON mode)
+		if action.ExitStatus != nil {
+			fmt.Fprintf(os.Stderr, "Warning: exit_status field is deprecated for PostToolUse hooks and will be ignored. Use 'decision' field instead.\n")
+		}
+
+		// Validate action.Decision if set
+		// Default to "" (allow tool result)
+		decision := ""
+		if action.Decision != nil {
+			if *action.Decision != "" && *action.Decision != "block" {
+				errMsg := "Invalid decision value in action config: must be 'block' or field must be omitted"
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+				return &ActionOutput{
+					Continue:      true,
+					Decision:      "block",
+					Reason:        processedMessage,
+					SystemMessage: errMsg,
+					HookEventName: "PostToolUse",
+				}, nil
+			}
+			decision = *action.Decision
+		}
+
+		// Determine reason with template expansion
+		reason := processedMessage
+		if action.Reason != nil {
+			// Apply template expansion to reason
+			reasonValue := unifiedTemplateReplace(*action.Reason, rawJSON)
+			// Empty/whitespace reason with "block" decision should fallback to processedMessage
+			if strings.TrimSpace(reasonValue) == "" && decision == "block" {
+				reason = processedMessage
+			} else {
+				reason = reasonValue
+			}
+		}
+
+		// For allow (decision=""), clear reason (not applicable)
+		if decision == "" {
+			reason = ""
+		}
+
+		// Final validation: decision "block" requires non-empty reason
+		if decision == "block" && strings.TrimSpace(reason) == "" {
+			errMsg := "Empty reason when decision is 'block' (reason is required for block)"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+				HookEventName: "PostToolUse",
+			}, nil
+		}
+
+		// PostToolUse: message maps to AdditionalContext only (not SystemMessage)
+		// SystemMessage is only for errors (as per design pattern L21-25 in dev diary)
+		return &ActionOutput{
+			Continue:          true,
+			Decision:          decision,
+			Reason:            reason,
+			HookEventName:     "PostToolUse",
+			AdditionalContext: processedMessage,
+		}, nil
 	}
-	return nil
+
+	return nil, nil
 }
 
 // ExecuteSessionEndAction executes an action for the SessionEnd event.
@@ -803,6 +980,35 @@ func checkUnsupportedFieldsStop(stdout string) {
 	for field := range data {
 		if !supportedFields[field] {
 			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for Stop hooks\n", field)
+		}
+	}
+}
+
+// checkUnsupportedFieldsPostToolUse checks for unsupported fields in PostToolUse hook output
+func checkUnsupportedFieldsPostToolUse(stdout string) {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+		return
+	}
+
+	supportedFields := map[string]bool{
+		"continue":           true,
+		"decision":           true, // PostToolUse specific (top-level)
+		"reason":             true, // PostToolUse specific (top-level)
+		"stopReason":         true,
+		"suppressOutput":     true,
+		"systemMessage":      true,
+		"hookSpecificOutput": true, // PostToolUse supports hookSpecificOutput
+		// Note: updatedMCPToolOutput is NOT supported (MCP tools only)
+	}
+
+	for field := range data {
+		if !supportedFields[field] {
+			if field == "updatedMCPToolOutput" {
+				fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for PostToolUse hooks in cchook (MCP tools only)\n", field)
+			} else {
+				fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for PostToolUse hooks\n", field)
+			}
 		}
 	}
 }

@@ -258,6 +258,21 @@ PostToolUse:
         command: "pre-commit run --files {.tool_input.file_path}"
 ```
 
+Warn about sensitive file modifications:
+
+```yaml
+PostToolUse:
+  - matcher: "Write|Edit"
+    conditions:
+      - type: file_extension
+        value: ".env"
+    actions:
+      - type: output
+        message: "Consider adding .env to .gitignore"
+        decision: "block"
+        reason: "Sensitive file modified - verify .gitignore configuration"
+```
+
 Conditional processing based on project type:
 
 ```yaml
@@ -617,13 +632,13 @@ All conditions return proper error messages for unknown condition types, ensurin
 
 ### Exit Status Control
 
-**JSON Output Events** (SessionStart, UserPromptSubmit, PreToolUse, Stop):
+**JSON Output Events** (SessionStart, UserPromptSubmit, PreToolUse, Stop, PostToolUse):
 - Always exit with code 0
 - Control behavior via JSON fields (`decision`, `permissionDecision`, etc.)
 - Errors logged to stderr as warnings
 - See CLAUDE.md for detailed JSON output format
 
-**Legacy Exit Code Events** (PostToolUse, SubagentStop, Notification, PreCompact, SessionEnd):
+**Legacy Exit Code Events** (SubagentStop, Notification, PreCompact, SessionEnd):
 - 0
   - Success, allow execution, output to stdout
 - 2
