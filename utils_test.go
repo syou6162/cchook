@@ -2543,3 +2543,86 @@ func TestValidatePostToolUseOutput(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateSessionEndOutput(t *testing.T) {
+	tests := []struct {
+		name      string
+		jsonData  string
+		wantError bool
+		errorMsg  string
+	}{
+		{
+			name: "Valid output with all fields",
+			jsonData: `{
+				"continue": true,
+				"stopReason": "session cleanup complete",
+				"suppressOutput": false,
+				"systemMessage": "Session ended successfully"
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Valid output with minimal fields (continue only)",
+			jsonData: `{
+				"continue": true
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Valid output with systemMessage only",
+			jsonData: `{
+				"continue": true,
+				"systemMessage": "Cleanup completed"
+			}`,
+			wantError: false,
+		},
+		{
+			name:      "Valid empty output (all fields optional)",
+			jsonData:  `{}`,
+			wantError: false,
+		},
+		{
+			name: "Valid output with additional fields (additionalProperties: true)",
+			jsonData: `{
+				"continue": true,
+				"customField": "custom value"
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Invalid JSON syntax",
+			jsonData: `{
+				"continue": true,
+				"systemMessage": "missing closing brace"
+			`,
+			wantError: true,
+			errorMsg:  "EOF",
+		},
+		{
+			name: "Invalid field type (continue as string)",
+			jsonData: `{
+				"continue": "true"
+			}`,
+			wantError: true,
+			errorMsg:  "continue",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateSessionEndOutput([]byte(tt.jsonData))
+
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("Expected validation error containing %q, got nil", tt.errorMsg)
+				} else if !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("Expected error containing %q, got: %s", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %s", err.Error())
+				}
+			}
+		})
+	}
+}
