@@ -11,12 +11,6 @@ import (
 // runHooks parses input and executes hooks for the specified event type.
 func runHooks(config *Config, eventType HookEventType) error {
 	switch eventType {
-	case PostToolUse:
-		input, rawJSON, err := parseInput[*PostToolUseInput](eventType)
-		if err != nil {
-			return err
-		}
-		return executePostToolUseHooks(config, input, rawJSON)
 	case PermissionRequest:
 		return RunPermissionRequestHooks(config)
 	case Notification:
