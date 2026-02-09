@@ -2301,6 +2301,79 @@ func TestCheckPreCompactCondition(t *testing.T) {
 	}
 }
 
+func TestValidateSubagentStopOutput(t *testing.T) {
+	tests := []struct {
+		name      string
+		jsonData  string
+		wantError bool
+		errorMsg  string
+	}{
+		{
+			name: "Valid output with decision: block + reason",
+			jsonData: `{
+				"continue": true,
+				"decision": "block",
+				"reason": "Tests are still running",
+				"systemMessage": "SubagentStop blocked"
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Valid output with decision omitted (allow stop)",
+			jsonData: `{
+				"continue": true,
+				"systemMessage": "SubagentStop allowed"
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Invalid decision value",
+			jsonData: `{
+				"continue": true,
+				"decision": "invalid",
+				"reason": "test"
+			}`,
+			wantError: true,
+			errorMsg:  "decision",
+		},
+		{
+			name: "decision: block + reason missing -> semantic validation failure",
+			jsonData: `{
+				"continue": true,
+				"decision": "block"
+			}`,
+			wantError: true,
+			errorMsg:  "reason",
+		},
+		{
+			name: "decision omitted + reason present -> valid (reason is optional)",
+			jsonData: `{
+				"continue": true,
+				"reason": "informational reason"
+			}`,
+			wantError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateSubagentStopOutput([]byte(tt.jsonData))
+
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("Expected validation error containing %q, got nil", tt.errorMsg)
+				} else if !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("Expected error containing %q, got: %s", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %s", err.Error())
+				}
+			}
+		})
+	}
+}
+
 func TestValidateStopOutput(t *testing.T) {
 	tests := []struct {
 		name      string

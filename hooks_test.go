@@ -756,23 +756,27 @@ func TestExecuteSubagentStopHook_FailingCommandReturnsExit2(t *testing.T) {
 		},
 	}
 
-	err := executeSubagentStopHooks(config, input, nil)
+	output, err := executeSubagentStopHooks(config, input, nil)
 
-	// ExitError型でexit code 2であることを確認
-	if err == nil {
-		t.Fatal("Expected error for failing command, got nil")
+	// JSON対応後は、コマンド失敗時もerrorではなくdecision="block"のOutputを返す
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
 	}
 
-	exitErr, ok := err.(*ExitError)
-	if !ok {
-		t.Fatalf("Expected ExitError, got %T", err)
+	if output == nil {
+		t.Fatal("Expected output, got nil")
 	}
 
-	if exitErr.Code != 2 {
-		t.Errorf("Expected exit code 2, got %d", exitErr.Code)
+	// Fail-safe: decision should be "block"
+	if output.Decision != "block" {
+		t.Errorf("Expected decision 'block', got %q", output.Decision)
+	}
+
+	// Continue should always be true for SubagentStop
+	if output.Continue != true {
+		t.Errorf("Expected continue true, got %v", output.Continue)
 	}
 }
-
 
 func TestExecutePostToolUseHooks_ConditionErrorAggregation(t *testing.T) {
 	// 複数の無効な条件タイプを含む設定
@@ -886,9 +890,9 @@ func TestExecutePostToolUseHooks_Integration(t *testing.T) {
 
 	output, err := executePostToolUseHooksJSON(config, input, nil)
 	if err != nil {
-	if output == nil {
-		t.Fatal("Expected output, got nil")
-	}
+		if output == nil {
+			t.Fatal("Expected output, got nil")
+		}
 		t.Errorf("executePostToolUseHooks() error = %v", err)
 	}
 }
@@ -926,9 +930,22 @@ func TestExecuteSubagentStopHooks(t *testing.T) {
 	config := &Config{}
 	input := &SubagentStopInput{}
 
-	err := executeSubagentStopHooks(config, input, nil)
+	output, err := executeSubagentStopHooks(config, input, nil)
 	if err != nil {
 		t.Errorf("executeSubagentStopHooks() error = %v, expected nil", err)
+	}
+
+	// JSON対応後は、空のconfigでもOutputを返す（decision=""でallow）
+	if output == nil {
+		t.Fatal("Expected output, got nil")
+	}
+
+	if output.Decision != "" {
+		t.Errorf("Expected decision empty (allow), got %q", output.Decision)
+	}
+
+	if output.Continue != true {
+		t.Errorf("Expected continue true, got %v", output.Continue)
 	}
 }
 
@@ -2490,7 +2507,6 @@ func TestExecutePostToolUseHooks_ProcessSubstitution(t *testing.T) {
 	_, _ = io.Copy(&buf, r)
 	stderrOutput := buf.String()
 
-
 	if output == nil {
 		t.Fatal("Expected output, got nil")
 	}
@@ -3442,18 +3458,255 @@ func TestExecutePostToolUseHooksJSON(t *testing.T) {
 				t.Errorf("Reason = %q, want %q", output.Reason, tt.wantReason)
 			}
 
-
-		// AdditionalContextはHookSpecificOutput経由でアクセス
-		gotAdditionalContext := ""
-		if output.HookSpecificOutput != nil {
-			gotAdditionalContext = output.HookSpecificOutput.AdditionalContext
-		}
-		if gotAdditionalContext != tt.wantAdditionalContext {
-			t.Errorf("HookSpecificOutput.AdditionalContext = %q, want %q", gotAdditionalContext, tt.wantAdditionalContext)
-		}
+			// AdditionalContextはHookSpecificOutput経由でアクセス
+			gotAdditionalContext := ""
+			if output.HookSpecificOutput != nil {
+				gotAdditionalContext = output.HookSpecificOutput.AdditionalContext
+			}
+			if gotAdditionalContext != tt.wantAdditionalContext {
+				t.Errorf("HookSpecificOutput.AdditionalContext = %q, want %q", gotAdditionalContext, tt.wantAdditionalContext)
+			}
 
 			if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
 				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+		})
+	}
+}
+
+func TestExecuteSubagentStopHooksJSON(t *testing.T) {
+	tests := []struct {
+		name              string
+		config            *Config
+		input             *SubagentStopInput
+		rawJSON           interface{}
+		wantContinue      bool
+		wantDecision      string
+		wantReason        string
+		wantSystemMessage string
+		wantErr           bool
+		wantErrContains   string
+	}{
+		{
+			name:         "1. No hooks configured - allow subagent stop",
+			config:       &Config{},
+			input:        &SubagentStopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SubagentStop}},
+			rawJSON:      map[string]interface{}{},
+			wantContinue: true,
+			wantDecision: "",
+			wantErr:      false,
+		},
+		{
+			name: "2. Output action with decision block",
+			config: &Config{
+				SubagentStop: []SubagentStopHook{
+					{
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "SubagentStop is blocked",
+								Decision: stringPtr("block"),
+								Reason:   stringPtr("Not safe to stop subagent"),
+							},
+						},
+					},
+				},
+			},
+			input:             &SubagentStopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SubagentStop}},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantReason:        "Not safe to stop subagent",
+			wantSystemMessage: "SubagentStop is blocked",
+			wantErr:           false,
+		},
+		{
+			name: "3. Output action with explicit allow (decision empty string)",
+			config: &Config{
+				SubagentStop: []SubagentStopHook{
+					{
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "SubagentStop allowed",
+								Decision: stringPtr(""),
+							},
+						},
+					},
+				},
+			},
+			input:             &SubagentStopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SubagentStop}},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantDecision:      "",
+			wantReason:        "",
+			wantSystemMessage: "SubagentStop allowed",
+			wantErr:           false,
+		},
+		{
+			name: "4. Output action without decision (defaults to allow)",
+			config: &Config{
+				SubagentStop: []SubagentStopHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Default allow message",
+							},
+						},
+					},
+				},
+			},
+			input:             &SubagentStopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SubagentStop}},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantDecision:      "",
+			wantReason:        "",
+			wantSystemMessage: "Default allow message",
+			wantErr:           false,
+		},
+		{
+			name: "5. Multiple actions - decision last wins (allow then block)",
+			config: &Config{
+				SubagentStop: []SubagentStopHook{
+					{
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "First allows",
+								Decision: stringPtr(""),
+							},
+							{
+								Type:     "output",
+								Message:  "Second blocks",
+								Decision: stringPtr("block"),
+								Reason:   stringPtr("Second reason"),
+							},
+						},
+					},
+				},
+			},
+			input:             &SubagentStopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SubagentStop}},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantReason:        "Second reason",
+			wantSystemMessage: "First allows\nSecond blocks",
+			wantErr:           false,
+		},
+		{
+			name: "6. Early return on decision block",
+			config: &Config{
+				SubagentStop: []SubagentStopHook{
+					{
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "Block subagent stop",
+								Decision: stringPtr("block"),
+								Reason:   stringPtr("Blocked reason"),
+							},
+							{
+								Type:     "output",
+								Message:  "Should not execute",
+								Decision: stringPtr(""),
+							},
+						},
+					},
+				},
+			},
+			input:             &SubagentStopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SubagentStop}},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantReason:        "Blocked reason",
+			wantSystemMessage: "Block subagent stop",
+			wantErr:           false,
+		},
+		{
+			name: "7. SystemMessage concatenation with newline",
+			config: &Config{
+				SubagentStop: []SubagentStopHook{
+					{
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "First system msg",
+								Decision: stringPtr(""),
+							},
+							{
+								Type:     "output",
+								Message:  "Second system msg",
+								Decision: stringPtr(""),
+							},
+						},
+					},
+				},
+			},
+			input:             &SubagentStopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SubagentStop}},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantDecision:      "",
+			wantReason:        "",
+			wantSystemMessage: "First system msg\nSecond system msg",
+			wantErr:           false,
+		},
+		{
+			name: "8. Action error - fail-safe block",
+			config: &Config{
+				SubagentStop: []SubagentStopHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "", // Empty message triggers error in ExecuteSubagentStopAction
+							},
+						},
+					},
+				},
+			},
+			input:        &SubagentStopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SubagentStop}},
+			rawJSON:      map[string]interface{}{},
+			wantContinue: true,
+			wantDecision: "block",
+			wantReason:   "Empty message in SubagentStop action",
+			wantErr:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output, err := executeSubagentStopHooks(tt.config, tt.input, tt.rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("executeSubagentStopHooks() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantErr && tt.wantErrContains != "" && !strings.Contains(err.Error(), tt.wantErrContains) {
+				t.Errorf("error message should contain %q, got %q", tt.wantErrContains, err.Error())
+			}
+
+			if output == nil && !tt.wantErr {
+				t.Fatal("executeSubagentStopHooks() returned nil output")
+			}
+
+			if output != nil {
+				if output.Continue != tt.wantContinue {
+					t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+				}
+
+				if output.Decision != tt.wantDecision {
+					t.Errorf("Decision = %q, want %q", output.Decision, tt.wantDecision)
+				}
+
+				if output.Reason != tt.wantReason {
+					t.Errorf("Reason = %q, want %q", output.Reason, tt.wantReason)
+				}
+
+				if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
+					t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+				}
 			}
 		})
 	}

@@ -31,7 +31,8 @@ func runHooks(config *Config, eventType HookEventType) error {
 		if err != nil {
 			return err
 		}
-		return executeSubagentStopHooks(config, input, rawJSON)
+		_, err = executeSubagentStopHooks(config, input, rawJSON)
+		return err
 	case PreCompact:
 		input, rawJSON, err := parseInput[*PreCompactInput](eventType)
 		if err != nil {
@@ -889,6 +890,16 @@ func RunStopHooks(config *Config) (*StopOutput, error) {
 	return executeStopHooks(config, input, rawJSON)
 }
 
+// RunSubagentStopHooks parses input from stdin and executes SubagentStop hooks.
+// Returns SubagentStopOutput for JSON serialization.
+func RunSubagentStopHooks(config *Config) (*SubagentStopOutput, error) {
+	input, rawJSON, err := parseInput[*SubagentStopInput](SubagentStop)
+	if err != nil {
+		return nil, err
+	}
+	return executeSubagentStopHooks(config, input, rawJSON)
+}
+
 // RunPostToolUseHooks parses input from stdin and executes PostToolUse hooks.
 // Returns PostToolUseOutput for JSON serialization.
 func RunPostToolUseHooks(config *Config) (*PostToolUseOutput, error) {
@@ -901,9 +912,18 @@ func RunPostToolUseHooks(config *Config) (*PostToolUseOutput, error) {
 
 // executeSubagentStopHooks executes all matching SubagentStop hooks based on condition checks.
 // Returns an error to block the subagent stop operation if any hook fails.
-func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON interface{}) error {
+func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON interface{}) (*SubagentStopOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
+	var actionErrors []error
+
+	// Initialize finalOutput: Continue always true, Decision "" (allow subagent stop)
+	finalOutput := &SubagentStopOutput{
+		Continue: true,
+		Decision: "",
+	}
+
+	var systemMessageBuilder strings.Builder
 
 	for i, hook := range config.SubagentStop {
 		// 条件チェック
@@ -926,32 +946,87 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 		}
 
 		for _, action := range hook.Actions {
-			if err := executor.ExecuteSubagentStopAction(action, input, rawJSON); err != nil {
-				// SubagentStopフックもブロッキング可能なのでエラーを返す
-				if exitErr, ok := err.(*ExitError); ok {
-					actionErr := &ExitError{
-						Code:    exitErr.Code,
-						Message: fmt.Sprintf("SubagentStop hook %d failed: %s", i, exitErr.Message),
-						Stderr:  exitErr.Stderr,
-					}
-					if len(conditionErrors) > 0 {
-						return errors.Join(append(conditionErrors, actionErr)...)
-					}
-					return actionErr
-				}
-				actionErr := fmt.Errorf("SubagentStop hook %d failed: %w", i, err)
-				if len(conditionErrors) > 0 {
-					return errors.Join(append(conditionErrors, actionErr)...)
-				}
-				return actionErr
+			actionOutput, err := executor.ExecuteSubagentStopAction(action, input, rawJSON)
+			if err != nil {
+				actionErrors = append(actionErrors, fmt.Errorf("subagent stop hook %d action failed: %w", i, err))
+				continue
 			}
+
+			if actionOutput == nil {
+				continue
+			}
+
+			// Decision: 後勝ち。decision変更時はReasonリセット
+			prevDecision := finalOutput.Decision
+			finalOutput.Decision = actionOutput.Decision
+
+			// Reason: decision変更時はリセット、同一decision内では改行連結
+			if actionOutput.Decision != prevDecision {
+				finalOutput.Reason = actionOutput.Reason
+			} else if actionOutput.Reason != "" {
+				if finalOutput.Reason != "" {
+					finalOutput.Reason += "\n" + actionOutput.Reason
+				} else {
+					finalOutput.Reason = actionOutput.Reason
+				}
+			}
+
+			// SystemMessage: 改行連結
+			if actionOutput.SystemMessage != "" {
+				if systemMessageBuilder.Len() > 0 {
+					systemMessageBuilder.WriteString("\n")
+				}
+				systemMessageBuilder.WriteString(actionOutput.SystemMessage)
+			}
+
+			// StopReason: 最後の非空値が勝ち
+			if actionOutput.StopReason != "" {
+				finalOutput.StopReason = actionOutput.StopReason
+			}
+
+			// SuppressOutput: 最後の値が勝ち
+			finalOutput.SuppressOutput = actionOutput.SuppressOutput
+
+			// Early return on decision: "block"
+			if actionOutput.Decision == "block" {
+				break
+			}
+		}
+
+		// Early return if decision is "block" (across hooks)
+		if finalOutput.Decision == "block" {
+			break
 		}
 	}
 
-	if len(conditionErrors) > 0 {
-		return errors.Join(conditionErrors...)
+	finalOutput.SystemMessage = systemMessageBuilder.String()
+
+	// Collect all errors
+	var allErrors []error
+	allErrors = append(allErrors, conditionErrors...)
+
+	// アクションエラーがある場合はfail-safe: decision "block"
+	if len(actionErrors) > 0 {
+		finalOutput.Decision = "block"
+
+		errorMsg := errors.Join(actionErrors...).Error()
+		if finalOutput.Reason == "" {
+			finalOutput.Reason = errorMsg
+		}
+		if finalOutput.SystemMessage != "" {
+			finalOutput.SystemMessage += "\n" + errorMsg
+		} else {
+			finalOutput.SystemMessage = errorMsg
+		}
+
+		allErrors = append(allErrors, actionErrors...)
 	}
-	return nil
+
+	if len(allErrors) > 0 {
+		return finalOutput, errors.Join(allErrors...)
+	}
+
+	return finalOutput, nil
 }
 
 // executePreCompactHooks executes all matching PreCompact hooks based on condition checks.
