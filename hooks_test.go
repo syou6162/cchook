@@ -773,21 +773,6 @@ func TestExecuteSubagentStopHook_FailingCommandReturnsExit2(t *testing.T) {
 	}
 }
 
-func TestExecutePostToolUseHook_Success(t *testing.T) {
-	exitStatus := 0
-	hook := PostToolUseHook{
-		Actions: []Action{
-			{Type: "output", Message: "Post-processing complete", ExitStatus: &exitStatus}},
-	}
-
-	input := &PostToolUseInput{ToolName: "Edit"}
-
-	executor := NewActionExecutor(nil)
-	err := executePostToolUseHook(executor, hook, input, nil)
-	if err != nil {
-		t.Errorf("executePostToolUseHook() error = %v", err)
-	}
-}
 
 func TestExecutePostToolUseHooks_ConditionErrorAggregation(t *testing.T) {
 	// 複数の無効な条件タイプを含む設定
@@ -819,11 +804,19 @@ func TestExecutePostToolUseHooks_ConditionErrorAggregation(t *testing.T) {
 		ToolName:  "Write",
 	}
 
-	err := executePostToolUseHooks(config, input, nil)
+	output, err := executePostToolUseHooksJSON(config, input, nil)
 
 	// エラーが返されることを確認
 	if err == nil {
 		t.Fatal("Expected error for invalid condition types, got nil")
+	}
+
+	// fail-safeでdecision="block"になることを確認
+	if output == nil {
+		t.Fatal("Expected output, got nil")
+	}
+	if output.Decision != "block" {
+		t.Errorf("Expected decision=block on condition errors, got: %q", output.Decision)
 	}
 
 	// 複数のエラーが集約されていることを確認
@@ -891,8 +884,11 @@ func TestExecutePostToolUseHooks_Integration(t *testing.T) {
 
 	input := &PostToolUseInput{ToolName: "Edit"}
 
-	err := executePostToolUseHooks(config, input, nil)
+	output, err := executePostToolUseHooksJSON(config, input, nil)
 	if err != nil {
+	if output == nil {
+		t.Fatal("Expected output, got nil")
+	}
 		t.Errorf("executePostToolUseHooks() error = %v", err)
 	}
 }
@@ -2483,7 +2479,7 @@ func TestExecutePostToolUseHooks_ProcessSubstitution(t *testing.T) {
 		},
 	}
 
-	err := executePostToolUseHooks(config, input, rawJSON)
+	output, err := executePostToolUseHooksJSON(config, input, rawJSON)
 
 	// 標準エラー出力を元に戻す
 	_ = w.Close()
@@ -2494,6 +2490,10 @@ func TestExecutePostToolUseHooks_ProcessSubstitution(t *testing.T) {
 	_, _ = io.Copy(&buf, r)
 	stderrOutput := buf.String()
 
+
+	if output == nil {
+		t.Fatal("Expected output, got nil")
+	}
 	// エラーがないこと（警告のみ）
 	if err != nil {
 		t.Errorf("executePostToolUseHooks() error = %v, want nil", err)
@@ -3278,6 +3278,180 @@ func TestExecuteStopHooksJSON(t *testing.T) {
 			}
 
 			// SystemMessage check
+			if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+		})
+	}
+}
+
+func TestExecutePostToolUseHooksJSON(t *testing.T) {
+	tests := []struct {
+		name                  string
+		config                *Config
+		input                 *PostToolUseInput
+		rawJSON               interface{}
+		wantContinue          bool
+		wantDecision          string
+		wantReason            string
+		wantAdditionalContext string
+		wantSystemMessage     string
+		wantErr               bool
+	}{
+		{
+			name:         "1. No hooks configured - allow tool result",
+			config:       &Config{},
+			input:        &PostToolUseInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PostToolUse}, ToolName: "Write"},
+			rawJSON:      map[string]interface{}{},
+			wantContinue: true,
+			wantDecision: "",
+			wantErr:      false,
+		},
+		{
+			name: "2. Output action with decision block",
+			config: &Config{
+				PostToolUse: []PostToolUseHook{
+					{
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "Tool output blocked",
+								Decision: stringPtr("block"),
+								Reason:   stringPtr("Contains sensitive data"),
+							},
+						},
+					},
+				},
+			},
+			input:                 &PostToolUseInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PostToolUse}, ToolName: "Write"},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantDecision:          "block",
+			wantReason:            "Contains sensitive data",
+			wantAdditionalContext: "Tool output blocked",
+			wantErr:               false,
+		},
+		{
+			name: "3. Output action with decision omitted (allow)",
+			config: &Config{
+				PostToolUse: []PostToolUseHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Tool result valid",
+							},
+						},
+					},
+				},
+			},
+			input:                 &PostToolUseInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PostToolUse}, ToolName: "Write"},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantDecision:          "",
+			wantReason:            "",
+			wantAdditionalContext: "Tool result valid",
+			wantErr:               false,
+		},
+		{
+			name: "4. Multiple actions - decision last wins",
+			config: &Config{
+				PostToolUse: []PostToolUseHook{
+					{
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "First allows",
+								Decision: stringPtr(""),
+							},
+							{
+								Type:     "output",
+								Message:  "Then blocks",
+								Decision: stringPtr("block"),
+								Reason:   stringPtr("Final decision"),
+							},
+						},
+					},
+				},
+			},
+			input:                 &PostToolUseInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PostToolUse}, ToolName: "Write"},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantDecision:          "block",
+			wantReason:            "Final decision",
+			wantAdditionalContext: "First allows\nThen blocks",
+			wantErr:               false,
+		},
+		{
+			name: "5. Multiple actions - reason reset on decision change",
+			config: &Config{
+				PostToolUse: []PostToolUseHook{
+					{
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "Block first",
+								Decision: stringPtr("block"),
+								Reason:   stringPtr("Reason 1"),
+							},
+							{
+								Type:     "output",
+								Message:  "Allow second",
+								Decision: stringPtr(""),
+							},
+						},
+					},
+				},
+			},
+			input:                 &PostToolUseInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PostToolUse}, ToolName: "Write"},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantDecision:          "",
+			wantReason:            "",
+			wantAdditionalContext: "Block first\nAllow second",
+			wantErr:               false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output, err := executePostToolUseHooksJSON(tt.config, tt.input, tt.rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("executePostToolUseHooksJSON() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if err != nil {
+				return
+			}
+
+			if output == nil {
+				t.Fatal("output is nil")
+			}
+
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			if output.Decision != tt.wantDecision {
+				t.Errorf("Decision = %q, want %q", output.Decision, tt.wantDecision)
+			}
+
+			if output.Reason != tt.wantReason {
+				t.Errorf("Reason = %q, want %q", output.Reason, tt.wantReason)
+			}
+
+
+		// AdditionalContextはHookSpecificOutput経由でアクセス
+		gotAdditionalContext := ""
+		if output.HookSpecificOutput != nil {
+			gotAdditionalContext = output.HookSpecificOutput.AdditionalContext
+		}
+		if gotAdditionalContext != tt.wantAdditionalContext {
+			t.Errorf("HookSpecificOutput.AdditionalContext = %q, want %q", gotAdditionalContext, tt.wantAdditionalContext)
+		}
+
 			if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
 				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
 			}

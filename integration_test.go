@@ -63,7 +63,11 @@ func TestPostToolUseIntegration(t *testing.T) {
 				t.Fatalf("Failed to parse input: %v", err)
 			}
 
-			err = executePostToolUseHooks(config, input, rawJSON)
+		output, err := executePostToolUseHooksJSON(config, input, rawJSON)
+
+		if output == nil {
+			t.Fatal("Expected output, got nil")
+		}
 
 			if tt.wantErr {
 				if err == nil {

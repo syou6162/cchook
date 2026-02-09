@@ -521,6 +521,78 @@ Stop:
         decision: "block"
         reason: "Stopping Claude in this directory may lose work context"
 ```
+### PostToolUse JSON Output
+
+PostToolUse hooks support JSON output format for Claude Code integration. Actions can return structured output with decision control and additional context:
+
+**Output Action** (type: `output`):
+```yaml
+PostToolUse:
+  - actions:
+      - type: output
+        message: "Additional context message"
+        decision: "block"  # optional: "block" only; omit to allow tool result
+        reason: "Reason for blocking"  # required when decision is "block"
+```
+
+**Command Action** (type: `command`):
+Commands must output JSON with the following structure:
+```json
+{
+  "continue": true,
+  "decision": "block",
+  "reason": "Detailed reason for blocking",
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Message to display"
+  },
+  "systemMessage": "Optional system message"
+}
+```
+
+Note: To allow the tool result, omit the `decision` field entirely.
+
+**Important**: PostToolUse executes **after** tool execution completes. The tool cannot be blocked (it already ran). Setting `decision: "block"` prompts Claude with the reason but does not prevent tool execution.
+
+**Field Merging**:
+When multiple actions execute:
+- `continue`: Always `true` (cannot be changed for PostToolUse)
+- `decision`: Last value wins (no early return - all actions execute)
+- `reason`: Reset when decision changes; concatenated with newline within same decision
+- `hookEventName`: Set once by first action
+- `additionalContext`: Concatenated with newline separator
+- `systemMessage`: Concatenated with newline separator
+- `stopReason` and `suppressOutput`: Last value wins
+
+**Exit Code Behavior**:
+PostToolUse hooks **always exit with code 0**. The `decision` field controls whether Claude is prompted with the reason:
+- `decision` field omitted: Tool result accepted normally
+- `"block"`: Claude is prompted with the reason (tool execution already complete)
+
+Errors are logged to stderr as warnings, but cchook continues to output JSON and exits successfully. On errors, `decision` defaults to `"block"` for safety (fail-safe).
+
+**Backward Compatibility**:
+Prior to JSON output support, PostToolUse hooks used exit codes:
+- `exit_status` field controlled blocking behavior
+
+After JSON migration:
+- `exit_status` field is **ignored** in output actions
+- Use `decision` field instead: omit for allow, `"block"` to prompt Claude
+- A stderr warning is emitted if `exit_status` is set (migration reminder)
+
+**Example**:
+```yaml
+PostToolUse:
+  - matcher: "Write"
+    conditions:
+      - type: file_extension
+        value: ".env"
+    actions:
+      - type: output
+        message: "Consider adding .env to .gitignore"
+        decision: "block"
+        reason: "Sensitive file modified - verify .gitignore configuration"
+```
 
 ## Common Workflows
 

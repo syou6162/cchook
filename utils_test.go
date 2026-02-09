@@ -2373,3 +2373,100 @@ func TestValidateStopOutput(t *testing.T) {
 		})
 	}
 }
+
+func TestValidatePostToolUseOutput(t *testing.T) {
+	tests := []struct {
+		name      string
+		jsonData  string
+		wantError bool
+		errorMsg  string
+	}{
+		{
+			name: "Valid output with decision: block + reason",
+			jsonData: `{
+				"continue": true,
+				"decision": "block",
+				"reason": "Tool output contains sensitive data",
+				"systemMessage": "Tool result blocked"
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Valid output with decision omitted (allow tool result)",
+			jsonData: `{
+				"continue": true,
+				"systemMessage": "Tool result allowed"
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Valid output with decision and reason only (hookSpecificOutput omitted)",
+			jsonData: `{
+				"continue": true,
+				"decision": "block",
+				"reason": "Tool output validation failed"
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Valid output with hookSpecificOutput",
+			jsonData: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PostToolUse",
+					"additionalContext": "Tool executed successfully"
+				}
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Invalid decision value",
+			jsonData: `{
+				"continue": true,
+				"decision": "invalid",
+				"reason": "test"
+			}`,
+			wantError: true,
+			errorMsg:  "decision",
+		},
+		{
+			name: "decision: block + reason missing -> semantic validation failure",
+			jsonData: `{
+				"continue": true,
+				"decision": "block"
+			}`,
+			wantError: true,
+			errorMsg:  "reason",
+		},
+		{
+			name: "hookEventName mismatch",
+			jsonData: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PreToolUse",
+					"additionalContext": "Wrong event name"
+				}
+			}`,
+			wantError: true,
+			errorMsg:  "hookEventName",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePostToolUseOutput([]byte(tt.jsonData))
+
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("Expected validation error containing %q, got nil", tt.errorMsg)
+				} else if !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("Expected error containing %q, got: %s", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %s", err.Error())
+				}
+			}
+		})
+	}
+}
