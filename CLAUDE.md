@@ -654,6 +654,54 @@ PostToolUse:
         reason: "Sensitive file modified - verify .gitignore configuration"
 ```
 
+### Notification JSON Output
+
+Notification hooks support JSON output format for Claude Code integration. Actions can return structured output:
+
+**Output Action** (type: `output`):
+```yaml
+Notification:
+  - actions:
+      - type: output
+        message: "Notification message"
+        continue: true  # optional, defaults to true
+```
+
+**Command Action** (type: `command`):
+Commands must output JSON with the following structure:
+```json
+{
+  "continue": true,
+  "hookSpecificOutput": {
+    "hookEventName": "Notification",
+    "additionalContext": "Message to display"
+  },
+  "systemMessage": "Optional system message"
+}
+```
+
+**Field Merging**:
+When multiple actions execute:
+- `continue`: Always forced to `true` (Notification cannot block - official spec "Can block? = No")
+- `hookEventName`: Set once by first action
+- `additionalContext` and `systemMessage`: Concatenated with newline separator
+
+**Exit Code Behavior**:
+Notification hooks **always exit with code 0**. The `continue` field is always `true` and cannot be changed:
+- Notification hooks cannot block Claude execution
+- All errors are logged to stderr as warnings
+- Errors are added to `systemMessage` for graceful degradation
+
+**Example**:
+```yaml
+Notification:
+  - actions:
+      - type: output
+        message: "Task completed successfully"
+      - type: command
+        command: "get-task-status.sh"  # Returns JSON with additionalContext
+```
+
 ## Common Workflows
 
 ### Adding a New Hook Type
