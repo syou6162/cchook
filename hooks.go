@@ -735,6 +735,11 @@ func executePostToolUseHooksJSON(config *Config, input *PostToolUseInput, rawJSO
 	var hookEventName string
 
 	for i, hook := range config.PostToolUse {
+		// マッチャーチェック
+		if !checkMatcher(hook.Matcher, input.ToolName) {
+			continue
+		}
+
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
