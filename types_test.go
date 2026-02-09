@@ -1369,3 +1369,86 @@ func TestValidatePreToolUseOutput_ContinueFieldOmitted(t *testing.T) {
 		t.Errorf("Expected valid JSON without 'continue' field (per Claude Code spec), but got error: %v", err)
 	}
 }
+
+func TestPostToolUseOutput_JSONSerialization(t *testing.T) {
+	tests := []struct {
+		name           string
+		output         PostToolUseOutput
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name: "Full output with all fields including hookSpecificOutput",
+			output: PostToolUseOutput{
+				Continue:       true,
+				Decision:       "block",
+				Reason:         "Tool output contains sensitive data",
+				SystemMessage:  "Test message",
+				StopReason:     "stopped",
+				SuppressOutput: true,
+				HookSpecificOutput: &PostToolUseHookSpecificOutput{
+					HookEventName:     "PostToolUse",
+					AdditionalContext: "Additional info for Claude",
+				},
+			},
+			wantContains:   []string{"\"continue\":true", "\"decision\":\"block\"", "\"reason\":\"Tool output contains sensitive data\"", "\"systemMessage\":\"Test message\"", "\"stopReason\":\"stopped\"", "\"suppressOutput\":true", "\"hookEventName\":\"PostToolUse\"", "\"additionalContext\":\"Additional info for Claude\""},
+			wantNotContain: []string{},
+		},
+		{
+			name: "Decision and reason only (hookSpecificOutput omitted)",
+			output: PostToolUseOutput{
+				Continue: true,
+				Decision: "block",
+				Reason:   "Tool output validation failed",
+			},
+			wantContains:   []string{"\"continue\":true", "\"decision\":\"block\"", "\"reason\":\"Tool output validation failed\""},
+			wantNotContain: []string{"hookSpecificOutput", "additionalContext", "systemMessage", "stopReason", "suppressOutput"},
+		},
+		{
+			name: "Allow with hookSpecificOutput (decision omitted)",
+			output: PostToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PostToolUseHookSpecificOutput{
+					HookEventName:     "PostToolUse",
+					AdditionalContext: "Tool executed successfully",
+				},
+			},
+			wantContains:   []string{"\"continue\":true", "\"hookEventName\":\"PostToolUse\"", "\"additionalContext\":\"Tool executed successfully\""},
+			wantNotContain: []string{"\"decision\"", "\"reason\"", "systemMessage", "stopReason", "suppressOutput"},
+		},
+		{
+			name: "hookSpecificOutput with empty additionalContext (omitempty)",
+			output: PostToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PostToolUseHookSpecificOutput{
+					HookEventName:     "PostToolUse",
+					AdditionalContext: "",
+				},
+			},
+			wantContains:   []string{"\"continue\":true", "\"hookEventName\":\"PostToolUse\""},
+			wantNotContain: []string{"\"additionalContext\"", "\"decision\"", "\"reason\""},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			jsonBytes, err := json.Marshal(tt.output)
+			if err != nil {
+				t.Fatalf("Failed to marshal JSON: %v", err)
+			}
+			jsonStr := string(jsonBytes)
+
+			for _, want := range tt.wantContains {
+				if !stringContains(jsonStr, want) {
+					t.Errorf("JSON should contain %q, got: %s", want, jsonStr)
+				}
+			}
+
+			for _, notWant := range tt.wantNotContain {
+				if stringContains(jsonStr, notWant) {
+					t.Errorf("JSON should not contain %q, got: %s", notWant, jsonStr)
+				}
+			}
+		})
+	}
+}
