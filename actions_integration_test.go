@@ -3,15 +3,24 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
 func TestExecutePostToolUseAction_WithUseStdin(t *testing.T) {
 	// use_stdin=trueの時、rawJSONがstdinに渡されることを確認するテスト
-	// テンプレート処理を避けるため、ファイルから読み込み
+	// 一時JSONファイルを使ってテンプレート処理の干渉を回避
+	tmpDir := t.TempDir()
+	jsonFile := filepath.Join(tmpDir, "output.json")
+	jsonContent := `{"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": "Edit"}}`
+	if err := os.WriteFile(jsonFile, []byte(jsonContent), 0644); err != nil {
+		t.Fatalf("Failed to create temp JSON file: %v", err)
+	}
+
 	action := Action{
 		Type:     "command",
-		Command:  "cat testdata/posttooluse_output.json",
+		Command:  "cat " + jsonFile,
 		UseStdin: true,
 	}
 
@@ -43,8 +52,8 @@ func TestExecutePostToolUseAction_WithUseStdin(t *testing.T) {
 		t.Errorf("Expected hookEventName 'PostToolUse', got %s", actionOutput.HookEventName)
 	}
 
-	// additionalContextが設定されていることを確認
-	if actionOutput.AdditionalContext != "test" {
-		t.Errorf("Expected additionalContext 'test', got %s", actionOutput.AdditionalContext)
+	// additionalContextにtool_nameが設定されていることを確認
+	if actionOutput.AdditionalContext != "Edit" {
+		t.Errorf("Expected additionalContext 'Edit', got %s", actionOutput.AdditionalContext)
 	}
 }
