@@ -997,6 +997,70 @@ func validatePermissionRequestOutput(jsonData []byte) error {
 	return nil
 }
 
+// validateSubagentStopOutput validates SubagentStop hook JSON output against schema and semantic rules.
+// SubagentStop uses top-level decision/reason (no hookSpecificOutput), same as Stop.
+// Semantic rule: decision == "block" requires reason to be non-empty.
+func validateSubagentStopOutput(jsonData []byte) error {
+	// Generate schema from SubagentStopOutput struct
+	reflector := jsonschema.Reflector{
+		DoNotReference: true, // Inline all definitions
+	}
+	schema := reflector.Reflect(&SubagentStopOutput{})
+
+	// Customize schema to match requirements
+	// 1. Allow additional properties at root level
+	schema.AdditionalProperties = nil // nil means allow any additional properties
+
+	// 2. No required fields (decision and reason are both optional at schema level)
+	schema.Required = nil
+
+	// 3. Add custom validation: decision must be "block" only (or omitted entirely)
+	if decisionProp, ok := schema.Properties.Get("decision"); ok {
+		if decision := decisionProp; decision != nil {
+			decision.Enum = []interface{}{"block"}
+		}
+	}
+
+	// Convert schema to map for gojsonschema
+	schemaBytes, err := json.Marshal(schema)
+	if err != nil {
+		return fmt.Errorf("failed to marshal schema: %w", err)
+	}
+
+	var schemaMap map[string]interface{}
+	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
+		return fmt.Errorf("failed to unmarshal schema: %w", err)
+	}
+
+	schemaLoader := gojsonschema.NewGoLoader(schemaMap)
+	documentLoader := gojsonschema.NewBytesLoader(jsonData)
+
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return fmt.Errorf("schema validation error: %w", err)
+	}
+
+	if !result.Valid() {
+		var errMsgs []string
+		for _, validationErr := range result.Errors() {
+			errMsgs = append(errMsgs, validationErr.String())
+		}
+		return fmt.Errorf("schema validation failed: %s", strings.Join(errMsgs, "; "))
+	}
+
+	// Semantic validation: decision == "block" requires reason to be non-empty
+	var output SubagentStopOutput
+	if err := json.Unmarshal(jsonData, &output); err != nil {
+		return fmt.Errorf("failed to unmarshal output for semantic validation: %w", err)
+	}
+
+	if output.Decision == "block" && output.Reason == "" {
+		return fmt.Errorf("semantic validation failed: 'reason' is required when decision is 'block'")
+	}
+
+	return nil
+}
+
 // validateStopOutput validates Stop hook JSON output against schema and semantic rules.
 // Stop uses top-level decision/reason (no hookSpecificOutput).
 // Semantic rule: decision == "block" requires reason to be non-empty.

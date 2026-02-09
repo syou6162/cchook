@@ -521,6 +521,66 @@ Stop:
         decision: "block"
         reason: "Stopping Claude in this directory may lose work context"
 ```
+
+### SubagentStop JSON Output
+
+SubagentStop hooks support JSON output format for Claude Code integration. Actions can return structured output with decision control to block or allow subagent stopping:
+
+**Output Action** (type: `output`):
+```yaml
+SubagentStop:
+  - actions:
+      - type: output
+        message: "SubagentStop reason message"
+        decision: "block"  # optional: "block" only; omit to allow stop
+        reason: "Detailed reason for blocking"  # required when decision is "block"
+```
+
+**Command Action** (type: `command`):
+Commands must output JSON with the following structure:
+```json
+{
+  "continue": true,
+  "decision": "block",
+  "reason": "Detailed reason for blocking",
+  "stopReason": "Optional stop reason",
+  "suppressOutput": false,
+  "systemMessage": "Optional system message"
+}
+```
+
+Note: To allow the subagent stop, omit the `decision` field entirely.
+
+**Important**: SubagentStop uses the same decision control format as Stop hooks. It does NOT use `hookSpecificOutput`. All fields are at the top level.
+
+**Field Merging**:
+When multiple actions execute:
+- `continue`: Always `true` (cannot be changed for SubagentStop)
+- `decision`: Last value wins (early return on `"block"`)
+- `reason`: Reset when decision changes; concatenated with newline within same decision
+- `systemMessage`: Concatenated with newline separator
+- `stopReason` and `suppressOutput`: Last value wins
+
+**Exit Code Behavior**:
+SubagentStop hooks **always exit with code 0**. The `decision` field controls whether the subagent stopping is blocked:
+- `decision` field omitted: SubagentStop proceeds normally
+- `"block"`: SubagentStop is blocked (early return)
+
+Errors are logged to stderr as warnings, but cchook continues to output JSON and exits successfully. On errors, `decision` defaults to `"block"` for safety (fail-safe).
+
+**Example**:
+```yaml
+SubagentStop:
+  - conditions:
+      - type: cwd_contains
+        value: "/important-project"
+    actions:
+      - type: output
+        message: "Cannot stop subagent in important project directory"
+        decision: "block"
+        reason: "Stopping subagent in this directory may lose work context"
+```
+
 ### PostToolUse JSON Output
 
 PostToolUse hooks support JSON output format for Claude Code integration. Actions can return structured output with decision control and additional context:

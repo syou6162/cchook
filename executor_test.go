@@ -2818,3 +2818,395 @@ func TestExecutePostToolUseAction_TypeOutput(t *testing.T) {
 		})
 	}
 }
+
+func TestExecuteSubagentStopAction_TypeOutput(t *testing.T) {
+	tests := []struct {
+		name               string
+		action             Action
+		wantDecision       string
+		wantReason         string
+		wantSystemMessage  string
+		wantContinue       bool
+		wantStdoutContains string
+		wantStderrContains string
+	}{
+		{
+			name: "message only (decision unspecified) - allow",
+			action: Action{
+				Type:    "output",
+				Message: "SubagentStop allowed",
+			},
+			wantDecision:      "",
+			wantReason:        "",
+			wantSystemMessage: "SubagentStop allowed",
+			wantContinue:      true,
+		},
+		{
+			name: "decision: block with reason specified",
+			action: Action{
+				Type:     "output",
+				Message:  "Blocking subagent stop",
+				Decision: stringPtr("block"),
+				Reason:   stringPtr("Subagent should continue"),
+			},
+			wantDecision:      "block",
+			wantReason:        "Subagent should continue",
+			wantSystemMessage: "Blocking subagent stop",
+			wantContinue:      true,
+		},
+		{
+			name: "decision: block with reason unspecified (use processedMessage)",
+			action: Action{
+				Type:     "output",
+				Message:  "Blocking subagent stop",
+				Decision: stringPtr("block"),
+			},
+			wantDecision:      "block",
+			wantReason:        "Blocking subagent stop",
+			wantSystemMessage: "Blocking subagent stop",
+			wantContinue:      true,
+		},
+		{
+			name: "decision: empty string (explicit allow)",
+			action: Action{
+				Type:     "output",
+				Message:  "Allowing subagent stop",
+				Decision: stringPtr(""),
+			},
+			wantDecision:      "",
+			wantReason:        "",
+			wantSystemMessage: "Allowing subagent stop",
+			wantContinue:      true,
+		},
+		{
+			name: "invalid decision value - fail-safe block",
+			action: Action{
+				Type:     "output",
+				Message:  "Invalid decision",
+				Decision: stringPtr("invalid"),
+			},
+			wantDecision:      "block",
+			wantReason:        "Invalid decision",
+			wantSystemMessage: "Invalid decision value in action config: must be 'block' or field must be omitted",
+			wantContinue:      true,
+		},
+		{
+			name: "empty message - fail-safe block",
+			action: Action{
+				Type:    "output",
+				Message: "",
+			},
+			wantDecision:      "block",
+			wantReason:        "Empty message in SubagentStop action",
+			wantSystemMessage: "Empty message in SubagentStop action",
+			wantContinue:      true,
+		},
+		{
+			name: "decision: block with empty reason (use processedMessage)",
+			action: Action{
+				Type:     "output",
+				Message:  "Blocking with empty reason",
+				Decision: stringPtr("block"),
+				Reason:   stringPtr(""),
+			},
+			wantDecision:      "block",
+			wantReason:        "Blocking with empty reason",
+			wantSystemMessage: "Blocking with empty reason",
+			wantContinue:      true,
+		},
+		{
+			name: "decision: block with whitespace-only reason (use processedMessage)",
+			action: Action{
+				Type:     "output",
+				Message:  "Blocking with whitespace reason",
+				Decision: stringPtr("block"),
+				Reason:   stringPtr("   "),
+			},
+			wantDecision:      "block",
+			wantReason:        "Blocking with whitespace reason",
+			wantSystemMessage: "Blocking with whitespace reason",
+			wantContinue:      true,
+		},
+		{
+			name: "exit_status set (deprecated, should warn)",
+			action: Action{
+				Type:       "output",
+				Message:    "Using deprecated exit_status",
+				ExitStatus: intPtr(2),
+			},
+			wantDecision:       "",
+			wantReason:         "",
+			wantSystemMessage:  "Using deprecated exit_status",
+			wantContinue:       true,
+			wantStderrContains: "exit_status",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := NewActionExecutor(nil)
+			input := &SubagentStopInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session-123",
+					HookEventName: "SubagentStop",
+				},
+				StopHookActive: true,
+			}
+			rawJSON := map[string]interface{}{
+				"session_id":       "test-session-123",
+				"hook_event_name":  "SubagentStop",
+				"stop_hook_active": true,
+			}
+
+			output, err := executor.ExecuteSubagentStopAction(tt.action, input, rawJSON)
+
+			if err != nil {
+				t.Fatalf("ExecuteSubagentStopAction() error = %v", err)
+			}
+
+			if output == nil {
+				t.Fatal("ExecuteSubagentStopAction() returned nil output")
+			}
+
+			if output.Decision != tt.wantDecision {
+				t.Errorf("Decision = %q, want %q", output.Decision, tt.wantDecision)
+			}
+
+			if output.Reason != tt.wantReason {
+				t.Errorf("Reason = %q, want %q", output.Reason, tt.wantReason)
+			}
+
+			if output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+		})
+	}
+}
+
+func TestExecuteSubagentStopAction_TypeCommand(t *testing.T) {
+	tests := []struct {
+		name              string
+		action            Action
+		stubStdout        string
+		stubStderr        string
+		stubExitCode      int
+		stubErr           error
+		wantDecision      string
+		wantReason        string
+		wantSystemMessage string
+		wantStopReason    string
+		wantSuppressOut   bool
+		wantErr           bool
+	}{
+		{
+			name: "Valid JSON with decision: block + reason -> all fields parsed correctly",
+			action: Action{
+				Type:    "command",
+				Command: "check-subagent-stop.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"decision": "block",
+				"reason": "Subagent should continue working",
+				"systemMessage": "SubagentStop blocked by hook"
+			}`,
+			stubExitCode:      0,
+			wantDecision:      "block",
+			wantReason:        "Subagent should continue working",
+			wantSystemMessage: "SubagentStop blocked by hook",
+			wantErr:           false,
+		},
+		{
+			name: "Valid JSON with decision omitted (allow subagent stop) -> decision empty",
+			action: Action{
+				Type:    "command",
+				Command: "allow-subagent-stop.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"systemMessage": "SubagentStop is allowed"
+			}`,
+			stubExitCode:      0,
+			wantDecision:      "",
+			wantReason:        "",
+			wantSystemMessage: "SubagentStop is allowed",
+			wantErr:           false,
+		},
+		{
+			name: "Command failure (exit != 0) -> fail-safe block",
+			action: Action{
+				Type:    "command",
+				Command: "failing-subagent-stop.sh",
+			},
+			stubStdout:        "",
+			stubStderr:        "Permission denied",
+			stubExitCode:      1,
+			wantDecision:      "block",
+			wantReason:        "Command failed with exit code 1: Permission denied",
+			wantSystemMessage: "Command failed with exit code 1: Permission denied",
+			wantErr:           false,
+		},
+		{
+			name: "Empty stdout -> allow subagent stop (decision empty)",
+			action: Action{
+				Type:    "command",
+				Command: "silent-check.sh",
+			},
+			stubStdout:   "",
+			stubExitCode: 0,
+			wantDecision: "",
+			wantReason:   "",
+			wantErr:      false,
+		},
+		{
+			name: "Invalid JSON -> fail-safe block",
+			action: Action{
+				Type:    "command",
+				Command: "invalid-json.sh",
+			},
+			stubStdout:        `{invalid json}`,
+			stubExitCode:      0,
+			wantDecision:      "block",
+			wantReason:        "Command output is not valid JSON: {invalid json}",
+			wantSystemMessage: "Command output is not valid JSON: {invalid json}",
+			wantErr:           false,
+		},
+		{
+			name: "decision: block + reason missing -> fail-safe with reason warning",
+			action: Action{
+				Type:    "command",
+				Command: "missing-reason.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"decision": "block"
+			}`,
+			stubExitCode:      0,
+			wantDecision:      "block",
+			wantReason:        "Missing required field 'reason' when decision is 'block'",
+			wantSystemMessage: "Missing required field 'reason' when decision is 'block'",
+			wantErr:           false,
+		},
+		{
+			name: "Invalid decision value -> fail-safe block",
+			action: Action{
+				Type:    "command",
+				Command: "invalid-decision.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"decision": "invalid",
+				"reason": "should not matter"
+			}`,
+			stubExitCode:      0,
+			wantDecision:      "block",
+			wantReason:        "Invalid decision value: must be 'block' or field must be omitted entirely",
+			wantSystemMessage: "Invalid decision value: must be 'block' or field must be omitted entirely",
+			wantErr:           false,
+		},
+		{
+			name: "Unsupported field -> stderr warning (but still processes valid fields)",
+			action: Action{
+				Type:    "command",
+				Command: "unsupported-field.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"decision": "block",
+				"reason": "Blocking subagent stop",
+				"hookSpecificOutput": {"hookEventName": "SubagentStop"}
+			}`,
+			stubExitCode:      0,
+			wantDecision:      "block",
+			wantReason:        "Blocking subagent stop",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "stopReason/suppressOutput included -> fields reflected correctly",
+			action: Action{
+				Type:    "command",
+				Command: "full-output.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"decision": "block",
+				"reason": "Custom block reason",
+				"stopReason": "hook_blocked",
+				"suppressOutput": true,
+				"systemMessage": "Full output test"
+			}`,
+			stubExitCode:      0,
+			wantDecision:      "block",
+			wantReason:        "Custom block reason",
+			wantStopReason:    "hook_blocked",
+			wantSuppressOut:   true,
+			wantSystemMessage: "Full output test",
+			wantErr:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &stubRunnerWithOutput{
+				stdout:   tt.stubStdout,
+				stderr:   tt.stubStderr,
+				exitCode: tt.stubExitCode,
+				err:      tt.stubErr,
+			}
+			executor := NewActionExecutor(runner)
+			input := &SubagentStopInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session-123",
+					HookEventName: "SubagentStop",
+				},
+				StopHookActive: true,
+			}
+			rawJSON := map[string]interface{}{
+				"session_id":       "test-session-123",
+				"hook_event_name":  "SubagentStop",
+				"stop_hook_active": true,
+			}
+
+			output, err := executor.ExecuteSubagentStopAction(tt.action, input, rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ExecuteSubagentStopAction() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if output == nil {
+				t.Fatal("ExecuteSubagentStopAction() returned nil output")
+			}
+
+			// Continue should always be true for SubagentStop
+			if output.Continue != true {
+				t.Errorf("Continue should always be true for SubagentStop, got: %v", output.Continue)
+			}
+
+			if output.Decision != tt.wantDecision {
+				t.Errorf("Decision = %q, want %q", output.Decision, tt.wantDecision)
+			}
+
+			if output.Reason != tt.wantReason {
+				t.Errorf("Reason = %q, want %q", output.Reason, tt.wantReason)
+			}
+
+			if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+
+			if output.StopReason != tt.wantStopReason {
+				t.Errorf("StopReason = %q, want %q", output.StopReason, tt.wantStopReason)
+			}
+
+			if output.SuppressOutput != tt.wantSuppressOut {
+				t.Errorf("SuppressOutput = %v, want %v", output.SuppressOutput, tt.wantSuppressOut)
+			}
+		})
+	}
+}
