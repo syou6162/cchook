@@ -232,6 +232,66 @@ func main() {
 			os.Exit(0)
 		}
 
+	if HookEventType(*eventType) == PostToolUse {
+		// PostToolUse special handling with JSON output
+		output, err := RunPostToolUseHooks(config)
+		if err != nil {
+			// Log error to stderr
+			fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+			if output == nil {
+				output = &PostToolUseOutput{
+					Continue:      true,
+					Decision:      "block",
+					Reason:        fmt.Sprintf("Failed to process PostToolUse: %v", err),
+					SystemMessage: fmt.Sprintf("Failed to process PostToolUse: %v", err),
+					HookSpecificOutput: &PostToolUseHookSpecificOutput{
+						HookEventName: "PostToolUse",
+					},
+				}
+			} else {
+				// fail-safe: エラー時はdecisionを"block"に強制
+				output.Decision = "block"
+				if output.Reason == "" {
+					output.Reason = fmt.Sprintf("Failed to process PostToolUse: %v", err)
+				}
+				errMsg := fmt.Sprintf("Failed to process PostToolUse: %v", err)
+				if output.SystemMessage != "" {
+					output.SystemMessage += "\n" + errMsg
+				} else {
+					output.SystemMessage = errMsg
+				}
+			}
+		}
+
+		// Marshal JSON with 2-space indent
+		jsonBytes, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			// Marshal failure should not be fatal - output minimal valid JSON and exit 0
+			fmt.Fprintf(os.Stderr, "Warning: Error marshaling JSON: %v\n", err)
+			fallbackOutput := PostToolUseOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        fmt.Sprintf("Failed to marshal output: %v", err),
+				SystemMessage: fmt.Sprintf("Failed to marshal output: %v", err),
+				HookSpecificOutput: &PostToolUseHookSpecificOutput{
+					HookEventName: "PostToolUse",
+				},
+			}
+			jsonBytes, _ = json.MarshalIndent(fallbackOutput, "", "  ")
+		}
+
+		// Validate final JSON output against schema (non-functional requirement)
+		if err := validatePostToolUseOutput(jsonBytes); err != nil {
+			// Validation failure should not be fatal - log warning and continue
+			fmt.Fprintf(os.Stderr, "Warning: Final JSON output validation failed: %v\n", err)
+		}
+
+		// Output JSON to stdout
+		fmt.Println(string(jsonBytes))
+		// Always exit 0 for PostToolUse (decision field controls behavior)
+		os.Exit(0)
+	}
+
 		if HookEventType(*eventType) == PermissionRequest {
 			// PermissionRequest special handling with JSON output
 			err := RunPermissionRequestHooks(config)

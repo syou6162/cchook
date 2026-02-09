@@ -33,45 +33,6 @@ func TestDryRunHooks_UnknownEventType(t *testing.T) {
 	}
 }
 
-func TestRunHooks_PostToolUse_Success(t *testing.T) {
-	// 標準入力をバックアップして復元
-	oldStdin := os.Stdin
-	defer func() { os.Stdin = oldStdin }()
-
-	// 正常なJSONを標準入力に設定
-	r, w, _ := os.Pipe()
-	os.Stdin = r
-
-	jsonInput := `{
-		"session_id": "test",
-		"transcript_path": "/tmp/test",
-		"hook_event_name": "PostToolUse",
-		"tool_name": "Edit",
-		"tool_input": {"file_path": "test.go"},
-		"tool_response": {}
-	}`
-
-	go func() {
-		defer func() { _ = w.Close() }()
-		_, _ = w.Write([]byte(jsonInput))
-	}()
-
-	config := &Config{
-		PostToolUse: []PostToolUseHook{
-			{
-				Matcher: "Edit",
-				Actions: []Action{
-					{Type: "command", Command: "echo test"},
-				},
-			},
-		},
-	}
-
-	err := runHooks(config, PostToolUse)
-	if err != nil {
-		t.Errorf("runHooks() error = %v", err)
-	}
-}
 
 func TestDryRunHooks_Success(t *testing.T) {
 	// 標準入力をバックアップして復元

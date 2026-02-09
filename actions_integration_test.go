@@ -34,7 +34,7 @@ func TestExecutePostToolUseAction_WithUseStdin(t *testing.T) {
 	os.Stdout = w
 
 	executor := NewActionExecutor(nil)
-	err := executor.ExecutePostToolUseAction(action, input, rawJSON)
+	output, err := executor.ExecutePostToolUseAction(action, input, rawJSON)
 
 	// 標準出力を復元
 	_ = w.Close()
@@ -44,6 +44,10 @@ func TestExecutePostToolUseAction_WithUseStdin(t *testing.T) {
 	var buf bytes.Buffer
 	_, _ = buf.ReadFrom(r)
 	output := buf.String()
+
+	if output == nil {
+		t.Fatal("Expected output, got nil")
+	}
 
 	if err != nil {
 		// jqがインストールされていない場合はスキップ
