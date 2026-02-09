@@ -890,6 +890,16 @@ func RunStopHooks(config *Config) (*StopOutput, error) {
 	return executeStopHooks(config, input, rawJSON)
 }
 
+// RunSubagentStopHooks parses input from stdin and executes SubagentStop hooks.
+// Returns SubagentStopOutput for JSON serialization.
+func RunSubagentStopHooks(config *Config) (*SubagentStopOutput, error) {
+	input, rawJSON, err := parseInput[*SubagentStopInput](SubagentStop)
+	if err != nil {
+		return nil, err
+	}
+	return executeSubagentStopHooks(config, input, rawJSON)
+}
+
 // RunPostToolUseHooks parses input from stdin and executes PostToolUse hooks.
 // Returns PostToolUseOutput for JSON serialization.
 func RunPostToolUseHooks(config *Config) (*PostToolUseOutput, error) {
