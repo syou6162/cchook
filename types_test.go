@@ -1452,3 +1452,149 @@ func TestPostToolUseOutput_JSONSerialization(t *testing.T) {
 		})
 	}
 }
+
+func TestSessionEndOutput_JSONSerialization(t *testing.T) {
+	tests := []struct {
+		name           string
+		output         SessionEndOutput
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name: "all fields present",
+			output: SessionEndOutput{
+				Continue:       true,
+				StopReason:     "session cleanup complete",
+				SuppressOutput: true, // false is omitted due to omitempty
+				SystemMessage:  "Session ended successfully",
+			},
+			wantContains: []string{
+				`"continue":true`,
+				`"stopReason":"session cleanup complete"`,
+				`"suppressOutput":true`,
+				`"systemMessage":"Session ended successfully"`,
+			},
+			wantNotContain: []string{},
+		},
+		{
+			name: "minimal fields (continue only)",
+			output: SessionEndOutput{
+				Continue: true,
+			},
+			wantContains: []string{
+				`"continue":true`,
+			},
+			wantNotContain: []string{
+				`"stopReason"`,
+				`"suppressOutput"`,
+				`"systemMessage"`,
+			},
+		},
+		{
+			name: "with systemMessage only",
+			output: SessionEndOutput{
+				Continue:      true,
+				SystemMessage: "Cleanup completed",
+			},
+			wantContains: []string{
+				`"continue":true`,
+				`"systemMessage":"Cleanup completed"`,
+			},
+			wantNotContain: []string{
+				`"stopReason"`,
+				`"suppressOutput"`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			jsonData, err := json.Marshal(tt.output)
+			if err != nil {
+				t.Fatalf("Failed to marshal JSON: %v", err)
+			}
+			jsonStr := string(jsonData)
+
+			for _, want := range tt.wantContains {
+				if !stringContains(jsonStr, want) {
+					t.Errorf("JSON should contain %q, got: %s", want, jsonStr)
+				}
+			}
+
+			for _, notWant := range tt.wantNotContain {
+				if stringContains(jsonStr, notWant) {
+					t.Errorf("JSON should not contain %q, got: %s", notWant, jsonStr)
+				}
+			}
+		})
+	}
+}
+
+func TestSessionEndOutput_JSONDeserialization(t *testing.T) {
+	tests := []struct {
+		name      string
+		jsonInput string
+		want      SessionEndOutput
+		wantErr   bool
+	}{
+		{
+			name: "all fields",
+			jsonInput: `{
+				"continue": true,
+				"stopReason": "session cleanup complete",
+				"suppressOutput": false,
+				"systemMessage": "Session ended successfully"
+			}`,
+			want: SessionEndOutput{
+				Continue:       true,
+				StopReason:     "session cleanup complete",
+				SuppressOutput: false,
+				SystemMessage:  "Session ended successfully",
+			},
+			wantErr: false,
+		},
+		{
+			name:      "minimal (continue only)",
+			jsonInput: `{"continue": true}`,
+			want: SessionEndOutput{
+				Continue: true,
+			},
+			wantErr: false,
+		},
+		{
+			name:      "empty object (all fields optional)",
+			jsonInput: `{}`,
+			want: SessionEndOutput{
+				Continue: false, // default zero value
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got SessionEndOutput
+			err := json.Unmarshal([]byte(tt.jsonInput), &got)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Unmarshal() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				if got.Continue != tt.want.Continue {
+					t.Errorf("Continue = %v, want %v", got.Continue, tt.want.Continue)
+				}
+				if got.StopReason != tt.want.StopReason {
+					t.Errorf("StopReason = %v, want %v", got.StopReason, tt.want.StopReason)
+				}
+				if got.SuppressOutput != tt.want.SuppressOutput {
+					t.Errorf("SuppressOutput = %v, want %v", got.SuppressOutput, tt.want.SuppressOutput)
+				}
+				if got.SystemMessage != tt.want.SystemMessage {
+					t.Errorf("SystemMessage = %v, want %v", got.SystemMessage, tt.want.SystemMessage)
+				}
+			}
+		})
+	}
+}

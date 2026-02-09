@@ -1007,25 +1007,85 @@ func (e *ActionExecutor) ExecutePostToolUseAction(action Action, input *PostTool
 	return nil, nil
 }
 
-// ExecuteSessionEndAction executes an action for the SessionEnd event.
-// Errors are logged but do not block session end.
-func (e *ActionExecutor) ExecuteSessionEndAction(action Action, input *SessionEndInput, rawJSON interface{}) error {
+// ExecuteSessionEndAction executes an action for the SessionEnd event and returns ActionOutput.
+// SessionEnd always returns continue=true (fail-safe: session end cannot be blocked).
+// Errors are reported via systemMessage field, not by blocking execution.
+func (e *ActionExecutor) ExecuteSessionEndAction(action Action, input *SessionEndInput, rawJSON interface{}) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := e.runner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			return err
+		stdout, stderr, exitCode, err := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
+
+		// Command failed with non-zero exit code
+		if exitCode != 0 {
+			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			if strings.TrimSpace(stderr) == "" && err != nil {
+				errMsg = fmt.Sprintf("Command failed with exit code %d: %v", exitCode, err)
+			}
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				SystemMessage: errMsg,
+			}, nil
 		}
+
+		// Empty stdout - Allow session end (validation-type CLI tools: silence = OK)
+		if strings.TrimSpace(stdout) == "" {
+			return &ActionOutput{
+				Continue: true,
+			}, nil
+		}
+
+		// Parse JSON output (SessionEndOutput has Common JSON Fields only)
+		var cmdOutput SessionEndOutput
+		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			errMsg := fmt.Sprintf("Command output is not valid JSON: %s", stdout)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Check for unsupported fields and log warnings to stderr
+		checkUnsupportedFieldsSessionEnd(stdout)
+
+		// Build ActionOutput from parsed JSON
+		return &ActionOutput{
+			Continue:       true,
+			StopReason:     cmdOutput.StopReason,
+			SuppressOutput: cmdOutput.SuppressOutput,
+			SystemMessage:  cmdOutput.SystemMessage,
+		}, nil
+
 	case "output":
-		// SessionEndはブロッキング不要なので、exitStatusが指定されていない場合は通常出力
 		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
-		if action.ExitStatus != nil && *action.ExitStatus != 0 {
-			stderr := *action.ExitStatus == 2
-			return NewExitError(*action.ExitStatus, processedMessage, stderr)
+
+		// Emit warning if exit_status is set (backward compatibility - no longer used)
+		if action.ExitStatus != nil {
+			fmt.Fprintf(os.Stderr, "Warning: exit_status field is ignored in SessionEnd output actions (JSON output does not use exit codes)\n")
 		}
-		fmt.Println(processedMessage)
+
+		// Empty message is an error (fail-safe)
+		if strings.TrimSpace(processedMessage) == "" {
+			errMsg := "Empty message in SessionEnd action"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Output action: message maps to systemMessage
+		return &ActionOutput{
+			Continue:      true,
+			SystemMessage: processedMessage,
+		}, nil
 	}
-	return nil
+
+	return &ActionOutput{
+		Continue: true,
+	}, nil
 }
 
 // checkUnsupportedFieldsSessionStart checks for unsupported fields in SessionStart JSON output
@@ -1149,6 +1209,29 @@ func checkUnsupportedFieldsSubagentStop(stdout string) {
 	for field := range data {
 		if !supportedFields[field] {
 			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for SubagentStop hooks\n", field)
+		}
+	}
+}
+
+// checkUnsupportedFieldsSessionEnd checks for unsupported fields in SessionEnd hook output
+// SessionEnd uses Common JSON Fields only (no decision/reason/hookSpecificOutput)
+func checkUnsupportedFieldsSessionEnd(stdout string) {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+		return
+	}
+
+	supportedFields := map[string]bool{
+		"continue":       true,
+		"stopReason":     true,
+		"suppressOutput": true,
+		"systemMessage":  true,
+		// Note: decision, reason, hookSpecificOutput are NOT supported for SessionEnd hooks
+	}
+
+	for field := range data {
+		if !supportedFields[field] {
+			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for SessionEnd hooks\n", field)
 		}
 	}
 }

@@ -626,19 +626,19 @@ All conditions return proper error messages for unknown condition types, ensurin
 - `output`
   - Print message
   - Default `exit_status`:
-    - 0 for SessionStart, SessionEnd, UserPromptSubmit (non-blocking events)
+    - 0 for SessionStart, UserPromptSubmit (non-blocking events)
     - 2 for Notification, PreCompact
   - Note: PreToolUse, Stop, PostToolUse, and SubagentStop use JSON output (exit_status ignored)
 
 ### Exit Status Control
 
-**JSON Output Events** (SessionStart, UserPromptSubmit, PreToolUse, Stop, SubagentStop, PostToolUse):
+**JSON Output Events** (SessionStart, UserPromptSubmit, PreToolUse, Stop, SubagentStop, PostToolUse, SessionEnd):
 - Always exit with code 0
 - Control behavior via JSON fields (`decision`, `permissionDecision`, etc.)
 - Errors logged to stderr as warnings
 - See CLAUDE.md for detailed JSON output format
 
-**Legacy Exit Code Events** (Notification, PreCompact, SessionEnd):
+**Legacy Exit Code Events** (Notification, PreCompact):
 - 0
   - Success, allow execution, output to stdout
 - 2
