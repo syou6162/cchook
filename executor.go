@@ -23,19 +23,108 @@ func NewActionExecutor(runner CommandRunner) *ActionExecutor {
 	return &ActionExecutor{runner: runner}
 }
 
-// ExecuteNotificationAction executes an action for the Notification event.
-// Supports command execution and output actions.
-func (e *ActionExecutor) ExecuteNotificationAction(action Action, input *NotificationInput, rawJSON interface{}) error {
+// ExecuteNotificationAction executes an action for the Notification event and returns JSON output.
+// Similar to SessionStart, Notification uses hookSpecificOutput with additionalContext.
+func (e *ActionExecutor) ExecuteNotificationAction(action Action, input *NotificationInput, rawJSON interface{}) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := e.runner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			return err
+		stdout, stderr, exitCode, err := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
+
+		// Command failed with non-zero exit code
+		if exitCode != 0 {
+			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			if strings.TrimSpace(stderr) == "" && err != nil {
+				errMsg = fmt.Sprintf("Command failed with exit code %d: %v", exitCode, err)
+			}
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
 		}
+
+		// Empty stdout - Allow for validation-type CLI tools
+		if strings.TrimSpace(stdout) == "" {
+			return &ActionOutput{
+				Continue:      true,
+				HookEventName: "Notification",
+			}, nil
+		}
+
+		// Parse JSON output
+		var cmdOutput NotificationOutput
+		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			errMsg := fmt.Sprintf("Command output is not valid JSON: %s", stdout)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Check for required field: hookSpecificOutput.hookEventName
+		if cmdOutput.HookSpecificOutput == nil || cmdOutput.HookSpecificOutput.HookEventName == "" {
+			errMsg := "Command output is missing required field: hookSpecificOutput.hookEventName"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Validate against JSON Schema
+		if err := validateNotificationOutput([]byte(stdout)); err != nil {
+			errMsg := fmt.Sprintf("Command output validation failed: %s", err.Error())
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Check for unsupported fields and log warnings to stderr
+		checkUnsupportedFieldsNotification(stdout)
+
+		// Build ActionOutput from parsed JSON
+		result := &ActionOutput{
+			Continue:      cmdOutput.Continue,
+			HookEventName: cmdOutput.HookSpecificOutput.HookEventName,
+			SystemMessage: cmdOutput.SystemMessage,
+		}
+
+		// Set AdditionalContext
+		result.AdditionalContext = cmdOutput.HookSpecificOutput.AdditionalContext
+
+		return result, err
+
 	case "output":
-		return handleOutput(action.Message, action.ExitStatus, rawJSON)
+		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
+
+		// Empty message check
+		if strings.TrimSpace(processedMessage) == "" {
+			errMsg := "Action output has no message"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Determine continue value: default to true if unspecified
+		continueValue := true
+		if action.Continue != nil {
+			continueValue = *action.Continue
+		}
+
+		return &ActionOutput{
+			Continue:          continueValue,
+			HookEventName:     "Notification",
+			AdditionalContext: processedMessage,
+		}, nil
 	}
-	return nil
+
+	return nil, nil
 }
 
 // ExecuteStopAction executes an action for the Stop event.
@@ -1049,6 +1138,30 @@ func checkUnsupportedFieldsSessionStart(stdout string) {
 	for field := range data {
 		if !supportedFields[field] {
 			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for SessionStart hooks\n", field)
+		}
+	}
+}
+
+// checkUnsupportedFieldsNotification checks for unsupported fields in Notification JSON output
+// and logs warnings to stderr for any fields that are not in the supported list.
+func checkUnsupportedFieldsNotification(stdout string) {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+		// JSON parsing failed - this will be caught by the main validation
+		return
+	}
+
+	supportedFields := map[string]bool{
+		"continue":           true,
+		"stopReason":         true,
+		"suppressOutput":     true,
+		"systemMessage":      true,
+		"hookSpecificOutput": true,
+	}
+
+	for field := range data {
+		if !supportedFields[field] {
+			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for Notification hooks\n", field)
 		}
 	}
 }

@@ -577,7 +577,9 @@ func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON 
 		}
 
 		for _, action := range hook.Actions {
-			if err := executor.ExecuteNotificationAction(action, input, rawJSON); err != nil {
+			// TODO: This will be replaced in Step 4 with JSON output handling
+			_, err := executor.ExecuteNotificationAction(action, input, rawJSON)
+			if err != nil {
 				if exitErr, ok := err.(*ExitError); ok {
 					actionErr := &ExitError{
 						Code:    exitErr.Code,

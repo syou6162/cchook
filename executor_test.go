@@ -3210,3 +3210,126 @@ func TestExecuteSubagentStopAction_TypeCommand(t *testing.T) {
 		})
 	}
 }
+
+func TestExecuteNotificationAction_TypeOutput(t *testing.T) {
+	tests := []struct {
+		name              string
+		action            Action
+		wantContinue      bool
+		wantHookEventName string
+		wantAdditionalCtx string
+		wantSystemMessage string
+		wantErr           bool
+	}{
+		{
+			name: "Message with continue unspecified defaults to true",
+			action: Action{
+				Type:     "output",
+				Message:  "Test notification message",
+				Continue: nil,
+			},
+			wantContinue:      true,
+			wantHookEventName: "Notification",
+			wantAdditionalCtx: "Test notification message",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Message with continue: false",
+			action: Action{
+				Type:     "output",
+				Message:  "Stop notification",
+				Continue: boolPtr(false),
+			},
+			wantContinue:      false,
+			wantHookEventName: "Notification",
+			wantAdditionalCtx: "Stop notification",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Message with continue: true explicitly",
+			action: Action{
+				Type:     "output",
+				Message:  "Continue notification",
+				Continue: boolPtr(true),
+			},
+			wantContinue:      true,
+			wantHookEventName: "Notification",
+			wantAdditionalCtx: "Continue notification",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Message with template variables",
+			action: Action{
+				Type:     "output",
+				Message:  "Notification: {.message}",
+				Continue: boolPtr(true),
+			},
+			wantContinue:      true,
+			wantHookEventName: "Notification",
+			wantAdditionalCtx: "Notification: Test notification from Claude",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Empty message triggers warning",
+			action: Action{
+				Type:     "output",
+				Message:  "",
+				Continue: nil,
+			},
+			wantContinue:      false,
+			wantHookEventName: "",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "Action output has no message",
+			wantErr:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := NewActionExecutor(DefaultCommandRunner)
+			input := &NotificationInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session-123",
+					HookEventName: "Notification",
+				},
+				Message: "Test notification from Claude",
+			}
+			rawJSON := map[string]interface{}{
+				"session_id":      "test-session-123",
+				"hook_event_name": "Notification",
+				"message":         "Test notification from Claude",
+			}
+
+			output, err := executor.ExecuteNotificationAction(tt.action, input, rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ExecuteNotificationAction() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if output == nil {
+				t.Fatal("ExecuteNotificationAction() returned nil output")
+			}
+
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			if output.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName = %q, want %q", output.HookEventName, tt.wantHookEventName)
+			}
+
+			if output.AdditionalContext != tt.wantAdditionalCtx {
+				t.Errorf("AdditionalContext = %q, want %q", output.AdditionalContext, tt.wantAdditionalCtx)
+			}
+
+			if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+		})
+	}
+}
