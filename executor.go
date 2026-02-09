@@ -202,9 +202,161 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 // ExecuteSubagentStopAction executes an action for the SubagentStop event.
 // Command failures result in exit status 2 to block the subagent stop operation.
 func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *SubagentStopInput, rawJSON interface{}) (*ActionOutput, error) {
-	// TODO: Implement JSON output support (TDD Red phase)
-	// This is a stub implementation to make tests compile
-	return nil, fmt.Errorf("not implemented yet")
+	switch action.Type {
+	case "command":
+		cmd := unifiedTemplateReplace(action.Command, rawJSON)
+		stdout, stderr, exitCode, err := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
+
+		// Command failed with non-zero exit code
+		if exitCode != 0 {
+			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			if strings.TrimSpace(stderr) == "" && err != nil {
+				errMsg = fmt.Sprintf("Command failed with exit code %d: %v", exitCode, err)
+			}
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Empty stdout - Allow subagent stop (validation-type CLI tools: silence = OK)
+		if strings.TrimSpace(stdout) == "" {
+			return &ActionOutput{
+				Continue: true,
+				Decision: "", // Allow subagent stop
+			}, nil
+		}
+
+		// Parse JSON output (SubagentStopOutput has no hookSpecificOutput, same schema as Stop)
+		var cmdOutput SubagentStopOutput
+		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			errMsg := fmt.Sprintf("Command output is not valid JSON: %s", stdout)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Validate decision field (optional: "block" only, or field must be omitted entirely)
+		decision := cmdOutput.Decision
+		if decision != "" && decision != "block" {
+			errMsg := "Invalid decision value: must be 'block' or field must be omitted entirely"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Validate reason: required when decision is "block"
+		if decision == "block" && cmdOutput.Reason == "" {
+			errMsg := "Missing required field 'reason' when decision is 'block'"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Check for unsupported fields and log warnings to stderr
+		checkUnsupportedFieldsSubagentStop(stdout)
+
+		// Build ActionOutput from parsed JSON
+		return &ActionOutput{
+			Continue:       true,
+			Decision:       decision,
+			Reason:         cmdOutput.Reason,
+			StopReason:     cmdOutput.StopReason,
+			SuppressOutput: cmdOutput.SuppressOutput,
+			SystemMessage:  cmdOutput.SystemMessage,
+		}, nil
+
+	case "output":
+		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
+
+		// Empty message check → fail-safe (decision: block)
+		if strings.TrimSpace(processedMessage) == "" {
+			errMsg := "Empty message in SubagentStop action"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Warn if exit_status is set (deprecated for SubagentStop in JSON mode)
+		if action.ExitStatus != nil {
+			fmt.Fprintf(os.Stderr, "Warning: exit_status field is deprecated for SubagentStop hooks and will be ignored. Use 'decision' field instead.\n")
+		}
+
+		// Validate action.Decision if set
+		// Default to "" (allow subagent stop)
+		decision := ""
+		if action.Decision != nil {
+			if *action.Decision != "" && *action.Decision != "block" {
+				errMsg := "Invalid decision value in action config: must be 'block' or field must be omitted"
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+				return &ActionOutput{
+					Continue:      true,
+					Decision:      "block",
+					Reason:        processedMessage,
+					SystemMessage: errMsg,
+				}, nil
+			}
+			decision = *action.Decision
+		}
+
+		// Determine reason with template expansion
+		reason := processedMessage
+		if action.Reason != nil {
+			// Apply template expansion to reason
+			reasonValue := unifiedTemplateReplace(*action.Reason, rawJSON)
+			// Empty/whitespace reason with "block" decision should fallback to processedMessage
+			if strings.TrimSpace(reasonValue) == "" && decision == "block" {
+				reason = processedMessage
+			} else {
+				reason = reasonValue
+			}
+		}
+
+		// For allow (decision=""), clear reason (not applicable)
+		if decision == "" {
+			reason = ""
+		}
+
+		// Final validation: decision "block" requires non-empty reason
+		if decision == "block" && strings.TrimSpace(reason) == "" {
+			errMsg := "Empty reason when decision is 'block' (reason is required for block)"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				Decision:      "block",
+				Reason:        errMsg,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		return &ActionOutput{
+			Continue:      true,
+			Decision:      decision,
+			Reason:        reason,
+			SystemMessage: processedMessage,
+		}, nil
+	}
+
+	return nil, nil
 }
 
 // ExecutePreCompactAction executes an action for the PreCompact event.
@@ -972,6 +1124,31 @@ func checkUnsupportedFieldsStop(stdout string) {
 	for field := range data {
 		if !supportedFields[field] {
 			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for Stop hooks\n", field)
+		}
+	}
+}
+
+// checkUnsupportedFieldsSubagentStop checks for unsupported fields in SubagentStop hook output
+// SubagentStop uses the same schema as Stop (no hookSpecificOutput)
+func checkUnsupportedFieldsSubagentStop(stdout string) {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+		return
+	}
+
+	supportedFields := map[string]bool{
+		"continue":       true,
+		"decision":       true, // SubagentStop specific (top-level, same as Stop)
+		"reason":         true, // SubagentStop specific (top-level, same as Stop)
+		"stopReason":     true,
+		"suppressOutput": true,
+		"systemMessage":  true,
+		// Note: hookSpecificOutput is NOT supported for SubagentStop hooks
+	}
+
+	for field := range data {
+		if !supportedFields[field] {
+			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for SubagentStop hooks\n", field)
 		}
 	}
 }

@@ -2838,7 +2838,7 @@ func TestExecuteSubagentStopAction_TypeOutput(t *testing.T) {
 			},
 			wantDecision:      "",
 			wantReason:        "",
-			wantSystemMessage: "",
+			wantSystemMessage: "SubagentStop allowed",
 			wantContinue:      true,
 		},
 		{
@@ -2851,7 +2851,7 @@ func TestExecuteSubagentStopAction_TypeOutput(t *testing.T) {
 			},
 			wantDecision:      "block",
 			wantReason:        "Subagent should continue",
-			wantSystemMessage: "",
+			wantSystemMessage: "Blocking subagent stop",
 			wantContinue:      true,
 		},
 		{
@@ -2863,7 +2863,7 @@ func TestExecuteSubagentStopAction_TypeOutput(t *testing.T) {
 			},
 			wantDecision:      "block",
 			wantReason:        "Blocking subagent stop",
-			wantSystemMessage: "",
+			wantSystemMessage: "Blocking subagent stop",
 			wantContinue:      true,
 		},
 		{
@@ -2875,7 +2875,7 @@ func TestExecuteSubagentStopAction_TypeOutput(t *testing.T) {
 			},
 			wantDecision:      "",
 			wantReason:        "",
-			wantSystemMessage: "",
+			wantSystemMessage: "Allowing subagent stop",
 			wantContinue:      true,
 		},
 		{
@@ -2887,7 +2887,7 @@ func TestExecuteSubagentStopAction_TypeOutput(t *testing.T) {
 			},
 			wantDecision:      "block",
 			wantReason:        "Invalid decision",
-			wantSystemMessage: "",
+			wantSystemMessage: "Invalid decision value in action config: must be 'block' or field must be omitted",
 			wantContinue:      true,
 		},
 		{
@@ -2897,8 +2897,8 @@ func TestExecuteSubagentStopAction_TypeOutput(t *testing.T) {
 				Message: "",
 			},
 			wantDecision:      "block",
-			wantReason:        "",
-			wantSystemMessage: "",
+			wantReason:        "Empty message in SubagentStop action",
+			wantSystemMessage: "Empty message in SubagentStop action",
 			wantContinue:      true,
 		},
 		{
@@ -2911,7 +2911,7 @@ func TestExecuteSubagentStopAction_TypeOutput(t *testing.T) {
 			},
 			wantDecision:      "block",
 			wantReason:        "Blocking with empty reason",
-			wantSystemMessage: "",
+			wantSystemMessage: "Blocking with empty reason",
 			wantContinue:      true,
 		},
 		{
@@ -2924,7 +2924,7 @@ func TestExecuteSubagentStopAction_TypeOutput(t *testing.T) {
 			},
 			wantDecision:      "block",
 			wantReason:        "Blocking with whitespace reason",
-			wantSystemMessage: "",
+			wantSystemMessage: "Blocking with whitespace reason",
 			wantContinue:      true,
 		},
 		{
@@ -2936,7 +2936,7 @@ func TestExecuteSubagentStopAction_TypeOutput(t *testing.T) {
 			},
 			wantDecision:       "",
 			wantReason:         "",
-			wantSystemMessage:  "",
+			wantSystemMessage:  "Using deprecated exit_status",
 			wantContinue:       true,
 			wantStderrContains: "exit_status",
 		},
