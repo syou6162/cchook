@@ -271,6 +271,18 @@ type StopOutput struct {
 	SystemMessage  string `json:"systemMessage,omitempty"`
 }
 
+// SubagentStopOutput はSubagentStopフックのJSON出力全体を表す（Claude Code共通フィールド含む）
+// hookSpecificOutputは存在しない（Common JSON Fieldsとdecision/reasonのみ）
+// Stopと同じスキーマを使用（公式仕様）
+type SubagentStopOutput struct {
+	Continue       bool   `json:"continue"`
+	Decision       string `json:"decision,omitempty"` // "block" only; omit field to allow subagent stop
+	Reason         string `json:"reason,omitempty"`   // Required when decision is "block"
+	StopReason     string `json:"stopReason,omitempty"`
+	SuppressOutput bool   `json:"suppressOutput,omitempty"`
+	SystemMessage  string `json:"systemMessage,omitempty"`
+}
+
 // PostToolUseOutput represents the complete JSON output structure for PostToolUse hooks
 // following Claude Code JSON specification
 type PostToolUseOutput struct {
