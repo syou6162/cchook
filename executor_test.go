@@ -3210,3 +3210,186 @@ func TestExecuteSubagentStopAction_TypeCommand(t *testing.T) {
 		})
 	}
 }
+
+func TestExecuteSessionEndAction_TypeOutput(t *testing.T) {
+	tests := []struct {
+		name              string
+		action            Action
+		wantContinue      bool
+		wantSystemMessage string
+		wantErr           bool
+	}{
+		{
+			name: "Message only -> systemMessage set, continue=true",
+			action: Action{
+				Type:    "output",
+				Message: "Session cleanup completed",
+			},
+			wantContinue:      true,
+			wantSystemMessage: "Session cleanup completed",
+			wantErr:           false,
+		},
+		{
+			name: "Empty message -> fail-safe (systemMessage=fixed message, continue=true)",
+			action: Action{
+				Type:    "output",
+				Message: "",
+			},
+			wantContinue:      true,
+			wantSystemMessage: "Empty message in SessionEnd action",
+			wantErr:           false,
+		},
+		{
+			name: "exit_status specified -> ignore exit_status, emit warning",
+			action: Action{
+				Type:       "output",
+				Message:    "Test message",
+				ExitStatus: intPtr(2),
+			},
+			wantContinue:      true,
+			wantSystemMessage: "Test message",
+			wantErr:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &stubRunnerWithOutput{}
+			executor := &ActionExecutor{runner: runner}
+			input := &SessionEndInput{}
+
+			result, err := executor.ExecuteSessionEndAction(tt.action, input, map[string]interface{}{})
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ExecuteSessionEndAction() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if result == nil {
+				t.Fatal("Expected non-nil ActionOutput, got nil")
+			}
+
+			if result.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", result.Continue, tt.wantContinue)
+			}
+
+			if result.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", result.SystemMessage, tt.wantSystemMessage)
+			}
+		})
+	}
+}
+
+func TestExecuteSessionEndAction_TypeCommand(t *testing.T) {
+	tests := []struct {
+		name              string
+		stdout            string
+		stderr            string
+		exitCode          int
+		cmdErr            error
+		wantContinue      bool
+		wantSystemMessage string
+		wantErr           bool
+	}{
+		{
+			name:         "Valid JSON output with all fields",
+			stdout:       `{"continue": true, "stopReason": "cleanup done", "suppressOutput": false, "systemMessage": "Session ended"}`,
+			exitCode:     0,
+			wantContinue: true,
+			wantErr:      false,
+		},
+		{
+			name:         "Valid JSON output with minimal fields",
+			stdout:       `{"continue": true}`,
+			exitCode:     0,
+			wantContinue: true,
+			wantErr:      false,
+		},
+		{
+			name:              "Empty stdout -> continue=true, no error",
+			stdout:            "",
+			exitCode:          0,
+			wantContinue:      true,
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name:              "Command failed (exit code 1) -> fail-safe (continue=true, systemMessage=error)",
+			stdout:            "",
+			stderr:            "command error",
+			exitCode:          1,
+			wantContinue:      true,
+			wantSystemMessage: "Command failed with exit code 1: command error",
+			wantErr:           false,
+		},
+		{
+			name:              "Invalid JSON -> fail-safe (continue=true, systemMessage=error)",
+			stdout:            `{"continue": "invalid"}`,
+			exitCode:          0,
+			wantContinue:      true,
+			wantSystemMessage: "Command output is not valid JSON: {\"continue\": \"invalid\"}",
+			wantErr:           false,
+		},
+		{
+			name:         "Unsupported field in JSON -> warning to stderr, continue processing",
+			stdout:       `{"continue": true, "decision": "block"}`,
+			exitCode:     0,
+			wantContinue: true,
+			wantErr:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &stubRunnerWithOutput{
+				stdout:   tt.stdout,
+				stderr:   tt.stderr,
+				exitCode: tt.exitCode,
+				err:      tt.cmdErr,
+			}
+			executor := &ActionExecutor{runner: runner}
+			input := &SessionEndInput{}
+			action := Action{
+				Type:    "command",
+				Command: "test-command",
+			}
+
+			// Capture stderr to check for warnings
+			oldStderr := os.Stderr
+			r, w, _ := os.Pipe()
+			os.Stderr = w
+
+			result, err := executor.ExecuteSessionEndAction(action, input, map[string]interface{}{})
+
+			_ = w.Close()
+			os.Stderr = oldStderr
+			var buf bytes.Buffer
+			_, _ = io.Copy(&buf, r)
+			stderrOutput := buf.String()
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ExecuteSessionEndAction() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if result == nil {
+				t.Fatal("Expected non-nil ActionOutput, got nil")
+			}
+
+			if result.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", result.Continue, tt.wantContinue)
+			}
+
+			if tt.wantSystemMessage != "" && result.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", result.SystemMessage, tt.wantSystemMessage)
+			}
+
+			// Check for unsupported field warnings
+			if tt.name == "Unsupported field in JSON -> warning to stderr, continue processing" {
+				if !strings.Contains(stderrOutput, "Warning") || !strings.Contains(stderrOutput, "decision") {
+					t.Errorf("Expected warning about unsupported field 'decision' in stderr, got: %s", stderrOutput)
+				}
+			}
+		})
+	}
+}
