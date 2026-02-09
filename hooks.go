@@ -110,6 +110,12 @@ func dryRunHooks(config *Config, eventType HookEventType) error {
 			return err
 		}
 		return dryRunPermissionRequestHooks(config, input, rawJSON)
+	case PostToolUse:
+		input, rawJSON, err := parseInput[*PostToolUseInput](eventType)
+		if err != nil {
+			return err
+		}
+		return dryRunPostToolUseHooks(config, input, rawJSON)
 	case Notification:
 		input, rawJSON, err := parseInput[*NotificationInput](eventType)
 		if err != nil {
