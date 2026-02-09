@@ -1462,9 +1462,12 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 }
 
 // executePostToolUseHook executes all actions for a single PostToolUse hook.
+// Note: This is a temporary implementation for compatibility.
+// Will be replaced with executePostToolUseHooksJSON in Step 4.
 func executePostToolUseHook(executor *ActionExecutor, hook PostToolUseHook, input *PostToolUseInput, rawJSON interface{}) error {
 	for _, action := range hook.Actions {
-		if err := executor.ExecutePostToolUseAction(action, input, rawJSON); err != nil {
+		_, err := executor.ExecutePostToolUseAction(action, input, rawJSON)
+		if err != nil {
 			return err
 		}
 	}

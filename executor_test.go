@@ -2626,3 +2626,195 @@ func TestExecuteStopAction_TypeCommand_StderrWarnings(t *testing.T) {
 		})
 	}
 }
+
+func TestExecutePostToolUseAction_TypeOutput(t *testing.T) {
+	tests := []struct {
+		name                  string
+		action                Action
+		wantDecision          string
+		wantReason            string
+		wantAdditionalContext string
+		wantSystemMessage     string
+		wantErr               bool
+	}{
+		{
+			name: "Message only (decision unspecified) -> decision empty (allow tool result)",
+			action: Action{
+				Type:    "output",
+				Message: "Tool executed successfully",
+			},
+			wantDecision:          "",
+			wantReason:            "",
+			wantAdditionalContext: "Tool executed successfully",
+			wantSystemMessage:     "",
+			wantErr:               false,
+		},
+		{
+			name: "decision: block + reason specified -> decision=block, reason=specified value",
+			action: Action{
+				Type:     "output",
+				Message:  "Tool result contains sensitive data",
+				Decision: stringPtr("block"),
+				Reason:   stringPtr("Output validation failed"),
+			},
+			wantDecision:          "block",
+			wantReason:            "Output validation failed",
+			wantAdditionalContext: "Tool result contains sensitive data",
+			wantSystemMessage:     "",
+			wantErr:               false,
+		},
+		{
+			name: "decision: block + reason unspecified -> decision=block, reason=processedMessage",
+			action: Action{
+				Type:     "output",
+				Message:  "Blocking tool output",
+				Decision: stringPtr("block"),
+			},
+			wantDecision:          "block",
+			wantReason:            "Blocking tool output",
+			wantAdditionalContext: "Blocking tool output",
+			wantSystemMessage:     "",
+			wantErr:               false,
+		},
+		{
+			name: "decision: empty string (explicit allow) -> decision empty (allow tool result)",
+			action: Action{
+				Type:     "output",
+				Message:  "Tool result is valid",
+				Decision: stringPtr(""),
+			},
+			wantDecision:          "",
+			wantReason:            "",
+			wantAdditionalContext: "Tool result is valid",
+			wantSystemMessage:     "",
+			wantErr:               false,
+		},
+		{
+			name: "Invalid decision value -> fail-safe (decision: block)",
+			action: Action{
+				Type:     "output",
+				Message:  "Invalid decision test",
+				Decision: stringPtr("invalid"),
+			},
+			wantDecision:          "block",
+			wantReason:            "Invalid decision test",
+			wantAdditionalContext: "",
+			wantSystemMessage:     "Invalid decision value in action config: must be 'block' or field must be omitted",
+			wantErr:               false,
+		},
+		{
+			name: "Empty message -> fail-safe (decision: block, reason=fixed message)",
+			action: Action{
+				Type:    "output",
+				Message: "",
+			},
+			wantDecision:          "block",
+			wantReason:            "Empty message in PostToolUse action",
+			wantAdditionalContext: "",
+			wantSystemMessage:     "Empty message in PostToolUse action",
+			wantErr:               false,
+		},
+		{
+			name: "exit_status deprecated warning -> stderr warning, decision empty (allow)",
+			action: Action{
+				Type:       "output",
+				Message:    "Tool result allowed",
+				ExitStatus: intPtr(0),
+			},
+			wantDecision:          "",
+			wantReason:            "",
+			wantAdditionalContext: "Tool result allowed",
+			wantSystemMessage:     "",
+			wantErr:               false,
+		},
+		{
+			name: "exit_status=2 deprecated warning -> stderr warning, decision empty (allow)",
+			action: Action{
+				Type:       "output",
+				Message:    "Tool result blocked (legacy)",
+				ExitStatus: intPtr(2),
+			},
+			wantDecision:          "",
+			wantReason:            "",
+			wantAdditionalContext: "Tool result blocked (legacy)",
+			wantSystemMessage:     "",
+			wantErr:               false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := NewActionExecutor(nil)
+			input := &PostToolUseInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session",
+					HookEventName: "PostToolUse",
+				},
+				ToolName: "Write",
+			}
+			rawJSON := map[string]interface{}{
+				"session_id":      "test-session",
+				"hook_event_name": "PostToolUse",
+				"tool_name":       "Write",
+				"tool_input":      map[string]interface{}{},
+				"tool_response":   "ok",
+			}
+
+			// Capture stderr for deprecation warning check
+			oldStderr := os.Stderr
+			r, w, _ := os.Pipe()
+			os.Stderr = w
+
+			output, err := executor.ExecutePostToolUseAction(tt.action, input, rawJSON)
+
+			_ = w.Close()
+			os.Stderr = oldStderr
+
+			var stderrBuf strings.Builder
+			_, _ = io.Copy(&stderrBuf, r)
+			stderr := stderrBuf.String()
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if output == nil {
+				t.Fatal("Expected output, got nil")
+			}
+
+			if output.Decision != tt.wantDecision {
+				t.Errorf("Decision mismatch: want %q, got %q", tt.wantDecision, output.Decision)
+			}
+
+			if output.Reason != tt.wantReason {
+				t.Errorf("Reason mismatch: want %q, got %q", tt.wantReason, output.Reason)
+			}
+
+			if output.AdditionalContext != tt.wantAdditionalContext {
+				t.Errorf("AdditionalContext mismatch: want %q, got %q", tt.wantAdditionalContext, output.AdditionalContext)
+			}
+
+			if output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage mismatch: want %q, got %q", tt.wantSystemMessage, output.SystemMessage)
+			}
+
+			if output.HookEventName != "PostToolUse" {
+				t.Errorf("HookEventName mismatch: want %q, got %q", "PostToolUse", output.HookEventName)
+			}
+
+			// Check for deprecation warning in stderr when exit_status is set
+			if tt.action.ExitStatus != nil {
+				if !strings.Contains(stderr, "exit_status") && !strings.Contains(stderr, "deprecated") {
+					t.Errorf("Expected deprecation warning in stderr when exit_status is set")
+				}
+			}
+		})
+	}
+}
