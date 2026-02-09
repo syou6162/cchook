@@ -1452,3 +1452,130 @@ func TestPostToolUseOutput_JSONSerialization(t *testing.T) {
 		})
 	}
 }
+
+func TestNotificationOutput_JSONSerialization(t *testing.T) {
+	tests := []struct {
+		name           string
+		output         NotificationOutput
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name: "Full output with all fields",
+			output: NotificationOutput{
+				Continue:      true,
+				SystemMessage: "Test message",
+				StopReason:    "test reason",
+				SuppressOutput: true,
+				HookSpecificOutput: &NotificationHookSpecificOutput{
+					HookEventName:     "Notification",
+					AdditionalContext: "Additional info",
+				},
+			},
+			wantContains: []string{
+				"\"continue\":true",
+				"\"systemMessage\":\"Test message\"",
+				"\"stopReason\":\"test reason\"",
+				"\"suppressOutput\":true",
+				"\"hookEventName\":\"Notification\"",
+				"\"additionalContext\":\"Additional info\"",
+			},
+		},
+		{
+			name: "Minimal output with only continue and hookSpecificOutput",
+			output: NotificationOutput{
+				Continue: true,
+				HookSpecificOutput: &NotificationHookSpecificOutput{
+					HookEventName: "Notification",
+				},
+			},
+			wantContains:   []string{"\"continue\":true", "\"hookEventName\":\"Notification\""},
+			wantNotContain: []string{"stopReason", "suppressOutput", "systemMessage", "additionalContext"},
+		},
+		{
+			name: "Empty additionalContext is omitted",
+			output: NotificationOutput{
+				Continue: true,
+				HookSpecificOutput: &NotificationHookSpecificOutput{
+					HookEventName:     "Notification",
+					AdditionalContext: "",
+				},
+			},
+			wantContains:   []string{"\"hookEventName\":\"Notification\""},
+			wantNotContain: []string{"additionalContext"},
+		},
+		{
+			name: "Zero values are omitted (omitempty)",
+			output: NotificationOutput{
+				Continue:       true,
+				StopReason:     "",
+				SuppressOutput: false,
+				SystemMessage:  "",
+				HookSpecificOutput: &NotificationHookSpecificOutput{
+					HookEventName: "Notification",
+				},
+			},
+			wantContains:   []string{"\"continue\":true", "\"hookEventName\":\"Notification\""},
+			wantNotContain: []string{"stopReason", "suppressOutput", "systemMessage"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Marshal
+			jsonBytes, err := json.Marshal(tt.output)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+			jsonStr := string(jsonBytes)
+
+			// Check expected content
+			for _, want := range tt.wantContains {
+				if !stringContains(jsonStr, want) {
+					t.Errorf("JSON does not contain expected string %q. JSON: %s", want, jsonStr)
+				}
+			}
+
+			// Check unexpected content
+			for _, notWant := range tt.wantNotContain {
+				if stringContains(jsonStr, notWant) {
+					t.Errorf("JSON contains unexpected string %q. JSON: %s", notWant, jsonStr)
+				}
+			}
+
+			// Unmarshal (round-trip)
+			var unmarshaled NotificationOutput
+			if err := json.Unmarshal(jsonBytes, &unmarshaled); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+
+			// Verify round-trip preserves data
+			if unmarshaled.Continue != tt.output.Continue {
+				t.Errorf("Round-trip: Continue mismatch. Got %v, want %v", unmarshaled.Continue, tt.output.Continue)
+			}
+			if unmarshaled.SystemMessage != tt.output.SystemMessage {
+				t.Errorf("Round-trip: SystemMessage mismatch. Got %q, want %q", unmarshaled.SystemMessage, tt.output.SystemMessage)
+			}
+			if unmarshaled.StopReason != tt.output.StopReason {
+				t.Errorf("Round-trip: StopReason mismatch. Got %q, want %q", unmarshaled.StopReason, tt.output.StopReason)
+			}
+			if unmarshaled.SuppressOutput != tt.output.SuppressOutput {
+				t.Errorf("Round-trip: SuppressOutput mismatch. Got %v, want %v", unmarshaled.SuppressOutput, tt.output.SuppressOutput)
+			}
+			if tt.output.HookSpecificOutput != nil {
+				if unmarshaled.HookSpecificOutput == nil {
+					t.Errorf("Round-trip: HookSpecificOutput is nil")
+				} else {
+					if unmarshaled.HookSpecificOutput.HookEventName != tt.output.HookSpecificOutput.HookEventName {
+						t.Errorf("Round-trip: HookEventName mismatch. Got %q, want %q",
+							unmarshaled.HookSpecificOutput.HookEventName, tt.output.HookSpecificOutput.HookEventName)
+					}
+					if unmarshaled.HookSpecificOutput.AdditionalContext != tt.output.HookSpecificOutput.AdditionalContext {
+						t.Errorf("Round-trip: AdditionalContext mismatch. Got %q, want %q",
+							unmarshaled.HookSpecificOutput.AdditionalContext, tt.output.HookSpecificOutput.AdditionalContext)
+					}
+				}
+			}
+		})
+	}
+}

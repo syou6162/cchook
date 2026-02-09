@@ -111,6 +111,23 @@ func (n *NotificationInput) GetToolName() string {
 	return ""
 }
 
+// Notification JSON出力用の構造体
+
+// NotificationOutput はNotificationフックのJSON出力全体を表す（Claude Code共通フィールド含む）
+type NotificationOutput struct {
+	Continue           bool                            `json:"continue"`
+	StopReason         string                          `json:"stopReason,omitempty"`
+	SuppressOutput     bool                            `json:"suppressOutput,omitempty"`
+	SystemMessage      string                          `json:"systemMessage,omitempty"`
+	HookSpecificOutput *NotificationHookSpecificOutput `json:"hookSpecificOutput"`
+}
+
+// NotificationHookSpecificOutput はNotification固有の出力フィールド
+type NotificationHookSpecificOutput struct {
+	HookEventName     string `json:"hookEventName"`
+	AdditionalContext string `json:"additionalContext,omitempty"`
+}
+
 // Stop用
 type StopInput struct {
 	BaseInput
