@@ -627,6 +627,14 @@ func executeNotificationHooksJSON(config *Config, input *NotificationInput, rawJ
 				systemMessageBuilder.WriteString(actionOutput.SystemMessage)
 			}
 
+			// StopReason: 最後の非空値が勝ち
+			if actionOutput.StopReason != "" {
+				finalOutput.StopReason = actionOutput.StopReason
+			}
+
+			// SuppressOutput: 最後の値が勝ち
+			finalOutput.SuppressOutput = actionOutput.SuppressOutput
+
 			// No early return for Notification (cannot block)
 		}
 	}

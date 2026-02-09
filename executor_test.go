@@ -3213,13 +3213,15 @@ func TestExecuteSubagentStopAction_TypeCommand(t *testing.T) {
 
 func TestExecuteNotificationAction_TypeOutput(t *testing.T) {
 	tests := []struct {
-		name              string
-		action            Action
-		wantContinue      bool
-		wantHookEventName string
-		wantAdditionalCtx string
-		wantSystemMessage string
-		wantErr           bool
+		name               string
+		action             Action
+		wantContinue       bool
+		wantHookEventName  string
+		wantAdditionalCtx  string
+		wantSystemMessage  string
+		wantStopReason     string
+		wantSuppressOutput bool
+		wantErr            bool
 	}{
 		{
 			name: "Message with continue unspecified defaults to true",
@@ -3330,23 +3332,33 @@ func TestExecuteNotificationAction_TypeOutput(t *testing.T) {
 			if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
 				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
 			}
+
+			if tt.wantStopReason != "" && output.StopReason != tt.wantStopReason {
+				t.Errorf("StopReason = %q, want %q", output.StopReason, tt.wantStopReason)
+			}
+
+			if output.SuppressOutput != tt.wantSuppressOutput {
+				t.Errorf("SuppressOutput = %v, want %v", output.SuppressOutput, tt.wantSuppressOutput)
+			}
 		})
 	}
 }
 
 func TestExecuteNotificationAction_TypeCommand(t *testing.T) {
 	tests := []struct {
-		name              string
-		action            Action
-		stubStdout        string
-		stubStderr        string
-		stubExitCode      int
-		stubErr           error
-		wantContinue      bool
-		wantHookEventName string
-		wantAdditionalCtx string
-		wantSystemMessage string
-		wantErr           bool
+		name               string
+		action             Action
+		stubStdout         string
+		stubStderr         string
+		stubExitCode       int
+		stubErr            error
+		wantContinue       bool
+		wantHookEventName  string
+		wantAdditionalCtx  string
+		wantSystemMessage  string
+		wantStopReason     string
+		wantSuppressOutput bool
+		wantErr            bool
 	}{
 		{
 			name: "Command success with valid JSON and all fields",
@@ -3419,6 +3431,31 @@ func TestExecuteNotificationAction_TypeCommand(t *testing.T) {
 			wantSystemMessage: "",
 			wantErr:           false,
 		},
+		{
+			name: "Command with stopReason and suppressOutput",
+			action: Action{
+				Type:    "command",
+				Command: "get-notification-with-flags.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"stopReason": "test_stop_reason",
+				"suppressOutput": true,
+				"hookSpecificOutput": {
+					"hookEventName": "Notification",
+					"additionalContext": "Notification with flags"
+				}
+			}`,
+			stubStderr:         "",
+			stubExitCode:       0,
+			wantContinue:       true,
+			wantHookEventName:  "Notification",
+			wantAdditionalCtx:  "Notification with flags",
+			wantSystemMessage:  "",
+			wantStopReason:     "test_stop_reason",
+			wantSuppressOutput: true,
+			wantErr:            false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -3468,6 +3505,14 @@ func TestExecuteNotificationAction_TypeCommand(t *testing.T) {
 
 			if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
 				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+
+			if tt.wantStopReason != "" && output.StopReason != tt.wantStopReason {
+				t.Errorf("StopReason = %q, want %q", output.StopReason, tt.wantStopReason)
+			}
+
+			if output.SuppressOutput != tt.wantSuppressOutput {
+				t.Errorf("SuppressOutput = %v, want %v", output.SuppressOutput, tt.wantSuppressOutput)
 			}
 		})
 	}

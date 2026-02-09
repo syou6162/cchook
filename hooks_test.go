@@ -3681,6 +3681,8 @@ func TestExecuteNotificationHooksJSON(t *testing.T) {
 		wantHookEventName     string
 		wantAdditionalContext string
 		wantSystemMessage     string
+		wantStopReason        string
+		wantSuppressOutput    bool
 		wantErr               bool
 		wantErrContains       string
 	}{
@@ -3824,6 +3826,14 @@ func TestExecuteNotificationHooksJSON(t *testing.T) {
 
 				if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
 					t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+				}
+
+				if tt.wantStopReason != "" && output.StopReason != tt.wantStopReason {
+					t.Errorf("StopReason = %q, want %q", output.StopReason, tt.wantStopReason)
+				}
+
+				if output.SuppressOutput != tt.wantSuppressOutput {
+					t.Errorf("SuppressOutput = %v, want %v", output.SuppressOutput, tt.wantSuppressOutput)
 				}
 			}
 		})

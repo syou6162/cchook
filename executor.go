@@ -88,9 +88,11 @@ func (e *ActionExecutor) ExecuteNotificationAction(action Action, input *Notific
 
 		// Build ActionOutput from parsed JSON
 		result := &ActionOutput{
-			Continue:      cmdOutput.Continue,
-			HookEventName: cmdOutput.HookSpecificOutput.HookEventName,
-			SystemMessage: cmdOutput.SystemMessage,
+			Continue:       cmdOutput.Continue,
+			HookEventName:  cmdOutput.HookSpecificOutput.HookEventName,
+			SystemMessage:  cmdOutput.SystemMessage,
+			StopReason:     cmdOutput.StopReason,
+			SuppressOutput: cmdOutput.SuppressOutput,
 		}
 
 		// Set AdditionalContext
