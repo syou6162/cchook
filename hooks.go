@@ -55,12 +55,6 @@ func runHooks(config *Config, eventType HookEventType) error {
 		// TODO: Task 9 will handle JSON serialization and output
 		_, err = executeUserPromptSubmitHooks(config, input, rawJSON)
 		return err
-	case SessionEnd:
-		input, rawJSON, err := parseInput[*SessionEndInput](eventType)
-		if err != nil {
-			return err
-		}
-		return executeSessionEndHooks(config, input, rawJSON)
 	default:
 		return fmt.Errorf("unsupported event type: %s", eventType)
 	}
@@ -900,6 +894,16 @@ func RunSubagentStopHooks(config *Config) (*SubagentStopOutput, error) {
 	return executeSubagentStopHooks(config, input, rawJSON)
 }
 
+// RunSessionEndHooks parses input from stdin and executes SessionEnd hooks.
+// Returns SessionEndOutput for JSON serialization.
+func RunSessionEndHooks(config *Config) (*SessionEndOutput, error) {
+	input, rawJSON, err := parseInput[*SessionEndInput](SessionEnd)
+	if err != nil {
+		return nil, err
+	}
+	return executeSessionEndHooksJSON(config, input, rawJSON)
+}
+
 // RunPostToolUseHooks parses input from stdin and executes PostToolUse hooks.
 // Returns PostToolUseOutput for JSON serialization.
 func RunPostToolUseHooks(config *Config) (*PostToolUseOutput, error) {
@@ -1657,9 +1661,20 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 
 // executeSessionEndHooks executes all matching SessionEnd hooks based on condition checks.
 // Returns errors to inform users of failures, though session end cannot be blocked.
-func executeSessionEndHooks(config *Config, input *SessionEndInput, rawJSON interface{}) error {
+// executeSessionEndHooksJSON executes all matching SessionEnd hooks and returns SessionEndOutput.
+// SessionEnd always returns continue=true (fail-safe: session end cannot be blocked).
+// Errors are reported via systemMessage field, not by blocking execution.
+func executeSessionEndHooksJSON(config *Config, input *SessionEndInput, rawJSON interface{}) (*SessionEndOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
+	var actionErrors []error
+
+	// Initialize finalOutput: Continue always true (session end cannot be blocked)
+	finalOutput := &SessionEndOutput{
+		Continue: true,
+	}
+
+	var systemMessageBuilder strings.Builder
 
 	for i, hook := range config.SessionEnd {
 		// 条件チェック
@@ -1682,34 +1697,57 @@ func executeSessionEndHooks(config *Config, input *SessionEndInput, rawJSON inte
 		}
 
 		for _, action := range hook.Actions {
-			_, err := executor.ExecuteSessionEndAction(action, input, rawJSON)
+			actionOutput, err := executor.ExecuteSessionEndAction(action, input, rawJSON)
 			if err != nil {
-				// SessionEndフックはセッション終了をブロックできないが、
-				// エラーをユーザーに通知するため返す
-				if exitErr, ok := err.(*ExitError); ok {
-					actionErr := &ExitError{
-						Code:    exitErr.Code,
-						Message: fmt.Sprintf("SessionEnd hook %d failed: %s", i, exitErr.Message),
-						Stderr:  exitErr.Stderr,
-					}
-					if len(conditionErrors) > 0 {
-						return errors.Join(append(conditionErrors, actionErr)...)
-					}
-					return actionErr
-				}
-				actionErr := fmt.Errorf("SessionEnd hook %d failed: %w", i, err)
-				if len(conditionErrors) > 0 {
-					return errors.Join(append(conditionErrors, actionErr)...)
-				}
-				return actionErr
+				actionErrors = append(actionErrors, fmt.Errorf("session end hook %d action failed: %w", i, err))
+				continue
 			}
+
+			if actionOutput == nil {
+				continue
+			}
+
+			// SystemMessage: 改行連結
+			if actionOutput.SystemMessage != "" {
+				if systemMessageBuilder.Len() > 0 {
+					systemMessageBuilder.WriteString("\n")
+				}
+				systemMessageBuilder.WriteString(actionOutput.SystemMessage)
+			}
+
+			// StopReason: 最後の非空値が勝ち
+			if actionOutput.StopReason != "" {
+				finalOutput.StopReason = actionOutput.StopReason
+			}
+
+			// SuppressOutput: 最後の値が勝ち
+			finalOutput.SuppressOutput = actionOutput.SuppressOutput
 		}
 	}
 
-	if len(conditionErrors) > 0 {
-		return errors.Join(conditionErrors...)
+	finalOutput.SystemMessage = systemMessageBuilder.String()
+
+	// Collect all errors
+	var allErrors []error
+	allErrors = append(allErrors, conditionErrors...)
+
+	// アクションエラーがある場合はfail-safe: systemMessageに追加
+	if len(actionErrors) > 0 {
+		errorMsg := errors.Join(actionErrors...).Error()
+		if finalOutput.SystemMessage != "" {
+			finalOutput.SystemMessage += "\n" + errorMsg
+		} else {
+			finalOutput.SystemMessage = errorMsg
+		}
+
+		allErrors = append(allErrors, actionErrors...)
 	}
-	return nil
+
+	if len(allErrors) > 0 {
+		return finalOutput, errors.Join(allErrors...)
+	}
+
+	return finalOutput, nil
 }
 
 // dryRunSessionEndHooks performs a dry-run of SessionEnd hooks, showing what would be executed without actually running.
