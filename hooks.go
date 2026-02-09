@@ -1682,7 +1682,8 @@ func executeSessionEndHooks(config *Config, input *SessionEndInput, rawJSON inte
 		}
 
 		for _, action := range hook.Actions {
-			if err := executor.ExecuteSessionEndAction(action, input, rawJSON); err != nil {
+			_, err := executor.ExecuteSessionEndAction(action, input, rawJSON)
+			if err != nil {
 				// SessionEndフックはセッション終了をブロックできないが、
 				// エラーをユーザーに通知するため返す
 				if exitErr, ok := err.(*ExitError); ok {
