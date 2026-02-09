@@ -3432,6 +3432,27 @@ func TestExecuteNotificationAction_TypeCommand(t *testing.T) {
 			wantErr:           false,
 		},
 		{
+			name: "Command with only common fields - hookSpecificOutput auto-complemented",
+			action: Action{
+				Type:    "command",
+				Command: "get-notification-common-only.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"systemMessage": "Common fields only",
+				"stopReason": "auto_complement_test"
+			}`,
+			stubStderr:         "",
+			stubExitCode:       0,
+			wantContinue:       true,
+			wantHookEventName:  "Notification",
+			wantAdditionalCtx:  "",
+			wantSystemMessage:  "Common fields only",
+			wantStopReason:     "auto_complement_test",
+			wantSuppressOutput: false,
+			wantErr:            false,
+		},
+		{
 			name: "Command with stopReason and suppressOutput",
 			action: Action{
 				Type:    "command",

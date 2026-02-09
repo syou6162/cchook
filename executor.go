@@ -63,18 +63,26 @@ func (e *ActionExecutor) ExecuteNotificationAction(action Action, input *Notific
 			}, nil
 		}
 
-		// Check for required field: hookSpecificOutput.hookEventName
-		if cmdOutput.HookSpecificOutput == nil || cmdOutput.HookSpecificOutput.HookEventName == "" {
-			errMsg := "Command output is missing required field: hookSpecificOutput.hookEventName"
+		// Complement hookSpecificOutput with default if missing (spec marks it optional)
+		if cmdOutput.HookSpecificOutput == nil {
+			cmdOutput.HookSpecificOutput = &NotificationHookSpecificOutput{
+				HookEventName: "Notification",
+			}
+		} else if cmdOutput.HookSpecificOutput.HookEventName == "" {
+			cmdOutput.HookSpecificOutput.HookEventName = "Notification"
+		}
+
+		// Validate against JSON Schema (using complemented data)
+		complementedJSON, err := json.Marshal(cmdOutput)
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to marshal complemented output: %s", err.Error())
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      false,
 				SystemMessage: errMsg,
 			}, nil
 		}
-
-		// Validate against JSON Schema
-		if err := validateNotificationOutput([]byte(stdout)); err != nil {
+		if err := validateNotificationOutput(complementedJSON); err != nil {
 			errMsg := fmt.Sprintf("Command output validation failed: %s", err.Error())
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
