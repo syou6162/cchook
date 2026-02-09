@@ -283,6 +283,16 @@ type SubagentStopOutput struct {
 	SystemMessage  string `json:"systemMessage,omitempty"`
 }
 
+// SessionEndOutput はSessionEndフックのJSON出力全体を表す（Claude Code共通フィールド含む）
+// SessionEndはCommon JSON Fieldsのみで、hookSpecificOutput、decision、reasonフィールドは存在しない
+// セッション終了をブロックできないため、continueは常にtrueとする（fail-safe設計）
+type SessionEndOutput struct {
+	Continue       bool   `json:"continue"`
+	StopReason     string `json:"stopReason,omitempty"`
+	SuppressOutput bool   `json:"suppressOutput,omitempty"`
+	SystemMessage  string `json:"systemMessage,omitempty"`
+}
+
 // PostToolUseOutput represents the complete JSON output structure for PostToolUse hooks
 // following Claude Code JSON specification
 type PostToolUseOutput struct {
