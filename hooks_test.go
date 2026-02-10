@@ -837,42 +837,8 @@ func TestExecutePostToolUseHooks_ConditionErrorAggregation(t *testing.T) {
 	}
 }
 
-func TestExecuteNotificationHooks_ConditionErrorAggregation(t *testing.T) {
-	// Notificationでは使えない条件タイプを設定
-	config := &Config{
-		Notification: []NotificationHook{
-			{
-				Conditions: []Condition{
-					{Type: ConditionFileExtension, Value: ".go"}, // Notificationでは無効
-				},
-				Actions: []Action{
-					{Type: "output", Message: "test"},
-				},
-			},
-		},
-	}
-
-	input := &NotificationInput{
-		BaseInput: BaseInput{Cwd: "/tmp"},
-		Message:   "test notification",
-	}
-
-	err := executeNotificationHooks(config, input, nil)
-
-	// エラーが返されることを確認
-	if err == nil {
-		t.Fatal("Expected error for invalid condition type, got nil")
-	}
-
-	// エラーメッセージの確認
-	errMsg := err.Error()
-	if !strings.Contains(errMsg, "hook[Notification][0]") {
-		t.Errorf("Expected error message to contain hook identifier, got: %q", errMsg)
-	}
-	if !strings.Contains(errMsg, "unknown condition type") {
-		t.Errorf("Expected error message to contain 'unknown condition type', got: %q", errMsg)
-	}
-}
+// TestExecuteNotification_ConditionErrorAggregation removed - old implementation used executeNotification,
+// new implementation uses executeNotificationHooksJSON with JSON output pattern.
 
 func TestExecutePostToolUseHooks_Integration(t *testing.T) {
 	config := &Config{
@@ -897,15 +863,8 @@ func TestExecutePostToolUseHooks_Integration(t *testing.T) {
 	}
 }
 
-func TestExecuteNotificationHooks(t *testing.T) {
-	config := &Config{}
-	input := &NotificationInput{Message: "test"}
-
-	err := executeNotificationHooks(config, input, nil)
-	if err != nil {
-		t.Errorf("executeNotificationHooks() error = %v, expected nil", err)
-	}
-}
+// TestExecuteNotification removed - old implementation used executeNotification,
+// new implementation uses executeNotificationHooksJSON. See TestExecuteNotificationJSON in hooks_test.go.
 
 func TestExecuteStopHooks(t *testing.T) {
 	config := &Config{}
@@ -1050,6 +1009,168 @@ func TestDryRunPreToolUseHooks_WithMatch(t *testing.T) {
 		if !strings.Contains(output, expected) {
 			t.Errorf("Expected output to contain %q, got: %q", expected, output)
 		}
+	}
+}
+
+func TestExecuteSessionEndHooksJSON(t *testing.T) {
+	tests := []struct {
+		name              string
+		config            *Config
+		input             *SessionEndInput
+		rawJSON           interface{}
+		wantContinue      bool
+		wantSystemMessage string
+		wantErr           bool
+		wantErrContains   string
+	}{
+		{
+			name:         "1. No hooks configured - allow session end",
+			config:       &Config{},
+			input:        &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
+			rawJSON:      map[string]interface{}{},
+			wantContinue: true,
+			wantErr:      false,
+		},
+		{
+			name: "2. Output action with message",
+			config: &Config{
+				SessionEnd: []SessionEndHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Session cleanup completed",
+							},
+						},
+					},
+				},
+			},
+			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantSystemMessage: "Session cleanup completed",
+			wantErr:           false,
+		},
+		{
+			name: "3. Multiple actions - systemMessage concatenated",
+			config: &Config{
+				SessionEnd: []SessionEndHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "First message",
+							},
+							{
+								Type:    "output",
+								Message: "Second message",
+							},
+						},
+					},
+				},
+			},
+			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "logout"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantSystemMessage: "First message\nSecond message",
+			wantErr:           false,
+		},
+		{
+			name: "4. Condition matches (reason_is)",
+			config: &Config{
+				SessionEnd: []SessionEndHook{
+					{
+						Conditions: []Condition{
+							{Type: ConditionReasonIs, Value: "clear"},
+						},
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Clear cleanup",
+							},
+						},
+					},
+				},
+			},
+			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantSystemMessage: "Clear cleanup",
+			wantErr:           false,
+		},
+		{
+			name: "5. Condition doesn't match - no action executed",
+			config: &Config{
+				SessionEnd: []SessionEndHook{
+					{
+						Conditions: []Condition{
+							{Type: ConditionReasonIs, Value: "logout"},
+						},
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Should not appear",
+							},
+						},
+					},
+				},
+			},
+			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "6. Action fails - fail-safe (continue=true, systemMessage=error)",
+			config: &Config{
+				SessionEnd: []SessionEndHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "", // Empty message triggers error
+							},
+						},
+					},
+				},
+			},
+			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantSystemMessage: "Empty message in SessionEnd action",
+			wantErr:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := executeSessionEndHooksJSON(tt.config, tt.input, tt.rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("executeSessionEndHooksJSON() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantErr && err != nil {
+				if tt.wantErrContains != "" && !strings.Contains(err.Error(), tt.wantErrContains) {
+					t.Errorf("Error message = %q, want to contain %q", err.Error(), tt.wantErrContains)
+				}
+				return
+			}
+
+			if result == nil {
+				t.Fatal("Expected non-nil SessionEndOutput, got nil")
+			}
+
+			if result.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", result.Continue, tt.wantContinue)
+			}
+
+			if result.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", result.SystemMessage, tt.wantSystemMessage)
+			}
+		})
 	}
 }
 
@@ -3450,49 +3571,57 @@ func TestExecuteSubagentStopHooksJSON(t *testing.T) {
 	}
 }
 
-func TestExecuteSessionEndHooksJSON(t *testing.T) {
+func TestExecuteNotificationHooksJSON(t *testing.T) {
 	tests := []struct {
-		name              string
-		config            *Config
-		input             *SessionEndInput
-		rawJSON           interface{}
-		wantContinue      bool
-		wantSystemMessage string
-		wantErr           bool
-		wantErrContains   string
+		name                  string
+		config                *Config
+		input                 *NotificationInput
+		rawJSON               map[string]interface{}
+		wantContinue          bool
+		wantHookEventName     string
+		wantAdditionalContext string
+		wantSystemMessage     string
+		wantStopReason        string
+		wantSuppressOutput    bool
+		wantErr               bool
+		wantErrContains       string
 	}{
 		{
-			name:         "1. No hooks configured - allow session end",
-			config:       &Config{},
-			input:        &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
-			rawJSON:      map[string]interface{}{},
-			wantContinue: true,
-			wantErr:      false,
+			name: "No hooks - continue true",
+			config: &Config{
+				Notification: []NotificationHook{},
+			},
+			input:             &NotificationInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "Notification"}},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantHookEventName: "Notification",
+			wantErr:           false,
 		},
 		{
-			name: "2. Output action with message",
+			name: "Single action - output type",
 			config: &Config{
-				SessionEnd: []SessionEndHook{
+				Notification: []NotificationHook{
 					{
 						Actions: []Action{
 							{
 								Type:    "output",
-								Message: "Session cleanup completed",
+								Message: "Test notification",
 							},
 						},
 					},
 				},
 			},
-			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
-			rawJSON:           map[string]interface{}{},
-			wantContinue:      true,
-			wantSystemMessage: "Session cleanup completed",
-			wantErr:           false,
+			input:                 &NotificationInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "Notification"}},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantHookEventName:     "Notification",
+			wantAdditionalContext: "Test notification",
+			wantErr:               false,
 		},
 		{
-			name: "3. Multiple actions - systemMessage concatenated",
+			name: "Multiple actions - additionalContext concatenated",
 			config: &Config{
-				SessionEnd: []SessionEndHook{
+				Notification: []NotificationHook{
 					{
 						Actions: []Action{
 							{
@@ -3507,106 +3636,79 @@ func TestExecuteSessionEndHooksJSON(t *testing.T) {
 					},
 				},
 			},
-			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "logout"},
-			rawJSON:           map[string]interface{}{},
-			wantContinue:      true,
-			wantSystemMessage: "First message\nSecond message",
-			wantErr:           false,
+			input:                 &NotificationInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "Notification"}},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantHookEventName:     "Notification",
+			wantAdditionalContext: "First message\nSecond message",
+			wantErr:               false,
 		},
 		{
-			name: "4. Condition matches (reason_is)",
+			name: "SystemMessage concatenation",
 			config: &Config{
-				SessionEnd: []SessionEndHook{
+				Notification: []NotificationHook{
 					{
-						Conditions: []Condition{
-							{Type: ConditionReasonIs, Value: "clear"},
-						},
 						Actions: []Action{
 							{
 								Type:    "output",
-								Message: "Clear cleanup",
+								Message: "Message with system warning",
 							},
 						},
 					},
 				},
 			},
-			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
-			rawJSON:           map[string]interface{}{},
-			wantContinue:      true,
-			wantSystemMessage: "Clear cleanup",
-			wantErr:           false,
-		},
-		{
-			name: "5. Condition doesn't match - no action executed",
-			config: &Config{
-				SessionEnd: []SessionEndHook{
-					{
-						Conditions: []Condition{
-							{Type: ConditionReasonIs, Value: "logout"},
-						},
-						Actions: []Action{
-							{
-								Type:    "output",
-								Message: "Should not appear",
-							},
-						},
-					},
-				},
-			},
-			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
-			rawJSON:           map[string]interface{}{},
-			wantContinue:      true,
-			wantSystemMessage: "",
-			wantErr:           false,
-		},
-		{
-			name: "6. Action fails - fail-safe (continue=true, systemMessage=error)",
-			config: &Config{
-				SessionEnd: []SessionEndHook{
-					{
-						Actions: []Action{
-							{
-								Type:    "output",
-								Message: "", // Empty message triggers error
-							},
-						},
-					},
-				},
-			},
-			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
-			rawJSON:           map[string]interface{}{},
-			wantContinue:      true,
-			wantSystemMessage: "Empty message in SessionEnd action",
-			wantErr:           false,
+			input:                 &NotificationInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "Notification"}},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantHookEventName:     "Notification",
+			wantAdditionalContext: "Message with system warning",
+			wantErr:               false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := executeSessionEndHooksJSON(tt.config, tt.input, tt.rawJSON)
+			output, err := executeNotificationHooksJSON(tt.config, tt.input, tt.rawJSON)
 
 			if (err != nil) != tt.wantErr {
-				t.Errorf("executeSessionEndHooksJSON() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("executeNotificationHooksJSON() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
-			if tt.wantErr && err != nil {
-				if tt.wantErrContains != "" && !strings.Contains(err.Error(), tt.wantErrContains) {
-					t.Errorf("Error message = %q, want to contain %q", err.Error(), tt.wantErrContains)
+			if tt.wantErr && tt.wantErrContains != "" && !strings.Contains(err.Error(), tt.wantErrContains) {
+				t.Errorf("error message should contain %q, got %q", tt.wantErrContains, err.Error())
+			}
+
+			if output == nil && !tt.wantErr {
+				t.Fatal("executeNotificationHooksJSON() returned nil output")
+			}
+
+			if output != nil {
+				if output.Continue != tt.wantContinue {
+					t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
 				}
-				return
-			}
 
-			if result == nil {
-				t.Fatal("Expected non-nil SessionEndOutput, got nil")
-			}
+				if output.HookSpecificOutput != nil {
+					if output.HookSpecificOutput.HookEventName != tt.wantHookEventName {
+						t.Errorf("HookEventName = %q, want %q", output.HookSpecificOutput.HookEventName, tt.wantHookEventName)
+					}
 
-			if result.Continue != tt.wantContinue {
-				t.Errorf("Continue = %v, want %v", result.Continue, tt.wantContinue)
-			}
+					if output.HookSpecificOutput.AdditionalContext != tt.wantAdditionalContext {
+						t.Errorf("AdditionalContext = %q, want %q", output.HookSpecificOutput.AdditionalContext, tt.wantAdditionalContext)
+					}
+				}
 
-			if result.SystemMessage != tt.wantSystemMessage {
-				t.Errorf("SystemMessage = %q, want %q", result.SystemMessage, tt.wantSystemMessage)
+				if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
+					t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+				}
+
+				if tt.wantStopReason != "" && output.StopReason != tt.wantStopReason {
+					t.Errorf("StopReason = %q, want %q", output.StopReason, tt.wantStopReason)
+				}
+
+				if output.SuppressOutput != tt.wantSuppressOutput {
+					t.Errorf("SuppressOutput = %v, want %v", output.SuppressOutput, tt.wantSuppressOutput)
+				}
 			}
 		})
 	}

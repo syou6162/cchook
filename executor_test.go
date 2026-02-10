@@ -3211,6 +3211,353 @@ func TestExecuteSubagentStopAction_TypeCommand(t *testing.T) {
 	}
 }
 
+func TestExecuteNotificationAction_TypeOutput(t *testing.T) {
+	tests := []struct {
+		name               string
+		action             Action
+		wantContinue       bool
+		wantHookEventName  string
+		wantAdditionalCtx  string
+		wantSystemMessage  string
+		wantStopReason     string
+		wantSuppressOutput bool
+		wantErr            bool
+	}{
+		{
+			name: "Message with continue unspecified defaults to true",
+			action: Action{
+				Type:     "output",
+				Message:  "Test notification message",
+				Continue: nil,
+			},
+			wantContinue:      true,
+			wantHookEventName: "Notification",
+			wantAdditionalCtx: "Test notification message",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Message with continue: false",
+			action: Action{
+				Type:     "output",
+				Message:  "Stop notification",
+				Continue: boolPtr(false),
+			},
+			wantContinue:      false,
+			wantHookEventName: "Notification",
+			wantAdditionalCtx: "Stop notification",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Message with continue: true explicitly",
+			action: Action{
+				Type:     "output",
+				Message:  "Continue notification",
+				Continue: boolPtr(true),
+			},
+			wantContinue:      true,
+			wantHookEventName: "Notification",
+			wantAdditionalCtx: "Continue notification",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Message with template variables",
+			action: Action{
+				Type:     "output",
+				Message:  "Notification: {.message}",
+				Continue: boolPtr(true),
+			},
+			wantContinue:      true,
+			wantHookEventName: "Notification",
+			wantAdditionalCtx: "Notification: Test notification from Claude",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Empty message triggers warning",
+			action: Action{
+				Type:     "output",
+				Message:  "",
+				Continue: nil,
+			},
+			wantContinue:      false,
+			wantHookEventName: "",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "Action output has no message",
+			wantErr:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := NewActionExecutor(DefaultCommandRunner)
+			input := &NotificationInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session-123",
+					HookEventName: "Notification",
+				},
+				Message: "Test notification from Claude",
+			}
+			rawJSON := map[string]interface{}{
+				"session_id":      "test-session-123",
+				"hook_event_name": "Notification",
+				"message":         "Test notification from Claude",
+			}
+
+			output, err := executor.ExecuteNotificationAction(tt.action, input, rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ExecuteNotificationAction() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if output == nil {
+				t.Fatal("ExecuteNotificationAction() returned nil output")
+			}
+
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			if output.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName = %q, want %q", output.HookEventName, tt.wantHookEventName)
+			}
+
+			if output.AdditionalContext != tt.wantAdditionalCtx {
+				t.Errorf("AdditionalContext = %q, want %q", output.AdditionalContext, tt.wantAdditionalCtx)
+			}
+
+			if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+
+			if tt.wantStopReason != "" && output.StopReason != tt.wantStopReason {
+				t.Errorf("StopReason = %q, want %q", output.StopReason, tt.wantStopReason)
+			}
+
+			if output.SuppressOutput != tt.wantSuppressOutput {
+				t.Errorf("SuppressOutput = %v, want %v", output.SuppressOutput, tt.wantSuppressOutput)
+			}
+		})
+	}
+}
+
+func TestExecuteNotificationAction_TypeCommand(t *testing.T) {
+	tests := []struct {
+		name               string
+		action             Action
+		stubStdout         string
+		stubStderr         string
+		stubExitCode       int
+		stubErr            error
+		wantContinue       bool
+		wantHookEventName  string
+		wantAdditionalCtx  string
+		wantSystemMessage  string
+		wantStopReason     string
+		wantSuppressOutput bool
+		wantErr            bool
+	}{
+		{
+			name: "Command success with valid JSON and all fields",
+			action: Action{
+				Type:    "command",
+				Command: "get-notification-info.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "Notification",
+					"additionalContext": "Notification processed successfully"
+				},
+				"systemMessage": "Debug: notification complete"
+			}`,
+			stubStderr:        "",
+			stubExitCode:      0,
+			wantContinue:      true,
+			wantHookEventName: "Notification",
+			wantAdditionalCtx: "Notification processed successfully",
+			wantSystemMessage: "Debug: notification complete",
+			wantErr:           false,
+		},
+		{
+			name: "Command with hookEventName Notification",
+			action: Action{
+				Type:    "command",
+				Command: "echo-notification.sh",
+			},
+			stubStdout: `{
+				"hookSpecificOutput": {
+					"hookEventName": "Notification"
+				}
+			}`,
+			stubStderr:        "",
+			stubExitCode:      0,
+			wantContinue:      false,
+			wantHookEventName: "Notification",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Command failure with exit != 0",
+			action: Action{
+				Type:    "command",
+				Command: "failing-command.sh",
+			},
+			stubStdout:        "",
+			stubStderr:        "Permission denied",
+			stubExitCode:      1,
+			wantContinue:      false,
+			wantHookEventName: "",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "Command failed with exit code 1: Permission denied",
+			wantErr:           false,
+		},
+		{
+			name: "Empty stdout - validation tool success",
+			action: Action{
+				Type:    "command",
+				Command: "empty-output.sh",
+			},
+			stubStdout:        "",
+			stubStderr:        "",
+			stubExitCode:      0,
+			wantContinue:      true,
+			wantHookEventName: "Notification",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Command with only common fields - hookSpecificOutput auto-complemented",
+			action: Action{
+				Type:    "command",
+				Command: "get-notification-common-only.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"systemMessage": "Common fields only",
+				"stopReason": "auto_complement_test"
+			}`,
+			stubStderr:         "",
+			stubExitCode:       0,
+			wantContinue:       true,
+			wantHookEventName:  "Notification",
+			wantAdditionalCtx:  "",
+			wantSystemMessage:  "Common fields only",
+			wantStopReason:     "auto_complement_test",
+			wantSuppressOutput: false,
+			wantErr:            false,
+		},
+		{
+			name: "Command with hookSpecificOutput but missing hookEventName - fail-safe",
+			action: Action{
+				Type:    "command",
+				Command: "invalid-output.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"additionalContext": "Some context"
+				}
+			}`,
+			stubStderr:        "",
+			stubExitCode:      0,
+			wantContinue:      false,
+			wantHookEventName: "",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "Command output has hookSpecificOutput but missing hookEventName",
+			wantErr:           false,
+		},
+		{
+			name: "Command with stopReason and suppressOutput",
+			action: Action{
+				Type:    "command",
+				Command: "get-notification-with-flags.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"stopReason": "test_stop_reason",
+				"suppressOutput": true,
+				"hookSpecificOutput": {
+					"hookEventName": "Notification",
+					"additionalContext": "Notification with flags"
+				}
+			}`,
+			stubStderr:         "",
+			stubExitCode:       0,
+			wantContinue:       true,
+			wantHookEventName:  "Notification",
+			wantAdditionalCtx:  "Notification with flags",
+			wantSystemMessage:  "",
+			wantStopReason:     "test_stop_reason",
+			wantSuppressOutput: true,
+			wantErr:            false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &stubRunnerWithOutput{
+				stdout:   tt.stubStdout,
+				stderr:   tt.stubStderr,
+				exitCode: tt.stubExitCode,
+				err:      tt.stubErr,
+			}
+			executor := NewActionExecutor(runner)
+			input := &NotificationInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session-123",
+					HookEventName: "Notification",
+				},
+				Message: "Test notification from Claude",
+			}
+			rawJSON := map[string]interface{}{
+				"session_id":      "test-session-123",
+				"hook_event_name": "Notification",
+				"message":         "Test notification from Claude",
+			}
+
+			output, err := executor.ExecuteNotificationAction(tt.action, input, rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ExecuteNotificationAction() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if output == nil {
+				t.Fatal("ExecuteNotificationAction() returned nil output")
+			}
+
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			if output.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName = %q, want %q", output.HookEventName, tt.wantHookEventName)
+			}
+
+			if output.AdditionalContext != tt.wantAdditionalCtx {
+				t.Errorf("AdditionalContext = %q, want %q", output.AdditionalContext, tt.wantAdditionalCtx)
+			}
+
+			if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+
+			if tt.wantStopReason != "" && output.StopReason != tt.wantStopReason {
+				t.Errorf("StopReason = %q, want %q", output.StopReason, tt.wantStopReason)
+			}
+
+			if output.SuppressOutput != tt.wantSuppressOutput {
+				t.Errorf("SuppressOutput = %v, want %v", output.SuppressOutput, tt.wantSuppressOutput)
+			}
+		})
+	}
+}
 func TestExecuteSessionEndAction_TypeOutput(t *testing.T) {
 	tests := []struct {
 		name              string

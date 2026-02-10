@@ -570,7 +570,7 @@ func TestParseInput_InvalidJSON(t *testing.T) {
 		_, _ = w.Write([]byte(invalidJSON))
 	}()
 
-	// parseInputをテスト（エラーが期待される）
+	// parseInputをテスト(エラーが期待される)
 	_, _, err := parseInput[*PreToolUseInput](PreToolUse)
 	if err == nil {
 		t.Error("Expected error for invalid JSON, got nil")
@@ -1093,7 +1093,7 @@ func TestCheckGitTrackedFileOperation(t *testing.T) {
 		t.Fatalf("Failed to init git repo: %v", err)
 	}
 
-	// Git設定（コミット用）
+	// Git設定(コミット用)
 	if err := runCommand("cd "+tmpDir+" && git config user.email 'test@example.com' && git config user.name 'Test User'", false, nil); err != nil {
 		t.Fatalf("Failed to configure git: %v", err)
 	}
@@ -2544,7 +2544,7 @@ func TestValidatePostToolUseOutput(t *testing.T) {
 	}
 }
 
-func TestValidateSessionEndOutput(t *testing.T) {
+func TestValidateNotificationOutput(t *testing.T) {
 	tests := []struct {
 		name      string
 		jsonData  string
@@ -2552,65 +2552,111 @@ func TestValidateSessionEndOutput(t *testing.T) {
 		errorMsg  string
 	}{
 		{
+			name: "Valid output with only continue",
+			jsonData: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "Notification"
+				}
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Valid output with hookSpecificOutput and additionalContext",
+			jsonData: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "Notification",
+					"additionalContext": "Test notification message"
+				}
+			}`,
+			wantError: false,
+		},
+		{
 			name: "Valid output with all fields",
 			jsonData: `{
 				"continue": true,
-				"stopReason": "session cleanup complete",
-				"suppressOutput": false,
-				"systemMessage": "Session ended successfully"
+				"systemMessage": "System notification",
+				"stopReason": "test reason",
+				"suppressOutput": true,
+				"hookSpecificOutput": {
+					"hookEventName": "Notification",
+					"additionalContext": "Additional context"
+				}
 			}`,
 			wantError: false,
 		},
 		{
-			name: "Valid output with minimal fields (continue only)",
+			name: "Invalid continue type (string instead of bool)",
 			jsonData: `{
-				"continue": true
-			}`,
-			wantError: false,
-		},
-		{
-			name: "Valid output with systemMessage only",
-			jsonData: `{
-				"continue": true,
-				"systemMessage": "Cleanup completed"
-			}`,
-			wantError: false,
-		},
-		{
-			name:      "Valid empty output (all fields optional)",
-			jsonData:  `{}`,
-			wantError: false,
-		},
-		{
-			name: "Valid output with additional fields (additionalProperties: true)",
-			jsonData: `{
-				"continue": true,
-				"customField": "custom value"
-			}`,
-			wantError: false,
-		},
-		{
-			name: "Invalid JSON syntax",
-			jsonData: `{
-				"continue": true,
-				"systemMessage": "missing closing brace"
-			`,
-			wantError: true,
-			errorMsg:  "EOF",
-		},
-		{
-			name: "Invalid field type (continue as string)",
-			jsonData: `{
-				"continue": "true"
+				"continue": "true",
+				"hookSpecificOutput": {
+					"hookEventName": "Notification"
+				}
 			}`,
 			wantError: true,
 			errorMsg:  "continue",
+		},
+		{
+			name: "hookSpecificOutput missing",
+			jsonData: `{
+				"continue": true
+			}`,
+			wantError: true,
+			errorMsg:  "hookSpecificOutput",
+		},
+		{
+			name: "hookEventName missing in hookSpecificOutput",
+			jsonData: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"additionalContext": "Test message"
+				}
+			}`,
+			wantError: true,
+			errorMsg:  "hookEventName",
+		},
+		{
+			name: "hookEventName mismatch",
+			jsonData: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "SessionStart",
+					"additionalContext": "Wrong event name"
+				}
+			}`,
+			wantError: true,
+			errorMsg:  "hookEventName",
+		},
+		{
+			name: "Unsupported field: decision",
+			jsonData: `{
+				"continue": true,
+				"decision": "block",
+				"hookSpecificOutput": {
+					"hookEventName": "Notification"
+				}
+			}`,
+			wantError: true,
+			errorMsg:  "decision",
+		},
+		{
+			name: "Unsupported field: reason",
+			jsonData: `{
+				"continue": true,
+				"reason": "test reason",
+				"hookSpecificOutput": {
+					"hookEventName": "Notification"
+				}
+			}`,
+			wantError: true,
+			errorMsg:  "reason",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateSessionEndOutput([]byte(tt.jsonData))
+			err := validateNotificationOutput([]byte(tt.jsonData))
 
 			if tt.wantError {
 				if err == nil {

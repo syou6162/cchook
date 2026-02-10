@@ -23,19 +23,124 @@ func NewActionExecutor(runner CommandRunner) *ActionExecutor {
 	return &ActionExecutor{runner: runner}
 }
 
-// ExecuteNotificationAction executes an action for the Notification event.
-// Supports command execution and output actions.
-func (e *ActionExecutor) ExecuteNotificationAction(action Action, input *NotificationInput, rawJSON interface{}) error {
+// ExecuteNotificationAction executes an action for the Notification event and returns JSON output.
+// Similar to SessionStart, Notification uses hookSpecificOutput with additionalContext.
+func (e *ActionExecutor) ExecuteNotificationAction(action Action, input *NotificationInput, rawJSON interface{}) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := e.runner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			return err
+		stdout, stderr, exitCode, err := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
+
+		// Command failed with non-zero exit code
+		if exitCode != 0 {
+			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			if strings.TrimSpace(stderr) == "" && err != nil {
+				errMsg = fmt.Sprintf("Command failed with exit code %d: %v", exitCode, err)
+			}
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
 		}
+
+		// Empty stdout - Allow for validation-type CLI tools
+		if strings.TrimSpace(stdout) == "" {
+			return &ActionOutput{
+				Continue:      true,
+				HookEventName: "Notification",
+			}, nil
+		}
+
+		// Parse JSON output
+		var cmdOutput NotificationOutput
+		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			errMsg := fmt.Sprintf("Command output is not valid JSON: %s", stdout)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Complement hookSpecificOutput with default if missing (spec marks it optional)
+		if cmdOutput.HookSpecificOutput == nil {
+			cmdOutput.HookSpecificOutput = &NotificationHookSpecificOutput{
+				HookEventName: "Notification",
+			}
+		} else if cmdOutput.HookSpecificOutput.HookEventName == "" {
+			// hookSpecificOutput exists but hookEventName is missing - this is invalid
+			errMsg := "Command output has hookSpecificOutput but missing hookEventName"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Validate against JSON Schema (using complemented data)
+		complementedJSON, err := json.Marshal(cmdOutput)
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to marshal complemented output: %s", err.Error())
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
+		}
+		if err := validateNotificationOutput(complementedJSON); err != nil {
+			errMsg := fmt.Sprintf("Command output validation failed: %s", err.Error())
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Check for unsupported fields and log warnings to stderr
+		checkUnsupportedFieldsNotification(stdout)
+
+		// Build ActionOutput from parsed JSON
+		result := &ActionOutput{
+			Continue:       cmdOutput.Continue,
+			HookEventName:  cmdOutput.HookSpecificOutput.HookEventName,
+			SystemMessage:  cmdOutput.SystemMessage,
+			StopReason:     cmdOutput.StopReason,
+			SuppressOutput: cmdOutput.SuppressOutput,
+		}
+
+		// Set AdditionalContext
+		result.AdditionalContext = cmdOutput.HookSpecificOutput.AdditionalContext
+
+		return result, err
+
 	case "output":
-		return handleOutput(action.Message, action.ExitStatus, rawJSON)
+		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
+
+		// Empty message check
+		if strings.TrimSpace(processedMessage) == "" {
+			errMsg := "Action output has no message"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Determine continue value: default to true if unspecified
+		continueValue := true
+		if action.Continue != nil {
+			continueValue = *action.Continue
+		}
+
+		return &ActionOutput{
+			Continue:          continueValue,
+			HookEventName:     "Notification",
+			AdditionalContext: processedMessage,
+		}, nil
 	}
-	return nil
+
+	return nil, nil
 }
 
 // ExecuteStopAction executes an action for the Stop event.
@@ -1113,6 +1218,53 @@ func checkUnsupportedFieldsSessionStart(stdout string) {
 	}
 }
 
+// checkUnsupportedFieldsSessionEnd checks for unsupported fields in SessionEnd hook output
+// SessionEnd uses Common JSON Fields only (no decision/reason/hookSpecificOutput)
+func checkUnsupportedFieldsSessionEnd(stdout string) {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+		return
+	}
+
+	supportedFields := map[string]bool{
+		"continue":       true,
+		"stopReason":     true,
+		"suppressOutput": true,
+		"systemMessage":  true,
+		// Note: decision, reason, hookSpecificOutput are NOT supported for SessionEnd hooks
+	}
+
+	for field := range data {
+		if !supportedFields[field] {
+			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for SessionEnd hooks\n", field)
+		}
+	}
+}
+
+// checkUnsupportedFieldsNotification checks for unsupported fields in Notification JSON output
+// and logs warnings to stderr for any fields that are not in the supported list.
+func checkUnsupportedFieldsNotification(stdout string) {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+		// JSON parsing failed - this will be caught by the main validation
+		return
+	}
+
+	supportedFields := map[string]bool{
+		"continue":           true,
+		"stopReason":         true,
+		"suppressOutput":     true,
+		"systemMessage":      true,
+		"hookSpecificOutput": true,
+	}
+
+	for field := range data {
+		if !supportedFields[field] {
+			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for Notification hooks\n", field)
+		}
+	}
+}
+
 // checkUnsupportedFieldsUserPromptSubmit checks for unsupported fields in UserPromptSubmit JSON output
 // and logs warnings to stderr for any fields that are not in the supported list.
 func checkUnsupportedFieldsUserPromptSubmit(stdout string) {
@@ -1209,29 +1361,6 @@ func checkUnsupportedFieldsSubagentStop(stdout string) {
 	for field := range data {
 		if !supportedFields[field] {
 			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for SubagentStop hooks\n", field)
-		}
-	}
-}
-
-// checkUnsupportedFieldsSessionEnd checks for unsupported fields in SessionEnd hook output
-// SessionEnd uses Common JSON Fields only (no decision/reason/hookSpecificOutput)
-func checkUnsupportedFieldsSessionEnd(stdout string) {
-	var data map[string]interface{}
-	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
-		return
-	}
-
-	supportedFields := map[string]bool{
-		"continue":       true,
-		"stopReason":     true,
-		"suppressOutput": true,
-		"systemMessage":  true,
-		// Note: decision, reason, hookSpecificOutput are NOT supported for SessionEnd hooks
-	}
-
-	for field := range data {
-		if !supportedFields[field] {
-			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for SessionEnd hooks\n", field)
 		}
 	}
 }

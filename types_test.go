@@ -1453,146 +1453,127 @@ func TestPostToolUseOutput_JSONSerialization(t *testing.T) {
 	}
 }
 
-func TestSessionEndOutput_JSONSerialization(t *testing.T) {
+func TestNotificationOutput_JSONSerialization(t *testing.T) {
 	tests := []struct {
 		name           string
-		output         SessionEndOutput
+		output         NotificationOutput
 		wantContains   []string
 		wantNotContain []string
 	}{
 		{
-			name: "all fields present",
-			output: SessionEndOutput{
-				Continue:       true,
-				StopReason:     "session cleanup complete",
-				SuppressOutput: true, // false is omitted due to omitempty
-				SystemMessage:  "Session ended successfully",
-			},
-			wantContains: []string{
-				`"continue":true`,
-				`"stopReason":"session cleanup complete"`,
-				`"suppressOutput":true`,
-				`"systemMessage":"Session ended successfully"`,
-			},
-			wantNotContain: []string{},
-		},
-		{
-			name: "minimal fields (continue only)",
-			output: SessionEndOutput{
-				Continue: true,
-			},
-			wantContains: []string{
-				`"continue":true`,
-			},
-			wantNotContain: []string{
-				`"stopReason"`,
-				`"suppressOutput"`,
-				`"systemMessage"`,
-			},
-		},
-		{
-			name: "with systemMessage only",
-			output: SessionEndOutput{
+			name: "Full output with all fields",
+			output: NotificationOutput{
 				Continue:      true,
-				SystemMessage: "Cleanup completed",
+				SystemMessage: "Test message",
+				StopReason:    "test reason",
+				SuppressOutput: true,
+				HookSpecificOutput: &NotificationHookSpecificOutput{
+					HookEventName:     "Notification",
+					AdditionalContext: "Additional info",
+				},
 			},
 			wantContains: []string{
-				`"continue":true`,
-				`"systemMessage":"Cleanup completed"`,
+				"\"continue\":true",
+				"\"systemMessage\":\"Test message\"",
+				"\"stopReason\":\"test reason\"",
+				"\"suppressOutput\":true",
+				"\"hookEventName\":\"Notification\"",
+				"\"additionalContext\":\"Additional info\"",
 			},
-			wantNotContain: []string{
-				`"stopReason"`,
-				`"suppressOutput"`,
+		},
+		{
+			name: "Minimal output with only continue and hookSpecificOutput",
+			output: NotificationOutput{
+				Continue: true,
+				HookSpecificOutput: &NotificationHookSpecificOutput{
+					HookEventName: "Notification",
+				},
 			},
+			wantContains:   []string{"\"continue\":true", "\"hookEventName\":\"Notification\""},
+			wantNotContain: []string{"stopReason", "suppressOutput", "systemMessage", "additionalContext"},
+		},
+		{
+			name: "Empty additionalContext is omitted",
+			output: NotificationOutput{
+				Continue: true,
+				HookSpecificOutput: &NotificationHookSpecificOutput{
+					HookEventName:     "Notification",
+					AdditionalContext: "",
+				},
+			},
+			wantContains:   []string{"\"hookEventName\":\"Notification\""},
+			wantNotContain: []string{"additionalContext"},
+		},
+		{
+			name: "Zero values are omitted (omitempty)",
+			output: NotificationOutput{
+				Continue:       true,
+				StopReason:     "",
+				SuppressOutput: false,
+				SystemMessage:  "",
+				HookSpecificOutput: &NotificationHookSpecificOutput{
+					HookEventName: "Notification",
+				},
+			},
+			wantContains:   []string{"\"continue\":true", "\"hookEventName\":\"Notification\""},
+			wantNotContain: []string{"stopReason", "suppressOutput", "systemMessage"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			jsonData, err := json.Marshal(tt.output)
+			// Marshal
+			jsonBytes, err := json.Marshal(tt.output)
 			if err != nil {
-				t.Fatalf("Failed to marshal JSON: %v", err)
+				t.Fatalf("Failed to marshal: %v", err)
 			}
-			jsonStr := string(jsonData)
+			jsonStr := string(jsonBytes)
 
+			// Check expected content
 			for _, want := range tt.wantContains {
 				if !stringContains(jsonStr, want) {
-					t.Errorf("JSON should contain %q, got: %s", want, jsonStr)
+					t.Errorf("JSON does not contain expected string %q. JSON: %s", want, jsonStr)
 				}
 			}
 
+			// Check unexpected content
 			for _, notWant := range tt.wantNotContain {
 				if stringContains(jsonStr, notWant) {
-					t.Errorf("JSON should not contain %q, got: %s", notWant, jsonStr)
+					t.Errorf("JSON contains unexpected string %q. JSON: %s", notWant, jsonStr)
 				}
 			}
-		})
-	}
-}
 
-func TestSessionEndOutput_JSONDeserialization(t *testing.T) {
-	tests := []struct {
-		name      string
-		jsonInput string
-		want      SessionEndOutput
-		wantErr   bool
-	}{
-		{
-			name: "all fields",
-			jsonInput: `{
-				"continue": true,
-				"stopReason": "session cleanup complete",
-				"suppressOutput": false,
-				"systemMessage": "Session ended successfully"
-			}`,
-			want: SessionEndOutput{
-				Continue:       true,
-				StopReason:     "session cleanup complete",
-				SuppressOutput: false,
-				SystemMessage:  "Session ended successfully",
-			},
-			wantErr: false,
-		},
-		{
-			name:      "minimal (continue only)",
-			jsonInput: `{"continue": true}`,
-			want: SessionEndOutput{
-				Continue: true,
-			},
-			wantErr: false,
-		},
-		{
-			name:      "empty object (all fields optional)",
-			jsonInput: `{}`,
-			want: SessionEndOutput{
-				Continue: false, // default zero value
-			},
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var got SessionEndOutput
-			err := json.Unmarshal([]byte(tt.jsonInput), &got)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Unmarshal() error = %v, wantErr %v", err, tt.wantErr)
-				return
+			// Unmarshal (round-trip)
+			var unmarshaled NotificationOutput
+			if err := json.Unmarshal(jsonBytes, &unmarshaled); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
 			}
 
-			if !tt.wantErr {
-				if got.Continue != tt.want.Continue {
-					t.Errorf("Continue = %v, want %v", got.Continue, tt.want.Continue)
-				}
-				if got.StopReason != tt.want.StopReason {
-					t.Errorf("StopReason = %v, want %v", got.StopReason, tt.want.StopReason)
-				}
-				if got.SuppressOutput != tt.want.SuppressOutput {
-					t.Errorf("SuppressOutput = %v, want %v", got.SuppressOutput, tt.want.SuppressOutput)
-				}
-				if got.SystemMessage != tt.want.SystemMessage {
-					t.Errorf("SystemMessage = %v, want %v", got.SystemMessage, tt.want.SystemMessage)
+			// Verify round-trip preserves data
+			if unmarshaled.Continue != tt.output.Continue {
+				t.Errorf("Round-trip: Continue mismatch. Got %v, want %v", unmarshaled.Continue, tt.output.Continue)
+			}
+			if unmarshaled.SystemMessage != tt.output.SystemMessage {
+				t.Errorf("Round-trip: SystemMessage mismatch. Got %q, want %q", unmarshaled.SystemMessage, tt.output.SystemMessage)
+			}
+			if unmarshaled.StopReason != tt.output.StopReason {
+				t.Errorf("Round-trip: StopReason mismatch. Got %q, want %q", unmarshaled.StopReason, tt.output.StopReason)
+			}
+			if unmarshaled.SuppressOutput != tt.output.SuppressOutput {
+				t.Errorf("Round-trip: SuppressOutput mismatch. Got %v, want %v", unmarshaled.SuppressOutput, tt.output.SuppressOutput)
+			}
+			if tt.output.HookSpecificOutput != nil {
+				if unmarshaled.HookSpecificOutput == nil {
+					t.Errorf("Round-trip: HookSpecificOutput is nil")
+				} else {
+					if unmarshaled.HookSpecificOutput.HookEventName != tt.output.HookSpecificOutput.HookEventName {
+						t.Errorf("Round-trip: HookEventName mismatch. Got %q, want %q",
+							unmarshaled.HookSpecificOutput.HookEventName, tt.output.HookSpecificOutput.HookEventName)
+					}
+					if unmarshaled.HookSpecificOutput.AdditionalContext != tt.output.HookSpecificOutput.AdditionalContext {
+						t.Errorf("Round-trip: AdditionalContext mismatch. Got %q, want %q",
+							unmarshaled.HookSpecificOutput.AdditionalContext, tt.output.HookSpecificOutput.AdditionalContext)
+					}
 				}
 			}
 		})
