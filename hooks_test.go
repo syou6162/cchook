@@ -1012,265 +1012,165 @@ func TestDryRunPreToolUseHooks_WithMatch(t *testing.T) {
 	}
 }
 
-func TestExecuteSessionEndHooks(t *testing.T) {
-	// Create temporary test file for file_exists condition
-	tmpFile, err := os.CreateTemp("", "sessionend_test_*.txt")
-	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
-	tmpFile.Close()
-
-	// Config for tests that expect hooks to match
-	config := &Config{
-		SessionEnd: []SessionEndHook{
-			{
-				Conditions: []Condition{
-					{
-						Type:  ConditionReasonIs,
-						Value: "clear",
-					},
-				},
-				Actions: []Action{
-					{
-						Type:    "output",
-						Message: "Session cleared: {.session_id}",
-					},
-				},
-			},
-			{
-				Conditions: []Condition{
-					{
-						Type:  ConditionReasonIs,
-						Value: "logout",
-					},
-				},
-				Actions: []Action{
-					{
-						Type:    "output",
-						Message: "Logged out from session",
-					},
-				},
-			},
-			{
-				Conditions: []Condition{
-					{
-						Type:  ConditionFileExists,
-						Value: tmpFile.Name(),
-					},
-				},
-				Actions: []Action{
-					{
-						Type:    "output",
-						Message: "Cleanup: temp file exists",
-					},
-				},
-			},
-		},
-	}
-
-	// Config for tests that expect no hooks to match
-	noMatchConfig := &Config{
-		SessionEnd: []SessionEndHook{
-			{
-				Conditions: []Condition{
-					{
-						Type:  ConditionReasonIs,
-						Value: "clear",
-					},
-				},
-				Actions: []Action{
-					{
-						Type:    "output",
-						Message: "This should not be printed",
-					},
-				},
-			},
-		},
-	}
-
+func TestExecuteSessionEndHooksJSON(t *testing.T) {
 	tests := []struct {
-		name           string
-		config         *Config
-		input          *SessionEndInput
-		expectedOutput string
-		shouldMatch    bool
+		name              string
+		config            *Config
+		input             *SessionEndInput
+		rawJSON           interface{}
+		wantContinue      bool
+		wantSystemMessage string
+		wantErr           bool
+		wantErrContains   string
 	}{
 		{
-			name:   "Reason clear matches",
-			config: config,
-			input: &SessionEndInput{
-				BaseInput: BaseInput{
-					SessionID:      "test-session-123",
-					TranscriptPath: "/path/to/transcript",
-					HookEventName:  SessionEnd,
-				},
-				Reason: "clear",
-			},
-			expectedOutput: "Session cleared: test-session-123",
-			shouldMatch:    true,
+			name:         "1. No hooks configured - allow session end",
+			config:       &Config{},
+			input:        &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
+			rawJSON:      map[string]interface{}{},
+			wantContinue: true,
+			wantErr:      false,
 		},
 		{
-			name:   "Reason logout matches",
-			config: config,
-			input: &SessionEndInput{
-				BaseInput: BaseInput{
-					SessionID:      "test-session-456",
-					TranscriptPath: "/path/to/transcript",
-					HookEventName:  SessionEnd,
+			name: "2. Output action with message",
+			config: &Config{
+				SessionEnd: []SessionEndHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Session cleanup completed",
+							},
+						},
+					},
 				},
-				Reason: "logout",
 			},
-			expectedOutput: "Logged out from session",
-			shouldMatch:    true,
+			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantSystemMessage: "Session cleanup completed",
+			wantErr:           false,
 		},
 		{
-			name:   "File exists condition matches",
-			config: config,
-			input: &SessionEndInput{
-				BaseInput: BaseInput{
-					SessionID:      "test-session-789",
-					TranscriptPath: "/path/to/transcript",
-					HookEventName:  SessionEnd,
+			name: "3. Multiple actions - systemMessage concatenated",
+			config: &Config{
+				SessionEnd: []SessionEndHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "First message",
+							},
+							{
+								Type:    "output",
+								Message: "Second message",
+							},
+						},
+					},
 				},
-				Reason: "other",
 			},
-			expectedOutput: "Cleanup: temp file exists",
-			shouldMatch:    true,
+			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "logout"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantSystemMessage: "First message\nSecond message",
+			wantErr:           false,
 		},
 		{
-			name:   "Reason prompt_input_exit doesn't match",
-			config: config,
-			input: &SessionEndInput{
-				BaseInput: BaseInput{
-					SessionID:      "test-session-999",
-					TranscriptPath: "/path/to/transcript",
-					HookEventName:  SessionEnd,
+			name: "4. Condition matches (reason_is)",
+			config: &Config{
+				SessionEnd: []SessionEndHook{
+					{
+						Conditions: []Condition{
+							{Type: ConditionReasonIs, Value: "clear"},
+						},
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Clear cleanup",
+							},
+						},
+					},
 				},
-				Reason: "prompt_input_exit",
 			},
-			expectedOutput: "Cleanup: temp file exists",
-			shouldMatch:    true,
+			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantSystemMessage: "Clear cleanup",
+			wantErr:           false,
 		},
 		{
-			name:   "No hooks match - reason mismatch",
-			config: noMatchConfig,
-			input: &SessionEndInput{
-				BaseInput: BaseInput{
-					SessionID:      "test-session-000",
-					TranscriptPath: "/path/to/transcript",
-					HookEventName:  SessionEnd,
+			name: "5. Condition doesn't match - no action executed",
+			config: &Config{
+				SessionEnd: []SessionEndHook{
+					{
+						Conditions: []Condition{
+							{Type: ConditionReasonIs, Value: "logout"},
+						},
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Should not appear",
+							},
+						},
+					},
 				},
-				Reason: "unknown_reason",
 			},
-			expectedOutput: "",
-			shouldMatch:    false,
+			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "6. Action fails - fail-safe (continue=true, systemMessage=error)",
+			config: &Config{
+				SessionEnd: []SessionEndHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "", // Empty message triggers error
+							},
+						},
+					},
+				},
+			},
+			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantSystemMessage: "Empty message in SessionEnd action",
+			wantErr:           false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Capture stdout
-			oldStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
+			result, err := executeSessionEndHooksJSON(tt.config, tt.input, tt.rawJSON)
 
-			// Create rawJSON
-			rawJSON := map[string]interface{}{
-				"session_id":      tt.input.SessionID,
-				"transcript_path": tt.input.TranscriptPath,
-				"hook_event_name": string(tt.input.HookEventName),
-				"reason":          tt.input.Reason,
+			if (err != nil) != tt.wantErr {
+				t.Errorf("executeSessionEndHooksJSON() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
 
-			// Execute hooks
-			_, err := executeSessionEndHooksJSON(tt.config, tt.input, rawJSON)
-
-			// Restore stdout and capture output
-			w.Close()
-			os.Stdout = oldStdout
-			var buf bytes.Buffer
-			io.Copy(&buf, r)
-			output := strings.TrimSpace(buf.String())
-
-			// Check error
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
+			if tt.wantErr && err != nil {
+				if tt.wantErrContains != "" && !strings.Contains(err.Error(), tt.wantErrContains) {
+					t.Errorf("Error message = %q, want to contain %q", err.Error(), tt.wantErrContains)
+				}
+				return
 			}
 
-			// Check output
-			if tt.shouldMatch {
-				if !strings.Contains(output, tt.expectedOutput) {
-					t.Errorf("Expected output to contain %q, got %q", tt.expectedOutput, output)
-				}
-			} else {
-				if output != "" {
-					t.Errorf("Expected no output, got %q", output)
-				}
+			if result == nil {
+				t.Fatal("Expected non-nil SessionEndOutput, got nil")
+			}
+
+			if result.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", result.Continue, tt.wantContinue)
+			}
+
+			if result.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", result.SystemMessage, tt.wantSystemMessage)
 			}
 		})
-	}
-}
-
-func TestExecuteSessionEndHooks_CommandAction(t *testing.T) {
-	// Create temporary test file for verification
-	tmpFile, err := os.CreateTemp("", "sessionend_cmd_test_*.txt")
-	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
-	}
-	tmpFile.Close()
-	defer os.Remove(tmpFile.Name())
-
-	config := &Config{
-		SessionEnd: []SessionEndHook{
-			{
-				Conditions: []Condition{
-					{
-						Type:  ConditionReasonIs,
-						Value: "clear",
-					},
-				},
-				Actions: []Action{
-					{
-						Type:    "command",
-						Command: "echo 'Session cleared' > " + tmpFile.Name(),
-					},
-				},
-			},
-		},
-	}
-
-	input := &SessionEndInput{
-		BaseInput: BaseInput{
-			SessionID:      "test-cmd-session",
-			TranscriptPath: "/path/to/transcript",
-			HookEventName:  SessionEnd,
-		},
-		Reason: "clear",
-	}
-
-	rawJSON := map[string]interface{}{
-		"session_id":      input.SessionID,
-		"transcript_path": input.TranscriptPath,
-		"hook_event_name": string(input.HookEventName),
-		"reason":          input.Reason,
-	}
-
-	// Execute hooks
-	_, err = executeSessionEndHooksJSON(config, input, rawJSON)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-
-	// Verify command was executed
-	content, err := os.ReadFile(tmpFile.Name())
-	if err != nil {
-		t.Fatalf("Failed to read temp file: %v", err)
-	}
-
-	expected := "Session cleared\n"
-	if string(content) != expected {
-		t.Errorf("Expected file content %q, got %q", expected, string(content))
 	}
 }
 

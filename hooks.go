@@ -56,13 +56,6 @@ func runHooks(config *Config, eventType HookEventType) error {
 		// TODO: Task 9 will handle JSON serialization and output
 		_, err = executeUserPromptSubmitHooks(config, input, rawJSON)
 		return err
-	case SessionEnd:
-		input, rawJSON, err := parseInput[*SessionEndInput](eventType)
-		if err != nil {
-			return err
-		}
-		_, err = executeSessionEndHooksJSON(config, input, rawJSON)
-		return err
 	default:
 		return fmt.Errorf("unsupported event type: %s", eventType)
 	}
