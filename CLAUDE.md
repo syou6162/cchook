@@ -702,6 +702,66 @@ Notification:
         command: "get-task-status.sh"  # Returns JSON with additionalContext
 ```
 
+### SessionEnd JSON Output
+
+SessionEnd hooks support JSON output format for Claude Code integration. Actions can return structured output for session cleanup:
+
+**Output Action** (type: `output`):
+```yaml
+SessionEnd:
+  - actions:
+      - type: output
+        message: "Session cleanup message"
+```
+
+**Command Action** (type: `command`):
+Commands must output JSON with the following structure:
+```json
+{
+  "continue": true,
+  "stopReason": "Optional stop reason",
+  "suppressOutput": false,
+  "systemMessage": "Optional system message"
+}
+```
+
+**Important**: SessionEnd uses **Common JSON Fields only**. Unlike other events, it has no `decision`, `reason`, or `hookSpecificOutput` fields. SessionEnd is a cleanup-only hook and **cannot block** session termination.
+
+**Field Merging**:
+When multiple actions execute:
+- `continue`: Always `true` (session end cannot be blocked)
+- `systemMessage`: Concatenated with newline separator
+- `stopReason` and `suppressOutput`: Last value wins
+
+**Exit Code Behavior**:
+SessionEnd hooks **always exit with code 0**. The `continue` field is always `true` because session termination cannot be blocked.
+
+Errors are logged to stderr as warnings, but cchook continues to output JSON and exits successfully. This ensures cleanup actions complete even on errors.
+
+**Message Mapping**:
+Output action `message` field is mapped to `systemMessage` (shown to user, not to Claude). This maintains backward compatibility with the old stdout-based implementation.
+
+**Condition Types**:
+SessionEnd supports the `reason_is` condition to match session end reasons:
+- `"clear"`: User cleared the session
+- `"logout"`: User logged out
+- `"prompt_input_exit"`: User exited via prompt input
+- `"other"`: Other reasons
+
+**Example**:
+```yaml
+SessionEnd:
+  - conditions:
+      - type: reason_is
+        value: "clear"
+    actions:
+      - type: output
+        message: "Session cleared - workspace cleanup complete"
+  - actions:
+      - type: command
+        command: "cleanup-session.sh"  # Returns JSON with systemMessage
+```
+
 ## Common Workflows
 
 ### Adding a New Hook Type

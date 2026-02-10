@@ -1304,3 +1304,51 @@ func containsProcessSubstitution(command string) bool {
 
 	return found
 }
+
+// validateSessionEndOutput validates SessionEnd hook JSON output against schema.
+// SessionEnd uses Common JSON Fields only (no decision/reason/hookSpecificOutput).
+// No semantic validation required (all fields optional, no interdependencies).
+func validateSessionEndOutput(jsonData []byte) error {
+	// Generate schema from SessionEndOutput struct
+	reflector := jsonschema.Reflector{
+		DoNotReference: true, // Inline all definitions
+	}
+	schema := reflector.Reflect(&SessionEndOutput{})
+
+	// Customize schema to match SessionEnd requirements:
+	// 1. Allow additional properties at root level
+	schema.AdditionalProperties = nil // nil means allow any additional properties
+
+	// 2. No required fields (all fields optional)
+	schema.Required = nil
+
+	// Convert schema to map for gojsonschema
+	schemaBytes, err := json.Marshal(schema)
+	if err != nil {
+		return fmt.Errorf("failed to marshal schema: %w", err)
+	}
+
+	var schemaMap map[string]interface{}
+	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
+		return fmt.Errorf("failed to unmarshal schema: %w", err)
+	}
+
+	schemaLoader := gojsonschema.NewGoLoader(schemaMap)
+	documentLoader := gojsonschema.NewBytesLoader(jsonData)
+
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return fmt.Errorf("schema validation error: %w", err)
+	}
+
+	if !result.Valid() {
+		var errMsgs []string
+		for _, validationErr := range result.Errors() {
+			errMsgs = append(errMsgs, validationErr.String())
+		}
+		return fmt.Errorf("schema validation failed: %s", strings.Join(errMsgs, "; "))
+	}
+
+	// No semantic validation required for SessionEnd
+	return nil
+}

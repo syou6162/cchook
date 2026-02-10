@@ -262,78 +262,8 @@ func TestNewExitError(t *testing.T) {
 	}
 }
 
-func TestExecuteSessionEndAction_WithExitError(t *testing.T) {
-	action := Action{
-		Type:       "output",
-		Message:    "SessionEnd error message",
-		ExitStatus: intPtr(2),
-	}
-
-	executor := NewActionExecutor(nil)
-	err := executor.ExecuteSessionEndAction(action, &SessionEndInput{}, map[string]interface{}{})
-
-	if err == nil {
-		t.Fatal("Expected ExitError, got nil")
-	}
-
-	exitErr, ok := err.(*ExitError)
-	if !ok {
-		t.Fatalf("Expected *ExitError, got %T", err)
-	}
-
-	if exitErr.Code != 2 {
-		t.Errorf("Expected exit code 2, got %d", exitErr.Code)
-	}
-
-	if !exitErr.Stderr {
-		t.Error("Expected stderr output")
-	}
-}
-
-func TestExecuteSessionEndAction_OutputWithDefaultExitStatus(t *testing.T) {
-	tests := []struct {
-		name       string
-		exitStatus *int
-		wantErr    bool
-	}{
-		{
-			name:       "nil ExitStatus should print without error",
-			exitStatus: nil,
-			wantErr:    false,
-		},
-		{
-			name:       "ExitStatus 0 should print without error",
-			exitStatus: intPtr(0),
-			wantErr:    false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			action := Action{
-				Type:       "output",
-				Message:    "SessionEnd message",
-				ExitStatus: tt.exitStatus,
-			}
-
-			executor := NewActionExecutor(nil)
-			err := executor.ExecuteSessionEndAction(action, &SessionEndInput{}, map[string]interface{}{})
-
-			if tt.wantErr {
-				if err == nil {
-					t.Error("Expected error, got nil")
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Expected no error, got %v", err)
-				}
-			}
-		})
-	}
-}
-
-// TestExecuteNotificationAction_CommandWithStubRunner removed - old implementation used RunCommand,
-// new implementation uses RunCommandWithOutput. See TestExecuteNotificationAction_TypeOutput in executor_test.go.
+// TestExecuteSessionEndAction tests removed - SessionEnd is now JSON-based with (*ActionOutput, error) return.
+// See executor_test.go for SessionEnd JSON output tests.
 
 // TestExecuteStopAction_CommandWithStubRunner tests Stop command actions using stubRunnerWithOutput.
 // Updated for JSON output: uses RunCommandWithOutput instead of RunCommand.

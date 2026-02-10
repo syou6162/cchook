@@ -318,6 +318,15 @@ type PostToolUseHookSpecificOutput struct {
 	AdditionalContext string `json:"additionalContext,omitempty"` // Optional: additional information for Claude
 }
 
+// SessionEndOutput represents the JSON output structure for SessionEnd hooks
+// SessionEnd uses Common JSON Fields only (no hookSpecificOutput)
+type SessionEndOutput struct {
+	Continue       bool   `json:"continue"`
+	StopReason     string `json:"stopReason,omitempty"`
+	SuppressOutput bool   `json:"suppressOutput,omitempty"`
+	SystemMessage  string `json:"systemMessage,omitempty"`
+}
+
 // SessionEnd用
 type SessionEndInput struct {
 	BaseInput

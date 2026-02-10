@@ -1184,7 +1184,7 @@ func TestExecuteSessionEndHooks(t *testing.T) {
 			}
 
 			// Execute hooks
-			err := executeSessionEndHooks(tt.config, tt.input, rawJSON)
+			_, err := executeSessionEndHooksJSON(tt.config, tt.input, rawJSON)
 
 			// Restore stdout and capture output
 			w.Close()
@@ -1257,7 +1257,7 @@ func TestExecuteSessionEndHooks_CommandAction(t *testing.T) {
 	}
 
 	// Execute hooks
-	err = executeSessionEndHooks(config, input, rawJSON)
+	_, err = executeSessionEndHooksJSON(config, input, rawJSON)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
