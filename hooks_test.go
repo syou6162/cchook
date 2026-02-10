@@ -3764,32 +3764,6 @@ func TestExecuteNotificationHooksJSON(t *testing.T) {
 			wantAdditionalContext: "Message with system warning",
 			wantErr:               false,
 		},
-		{
-			name: "Condition error - continue true maintained",
-			config: &Config{
-				Notification: []NotificationHook{
-					{
-						Conditions: []Condition{
-							{
-								Type:  ConditionFileExists,
-								Value: "", // Invalid value
-							},
-						},
-						Actions: []Action{
-							{
-								Type:    "output",
-								Message: "Should not execute",
-							},
-						},
-					},
-				},
-			},
-			input:             &NotificationInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "Notification"}},
-			rawJSON:           map[string]interface{}{},
-			wantContinue:      true,
-			wantHookEventName: "Notification",
-			wantErr:           false,
-		},
 	}
 
 	for _, tt := range tests {

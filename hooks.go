@@ -665,6 +665,8 @@ func executeNotificationHooksJSON(config *Config, input *NotificationInput, rawJ
 		} else {
 			finalOutput.SystemMessage = errorMsg
 		}
+		// Return error to trigger stderr warning in main.go
+		return finalOutput, errors.Join(allErrors...)
 	}
 
 	return finalOutput, nil
