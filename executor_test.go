@@ -3453,6 +3453,26 @@ func TestExecuteNotificationAction_TypeCommand(t *testing.T) {
 			wantErr:            false,
 		},
 		{
+			name: "Command with hookSpecificOutput but missing hookEventName - fail-safe",
+			action: Action{
+				Type:    "command",
+				Command: "invalid-output.sh",
+			},
+			stubStdout: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"additionalContext": "Some context"
+				}
+			}`,
+			stubStderr:        "",
+			stubExitCode:      0,
+			wantContinue:      false,
+			wantHookEventName: "",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "Command output has hookSpecificOutput but missing hookEventName",
+			wantErr:           false,
+		},
+		{
 			name: "Command with stopReason and suppressOutput",
 			action: Action{
 				Type:    "command",

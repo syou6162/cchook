@@ -69,7 +69,13 @@ func (e *ActionExecutor) ExecuteNotificationAction(action Action, input *Notific
 				HookEventName: "Notification",
 			}
 		} else if cmdOutput.HookSpecificOutput.HookEventName == "" {
-			cmdOutput.HookSpecificOutput.HookEventName = "Notification"
+			// hookSpecificOutput exists but hookEventName is missing - this is invalid
+			errMsg := "Command output has hookSpecificOutput but missing hookEventName"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
 		}
 
 		// Validate against JSON Schema (using complemented data)
