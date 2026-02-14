@@ -217,6 +217,67 @@ func TestSessionStartParsing(t *testing.T) {
 				Source: "compact",
 			},
 		},
+		{
+			name: "With agent_type and model",
+			jsonInput: `{
+				"session_id": "agent123",
+				"transcript_path": "/tmp/transcript5.json",
+				"hook_event_name": "SessionStart",
+				"source": "startup",
+				"agent_type": "Explore",
+				"model": "claude-sonnet-4-5-20250929"
+			}`,
+			want: SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "agent123",
+					TranscriptPath: "/tmp/transcript5.json",
+					HookEventName:  SessionStart,
+				},
+				Source:    "startup",
+				AgentType: "Explore",
+				Model:     "claude-sonnet-4-5-20250929",
+			},
+		},
+		{
+			name: "agent_type omitted",
+			jsonInput: `{
+				"session_id": "agent456",
+				"transcript_path": "/tmp/transcript6.json",
+				"hook_event_name": "SessionStart",
+				"source": "startup",
+				"model": "claude-opus-4-6"
+			}`,
+			want: SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "agent456",
+					TranscriptPath: "/tmp/transcript6.json",
+					HookEventName:  SessionStart,
+				},
+				Source:    "startup",
+				AgentType: "",
+				Model:     "claude-opus-4-6",
+			},
+		},
+		{
+			name: "model omitted",
+			jsonInput: `{
+				"session_id": "agent789",
+				"transcript_path": "/tmp/transcript7.json",
+				"hook_event_name": "SessionStart",
+				"source": "startup",
+				"agent_type": "Plan"
+			}`,
+			want: SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "agent789",
+					TranscriptPath: "/tmp/transcript7.json",
+					HookEventName:  SessionStart,
+				},
+				Source:    "startup",
+				AgentType: "Plan",
+				Model:     "",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -241,6 +302,105 @@ func TestSessionStartParsing(t *testing.T) {
 			}
 			if input.Source != tt.want.Source {
 				t.Errorf("Source: expected %s, got %s", tt.want.Source, input.Source)
+			}
+		})
+	}
+}
+
+func TestNotificationInputParsing(t *testing.T) {
+	tests := []struct {
+		name      string
+		jsonInput string
+		want      NotificationInput
+	}{
+		{
+			name: "With title and notification_type",
+			jsonInput: `{
+				"session_id": "test-123",
+				"transcript_path": "/tmp/transcript.json",
+				"hook_event_name": "Notification",
+				"message": "Task completed",
+				"title": "Success",
+				"notification_type": "idle_prompt"
+			}`,
+			want: NotificationInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-123",
+					TranscriptPath: "/tmp/transcript.json",
+					HookEventName:  Notification,
+				},
+				Message:          "Task completed",
+				Title:            "Success",
+				NotificationType: "idle_prompt",
+			},
+		},
+		{
+			name: "title omitted",
+			jsonInput: `{
+				"session_id": "test-456",
+				"transcript_path": "/tmp/transcript2.json",
+				"hook_event_name": "Notification",
+				"message": "Permission required",
+				"notification_type": "permission_prompt"
+			}`,
+			want: NotificationInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-456",
+					TranscriptPath: "/tmp/transcript2.json",
+					HookEventName:  Notification,
+				},
+				Message:          "Permission required",
+				Title:            "",
+				NotificationType: "permission_prompt",
+			},
+		},
+		{
+			name: "notification_type omitted",
+			jsonInput: `{
+				"session_id": "test-789",
+				"transcript_path": "/tmp/transcript3.json",
+				"hook_event_name": "Notification",
+				"message": "Generic notification",
+				"title": "Info"
+			}`,
+			want: NotificationInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-789",
+					TranscriptPath: "/tmp/transcript3.json",
+					HookEventName:  Notification,
+				},
+				Message:          "Generic notification",
+				Title:            "Info",
+				NotificationType: "",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var input NotificationInput
+			err := json.Unmarshal([]byte(tt.jsonInput), &input)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal JSON: %v", err)
+			}
+
+			if input.SessionID != tt.want.SessionID {
+				t.Errorf("SessionID: expected %s, got %s", tt.want.SessionID, input.SessionID)
+			}
+			if input.TranscriptPath != tt.want.TranscriptPath {
+				t.Errorf("TranscriptPath: expected %s, got %s", tt.want.TranscriptPath, input.TranscriptPath)
+			}
+			if input.HookEventName != tt.want.HookEventName {
+				t.Errorf("HookEventName: expected %s, got %s", tt.want.HookEventName, input.HookEventName)
+			}
+			if input.Message != tt.want.Message {
+				t.Errorf("Message: expected %s, got %s", tt.want.Message, input.Message)
+			}
+			if input.Title != tt.want.Title {
+				t.Errorf("Title: expected %s, got %s", tt.want.Title, input.Title)
+			}
+			if input.NotificationType != tt.want.NotificationType {
+				t.Errorf("NotificationType: expected %s, got %s", tt.want.NotificationType, input.NotificationType)
 			}
 		})
 	}
@@ -602,6 +762,54 @@ use_stdin: true
 			}
 			if action.Command != tt.wantCommand {
 				t.Errorf("Command: expected %s, got %s", tt.wantCommand, action.Command)
+			}
+		})
+	}
+}
+
+func TestAction_AdditionalContext_UnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		name                  string
+		yamlContent           string
+		wantAdditionalContext *string
+	}{
+		{
+			name: "additional_context set",
+			yamlContent: `
+type: output
+message: "Test message"
+additional_context: "Production environment"
+`,
+			wantAdditionalContext: stringPtr("Production environment"),
+		},
+		{
+			name: "additional_context omitted",
+			yamlContent: `
+type: output
+message: "Test message"
+`,
+			wantAdditionalContext: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var action Action
+			err := yaml.Unmarshal([]byte(tt.yamlContent), &action)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal YAML: %v", err)
+			}
+
+			if tt.wantAdditionalContext == nil {
+				if action.AdditionalContext != nil {
+					t.Errorf("AdditionalContext: expected nil, got %v", *action.AdditionalContext)
+				}
+			} else {
+				if action.AdditionalContext == nil {
+					t.Errorf("AdditionalContext: expected %q, got nil", *tt.wantAdditionalContext)
+				} else if *action.AdditionalContext != *tt.wantAdditionalContext {
+					t.Errorf("AdditionalContext: expected %q, got %q", *tt.wantAdditionalContext, *action.AdditionalContext)
+				}
 			}
 		})
 	}
@@ -1240,6 +1448,31 @@ func TestPreToolUseOutput_JSONSerialization(t *testing.T) {
 			wantContains:   []string{"\"hookEventName\":\"PreToolUse\"", "\"permissionDecision\":\"allow\""},
 			wantNotContain: []string{"permissionDecisionReason", "updatedInput"},
 		},
+		{
+			name: "additionalContext is serialized",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "allow",
+					AdditionalContext:  "Current environment: production",
+				},
+			},
+			wantContains: []string{"\"additionalContext\":\"Current environment: production\""},
+		},
+		{
+			name: "Empty additionalContext is omitted",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "allow",
+					AdditionalContext:  "",
+				},
+			},
+			wantContains:   []string{"\"hookEventName\":\"PreToolUse\""},
+			wantNotContain: []string{"additionalContext"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1790,6 +2023,116 @@ func TestPreCompactOutput_JSONSerialization(t *testing.T) {
 			}
 			if unmarshaled.SystemMessage != tt.output.SystemMessage {
 				t.Errorf("Round-trip: SystemMessage mismatch. Got %q, want %q", unmarshaled.SystemMessage, tt.output.SystemMessage)
+			}
+		})
+	}
+}
+
+func TestPostToolUseOutput_JSONSerialization_UpdatedMCPToolOutput(t *testing.T) {
+	tests := []struct {
+		name           string
+		output         PostToolUseOutput
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name: "With updatedMCPToolOutput string",
+			output: PostToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PostToolUseHookSpecificOutput{
+					HookEventName:     "PostToolUse",
+					AdditionalContext: "Context message",
+				},
+				UpdatedMCPToolOutput: "replaced output",
+			},
+			wantContains: []string{
+				"\"continue\":true",
+				"\"updatedMCPToolOutput\":\"replaced output\"",
+				"\"hookSpecificOutput\"",
+				"\"additionalContext\":\"Context message\"",
+			},
+			wantNotContain: []string{},
+		},
+		{
+			name: "With updatedMCPToolOutput object",
+			output: PostToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PostToolUseHookSpecificOutput{
+					HookEventName: "PostToolUse",
+				},
+				UpdatedMCPToolOutput: map[string]interface{}{
+					"key": "value",
+					"nested": map[string]interface{}{
+						"field": 123,
+					},
+				},
+			},
+			wantContains: []string{
+				"\"continue\":true",
+				"\"updatedMCPToolOutput\"",
+				"\"key\":\"value\"",
+				"\"nested\"",
+			},
+			wantNotContain: []string{},
+		},
+		{
+			name: "Without updatedMCPToolOutput (omitempty)",
+			output: PostToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PostToolUseHookSpecificOutput{
+					HookEventName:     "PostToolUse",
+					AdditionalContext: "Context only",
+				},
+			},
+			wantContains: []string{
+				"\"continue\":true",
+				"\"additionalContext\":\"Context only\"",
+			},
+			wantNotContain: []string{"updatedMCPToolOutput"},
+		},
+		{
+			name: "With nil updatedMCPToolOutput (omitempty)",
+			output: PostToolUseOutput{
+				Continue:             true,
+				UpdatedMCPToolOutput: nil,
+			},
+			wantContains:   []string{"\"continue\":true"},
+			wantNotContain: []string{"updatedMCPToolOutput", "hookSpecificOutput"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Marshal
+			jsonBytes, err := json.Marshal(tt.output)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+			jsonStr := string(jsonBytes)
+
+			// Check expected content
+			for _, want := range tt.wantContains {
+				if !stringContains(jsonStr, want) {
+					t.Errorf("JSON does not contain expected string %q. JSON: %s", want, jsonStr)
+				}
+			}
+
+			// Check unexpected content
+			for _, notWant := range tt.wantNotContain {
+				if stringContains(jsonStr, notWant) {
+					t.Errorf("JSON contains unexpected string %q. JSON: %s", notWant, jsonStr)
+				}
+			}
+
+			// Unmarshal (round-trip)
+			var unmarshaled PostToolUseOutput
+			if err := json.Unmarshal(jsonBytes, &unmarshaled); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+
+			// Verify round-trip preserves data
+			if unmarshaled.Continue != tt.output.Continue {
+				t.Errorf("Round-trip: Continue mismatch. Got %v, want %v", unmarshaled.Continue, tt.output.Continue)
 			}
 		})
 	}

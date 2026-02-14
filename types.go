@@ -104,7 +104,9 @@ func (p *PostToolUseInput) GetToolName() string {
 // Notification用
 type NotificationInput struct {
 	BaseInput
-	Message string `json:"message"`
+	Message          string `json:"message"`
+	Title            string `json:"title,omitempty"`             // Optional notification title
+	NotificationType string `json:"notification_type,omitempty"` // Type of notification (e.g., "permission_prompt", "idle_prompt", etc.)
 }
 
 // GetToolName returns an empty string as Notification events have no associated tool.
@@ -166,7 +168,9 @@ func (p *PreCompactInput) GetToolName() string {
 // SessionStart用
 type SessionStartInput struct {
 	BaseInput
-	Source string `json:"source"` // "startup", "resume", "clear", or "compact"
+	Source    string `json:"source"`     // "startup", "resume", "clear", or "compact"
+	AgentType string `json:"agent_type"` // Agent type name (if started with --agent flag)
+	Model     string `json:"model"`      // Model identifier
 }
 
 // GetToolName returns an empty string as SessionStart events have no associated tool.
@@ -238,6 +242,7 @@ type ActionOutput struct {
 	SystemMessage            string
 	HookEventName            string
 	AdditionalContext        string
+	UpdatedMCPToolOutput     interface{} // For MCP tools only: replaces the tool's output (PostToolUse only)
 }
 
 // PreToolUseOutput represents the complete JSON output structure for PreToolUse hooks
@@ -256,6 +261,7 @@ type PreToolUseHookSpecificOutput struct {
 	PermissionDecision       string                 `json:"permissionDecision,omitempty"` // "allow", "deny", or "ask" (omit when empty to delegate)
 	PermissionDecisionReason string                 `json:"permissionDecisionReason,omitempty"`
 	UpdatedInput             map[string]interface{} `json:"updatedInput,omitempty"`
+	AdditionalContext        string                 `json:"additionalContext,omitempty"` // Additional information for Claude
 }
 
 // PermissionRequestOutput represents the complete JSON output structure for PermissionRequest hooks
@@ -354,13 +360,14 @@ type PreCompactOutput struct {
 // PostToolUseOutput represents the complete JSON output structure for PostToolUse hooks
 // following Claude Code JSON specification
 type PostToolUseOutput struct {
-	Continue           bool                           `json:"continue"`
-	Decision           string                         `json:"decision,omitempty"` // "block" only; omit field to allow tool result
-	Reason             string                         `json:"reason,omitempty"`   // Required when decision is "block"
-	StopReason         string                         `json:"stopReason,omitempty"`
-	SuppressOutput     bool                           `json:"suppressOutput,omitempty"`
-	SystemMessage      string                         `json:"systemMessage,omitempty"`
-	HookSpecificOutput *PostToolUseHookSpecificOutput `json:"hookSpecificOutput,omitempty"` // Optional: omit when no additionalContext
+	Continue             bool                           `json:"continue"`
+	Decision             string                         `json:"decision,omitempty"` // "block" only; omit field to allow tool result
+	Reason               string                         `json:"reason,omitempty"`   // Required when decision is "block"
+	StopReason           string                         `json:"stopReason,omitempty"`
+	SuppressOutput       bool                           `json:"suppressOutput,omitempty"`
+	SystemMessage        string                         `json:"systemMessage,omitempty"`
+	HookSpecificOutput   *PostToolUseHookSpecificOutput `json:"hookSpecificOutput,omitempty"`   // Optional: omit when no additionalContext
+	UpdatedMCPToolOutput interface{}                    `json:"updatedMCPToolOutput,omitempty"` // For MCP tools only: replaces the tool's output (top-level field, not in hookSpecificOutput)
 }
 
 // PostToolUseHookSpecificOutput represents the hookSpecificOutput field for PostToolUse hooks
@@ -372,7 +379,7 @@ type PostToolUseHookSpecificOutput struct {
 // SessionEnd用
 type SessionEndInput struct {
 	BaseInput
-	Reason string `json:"reason"` // "clear", "logout", "prompt_input_exit", or "other"
+	Reason string `json:"reason"` // "clear", "logout", "prompt_input_exit", "bypass_permissions_disabled", or "other"
 }
 
 // GetToolName returns an empty string as SessionEnd events have no associated tool.
@@ -407,6 +414,7 @@ type PermissionRequestHook struct {
 }
 
 type NotificationHook struct {
+	Matcher    string      `yaml:"matcher,omitempty"` // Matches against notification_type (e.g., "permission_prompt|idle_prompt")
 	Conditions []Condition `yaml:"conditions,omitempty"`
 	Actions    []Action    `yaml:"actions"`
 }
@@ -572,6 +580,7 @@ type Action struct {
 	Behavior           *string `yaml:"behavior,omitempty"`            // "allow" or "deny" (PermissionRequest only)
 	Interrupt          *bool   `yaml:"interrupt,omitempty"`           // deny時のみ (PermissionRequest only)
 	Reason             *string `yaml:"reason,omitempty"`              // Reason for decision (Stop/SubagentStop/PostToolUse)
+	AdditionalContext  *string `yaml:"additional_context,omitempty"`  // Additional context for Claude (PreToolUse)
 }
 
 // 設定ファイル構造

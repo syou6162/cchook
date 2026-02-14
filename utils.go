@@ -40,6 +40,23 @@ func checkMatcher(matcher string, toolName string) bool {
 	return false
 }
 
+// checkNotificationMatcher checks if the notification_type matches the matcher pattern.
+// Unlike checkMatcher, this uses exact matching instead of partial matching
+// to prevent "idle" from matching "idle_prompt".
+// Supports pipe-separated patterns for OR logic.
+func checkNotificationMatcher(matcher string, notificationType string) bool {
+	if matcher == "" {
+		return true
+	}
+
+	for _, pattern := range strings.Split(matcher, "|") {
+		if strings.TrimSpace(pattern) == notificationType {
+			return true
+		}
+	}
+	return false
+}
+
 // existsRecursive recursively searches for a file or directory by name.
 // If isDir is true, it searches for directories; otherwise, it searches for files.
 func existsRecursive(name string, isDir bool) bool {

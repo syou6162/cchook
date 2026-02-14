@@ -38,6 +38,35 @@ func TestCheckMatcher(t *testing.T) {
 	}
 }
 
+func TestCheckNotificationMatcher(t *testing.T) {
+	tests := []struct {
+		name             string
+		matcher          string
+		notificationType string
+		want             bool
+	}{
+		{"Empty matcher matches all", "", "idle_prompt", true},
+		{"Exact match", "idle_prompt", "idle_prompt", true},
+		{"Partial string does NOT match (idle vs idle_prompt)", "idle", "idle_prompt", false},
+		{"No match", "permission_prompt", "idle_prompt", false},
+		{"Multiple patterns - first match", "idle_prompt|permission_prompt", "idle_prompt", true},
+		{"Multiple patterns - second match", "idle_prompt|permission_prompt", "permission_prompt", true},
+		{"Multiple patterns - no match", "idle_prompt|permission_prompt", "auth_success", false},
+		{"Whitespace handling", " idle_prompt | permission_prompt ", "idle_prompt", true},
+		{"Case sensitive", "Idle_prompt", "idle_prompt", false},
+		{"Auth success match", "auth_success", "auth_success", true},
+		{"Elicitation dialog match", "elicitation_dialog", "elicitation_dialog", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := checkNotificationMatcher(tt.matcher, tt.notificationType); got != tt.want {
+				t.Errorf("checkNotificationMatcher(%q, %q) = %v, want %v", tt.matcher, tt.notificationType, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCheckCondition(t *testing.T) {
 	tests := []struct {
 		name      string
