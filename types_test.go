@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -936,14 +937,14 @@ func TestSessionStartOutput_JSONSerialization(t *testing.T) {
 
 			// Check expected content
 			for _, want := range tt.wantContains {
-				if !stringContains(jsonStr, want) {
+				if !strings.Contains(jsonStr, want) {
 					t.Errorf("JSON does not contain expected string %q. JSON: %s", want, jsonStr)
 				}
 			}
 
 			// Check unexpected content
 			for _, notWant := range tt.wantNotContain {
-				if stringContains(jsonStr, notWant) {
+				if strings.Contains(jsonStr, notWant) {
 					t.Errorf("JSON contains unexpected string %q. JSON: %s", notWant, jsonStr)
 				}
 			}
@@ -977,16 +978,6 @@ func TestSessionStartOutput_JSONSerialization(t *testing.T) {
 			}
 		})
 	}
-}
-
-// Helper function to check if a string contains a substring
-func stringContains(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
 
 func TestSessionStartOutputSchemaValidation(t *testing.T) {
@@ -1072,7 +1063,7 @@ func TestSessionStartOutputSchemaValidation(t *testing.T) {
 			} else {
 				if err == nil {
 					t.Errorf("Expected invalid, but validation passed\nJSON: %s", string(jsonBytes))
-				} else if tt.wantError != "" && !stringContains(err.Error(), tt.wantError) {
+				} else if tt.wantError != "" && !strings.Contains(err.Error(), tt.wantError) {
 					t.Errorf("Error message should contain %q, but got: %v", tt.wantError, err)
 				}
 			}
@@ -1176,14 +1167,14 @@ func TestUserPromptSubmitOutput_JSONSerialization(t *testing.T) {
 
 			// Check expected content
 			for _, want := range tt.wantContains {
-				if !stringContains(jsonStr, want) {
+				if !strings.Contains(jsonStr, want) {
 					t.Errorf("JSON does not contain expected string %q. JSON: %s", want, jsonStr)
 				}
 			}
 
 			// Check unexpected content
 			for _, notWant := range tt.wantNotContain {
-				if stringContains(jsonStr, notWant) {
+				if strings.Contains(jsonStr, notWant) {
 					t.Errorf("JSON contains unexpected string %q. JSON: %s", notWant, jsonStr)
 				}
 			}
@@ -1322,7 +1313,7 @@ func TestUserPromptSubmitOutputSchemaValidation(t *testing.T) {
 			} else {
 				if err == nil {
 					t.Errorf("Expected invalid, but validation passed\nJSON: %s", string(jsonBytes))
-				} else if tt.wantError != "" && !stringContains(err.Error(), tt.wantError) {
+				} else if tt.wantError != "" && !strings.Contains(err.Error(), tt.wantError) {
 					t.Errorf("Error message should contain %q, but got: %v", tt.wantError, err)
 				}
 			}
@@ -1486,14 +1477,14 @@ func TestPreToolUseOutput_JSONSerialization(t *testing.T) {
 
 			// Check expected content
 			for _, want := range tt.wantContains {
-				if !stringContains(jsonStr, want) {
+				if !strings.Contains(jsonStr, want) {
 					t.Errorf("JSON does not contain expected string %q. JSON: %s", want, jsonStr)
 				}
 			}
 
 			// Check unexpected content
 			for _, notWant := range tt.wantNotContain {
-				if stringContains(jsonStr, notWant) {
+				if strings.Contains(jsonStr, notWant) {
 					t.Errorf("JSON contains unexpected string %q. JSON: %s", notWant, jsonStr)
 				}
 			}
@@ -1701,7 +1692,7 @@ func TestPreToolUseOutputSchemaValidation(t *testing.T) {
 			} else {
 				if err == nil {
 					t.Errorf("Expected validation error, but got none")
-				} else if tt.wantError != "" && !stringContains(err.Error(), tt.wantError) {
+				} else if tt.wantError != "" && !strings.Contains(err.Error(), tt.wantError) {
 					t.Errorf("Expected error to contain %q, but got: %v", tt.wantError, err)
 				}
 			}
@@ -1797,13 +1788,13 @@ func TestPostToolUseOutput_JSONSerialization(t *testing.T) {
 			jsonStr := string(jsonBytes)
 
 			for _, want := range tt.wantContains {
-				if !stringContains(jsonStr, want) {
+				if !strings.Contains(jsonStr, want) {
 					t.Errorf("JSON should contain %q, got: %s", want, jsonStr)
 				}
 			}
 
 			for _, notWant := range tt.wantNotContain {
-				if stringContains(jsonStr, notWant) {
+				if strings.Contains(jsonStr, notWant) {
 					t.Errorf("JSON should not contain %q, got: %s", notWant, jsonStr)
 				}
 			}
@@ -1889,14 +1880,14 @@ func TestNotificationOutput_JSONSerialization(t *testing.T) {
 
 			// Check expected content
 			for _, want := range tt.wantContains {
-				if !stringContains(jsonStr, want) {
+				if !strings.Contains(jsonStr, want) {
 					t.Errorf("JSON does not contain expected string %q. JSON: %s", want, jsonStr)
 				}
 			}
 
 			// Check unexpected content
 			for _, notWant := range tt.wantNotContain {
-				if stringContains(jsonStr, notWant) {
+				if strings.Contains(jsonStr, notWant) {
 					t.Errorf("JSON contains unexpected string %q. JSON: %s", notWant, jsonStr)
 				}
 			}
@@ -1993,14 +1984,14 @@ func TestPreCompactOutput_JSONSerialization(t *testing.T) {
 
 			// Check expected content
 			for _, want := range tt.wantContains {
-				if !stringContains(jsonStr, want) {
+				if !strings.Contains(jsonStr, want) {
 					t.Errorf("JSON does not contain expected string %q. JSON: %s", want, jsonStr)
 				}
 			}
 
 			// Check unexpected content
 			for _, notWant := range tt.wantNotContain {
-				if stringContains(jsonStr, notWant) {
+				if strings.Contains(jsonStr, notWant) {
 					t.Errorf("JSON contains unexpected string %q. JSON: %s", notWant, jsonStr)
 				}
 			}
@@ -2112,14 +2103,14 @@ func TestPostToolUseOutput_JSONSerialization_UpdatedMCPToolOutput(t *testing.T) 
 
 			// Check expected content
 			for _, want := range tt.wantContains {
-				if !stringContains(jsonStr, want) {
+				if !strings.Contains(jsonStr, want) {
 					t.Errorf("JSON does not contain expected string %q. JSON: %s", want, jsonStr)
 				}
 			}
 
 			// Check unexpected content
 			for _, notWant := range tt.wantNotContain {
-				if stringContains(jsonStr, notWant) {
+				if strings.Contains(jsonStr, notWant) {
 					t.Errorf("JSON contains unexpected string %q. JSON: %s", notWant, jsonStr)
 				}
 			}

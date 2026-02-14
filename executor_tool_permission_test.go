@@ -591,7 +591,7 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 				t.Errorf("AdditionalContext mismatch. Got %q, want %q", output.AdditionalContext, tt.wantAdditionalContext)
 			}
 
-			if tt.wantSystemMessage != "" && !stringContains2(output.SystemMessage, tt.wantSystemMessage) {
+			if tt.wantSystemMessage != "" && !strings.Contains(output.SystemMessage, tt.wantSystemMessage) {
 				t.Errorf("SystemMessage should contain %q, got %q", tt.wantSystemMessage, output.SystemMessage)
 			}
 
@@ -616,20 +616,6 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 			}
 		})
 	}
-}
-
-// stringContains2 checks if a string contains a substring (helper for PreToolUse tests)
-func stringContains2(s, substr string) bool {
-	return len(s) >= len(substr) && contains2(s, substr)
-}
-
-func contains2(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
 
 func TestExecutePermissionRequestAction_TypeOutput(t *testing.T) {

@@ -1,6 +1,11 @@
 package main
 
-import "errors"
+import (
+	"bytes"
+	"errors"
+	"io"
+	"os"
+)
 
 // stubRunnerWithOutput is a test stub that implements CommandRunner for testing executor actions.
 type stubRunnerWithOutput struct {
@@ -50,4 +55,21 @@ func stringPtr(s string) *string {
 // Helper function to create *int
 func intPtr(i int) *int {
 	return &i
+}
+
+// captureStderr captures stderr output during the execution of the provided function.
+// It returns the captured stderr as a string.
+func captureStderr(f func()) string {
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	f()
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	return buf.String()
 }
