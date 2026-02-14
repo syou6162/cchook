@@ -668,6 +668,54 @@ use_stdin: true
 	}
 }
 
+func TestAction_AdditionalContext_UnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		name                  string
+		yamlContent           string
+		wantAdditionalContext *string
+	}{
+		{
+			name: "additional_context set",
+			yamlContent: `
+type: output
+message: "Test message"
+additional_context: "Production environment"
+`,
+			wantAdditionalContext: stringPtr("Production environment"),
+		},
+		{
+			name: "additional_context omitted",
+			yamlContent: `
+type: output
+message: "Test message"
+`,
+			wantAdditionalContext: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var action Action
+			err := yaml.Unmarshal([]byte(tt.yamlContent), &action)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal YAML: %v", err)
+			}
+
+			if tt.wantAdditionalContext == nil {
+				if action.AdditionalContext != nil {
+					t.Errorf("AdditionalContext: expected nil, got %v", *action.AdditionalContext)
+				}
+			} else {
+				if action.AdditionalContext == nil {
+					t.Errorf("AdditionalContext: expected %q, got nil", *tt.wantAdditionalContext)
+				} else if *action.AdditionalContext != *tt.wantAdditionalContext {
+					t.Errorf("AdditionalContext: expected %q, got %q", *tt.wantAdditionalContext, *action.AdditionalContext)
+				}
+			}
+		})
+	}
+}
+
 func TestPreToolUseAction_UnmarshalYAML_WithAction(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -1300,6 +1348,31 @@ func TestPreToolUseOutput_JSONSerialization(t *testing.T) {
 			},
 			wantContains:   []string{"\"hookEventName\":\"PreToolUse\"", "\"permissionDecision\":\"allow\""},
 			wantNotContain: []string{"permissionDecisionReason", "updatedInput"},
+		},
+		{
+			name: "additionalContext is serialized",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "allow",
+					AdditionalContext:  "Current environment: production",
+				},
+			},
+			wantContains: []string{"\"additionalContext\":\"Current environment: production\""},
+		},
+		{
+			name: "Empty additionalContext is omitted",
+			output: PreToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PreToolUseHookSpecificOutput{
+					HookEventName:      "PreToolUse",
+					PermissionDecision: "allow",
+					AdditionalContext:  "",
+				},
+			},
+			wantContains:   []string{"\"hookEventName\":\"PreToolUse\""},
+			wantNotContain: []string{"additionalContext"},
 		},
 	}
 

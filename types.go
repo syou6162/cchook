@@ -258,6 +258,7 @@ type PreToolUseHookSpecificOutput struct {
 	PermissionDecision       string                 `json:"permissionDecision,omitempty"` // "allow", "deny", or "ask" (omit when empty to delegate)
 	PermissionDecisionReason string                 `json:"permissionDecisionReason,omitempty"`
 	UpdatedInput             map[string]interface{} `json:"updatedInput,omitempty"`
+	AdditionalContext        string                 `json:"additionalContext,omitempty"` // Additional information for Claude
 }
 
 // PermissionRequestOutput represents the complete JSON output structure for PermissionRequest hooks
@@ -574,6 +575,7 @@ type Action struct {
 	Behavior           *string `yaml:"behavior,omitempty"`            // "allow" or "deny" (PermissionRequest only)
 	Interrupt          *bool   `yaml:"interrupt,omitempty"`           // deny時のみ (PermissionRequest only)
 	Reason             *string `yaml:"reason,omitempty"`              // Reason for decision (Stop/SubagentStop/PostToolUse)
+	AdditionalContext  *string `yaml:"additional_context,omitempty"`  // Additional context for Claude (PreToolUse)
 }
 
 // 設定ファイル構造
