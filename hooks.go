@@ -398,6 +398,11 @@ func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON inter
 
 	executed := false
 	for i, hook := range config.PreCompact {
+		// Warn about invalid matcher values (early detection of configuration mistakes)
+		if hook.Matcher != "" && hook.Matcher != "manual" && hook.Matcher != "auto" {
+			fmt.Fprintf(os.Stderr, "Warning: PreCompact hook %d has invalid matcher value %q (expected: \"manual\", \"auto\", or empty)\n", i, hook.Matcher)
+		}
+
 		// マッチャーチェック (manual/auto)
 		if hook.Matcher != "" && hook.Matcher != input.Trigger {
 			continue
@@ -1122,14 +1127,14 @@ func executePreCompactHooksJSON(config *Config, input *PreCompactInput, rawJSON 
 	var systemMessageBuilder strings.Builder
 
 	for i, hook := range config.PreCompact {
-		// マッチャーチェック (manual/auto)
-		if hook.Matcher != "" && hook.Matcher != input.Trigger {
-			continue
-		}
-
 		// Warn about invalid matcher values (early detection of configuration mistakes)
 		if hook.Matcher != "" && hook.Matcher != "manual" && hook.Matcher != "auto" {
 			fmt.Fprintf(os.Stderr, "Warning: PreCompact hook %d has invalid matcher value %q (expected: \"manual\", \"auto\", or empty)\n", i, hook.Matcher)
+		}
+
+		// マッチャーチェック (manual/auto)
+		if hook.Matcher != "" && hook.Matcher != input.Trigger {
+			continue
 		}
 
 		// 条件チェック
