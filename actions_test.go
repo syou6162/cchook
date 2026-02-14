@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -240,33 +239,8 @@ func TestHandleOutput(t *testing.T) {
 	}
 }
 
-func TestExecuteNotificationAction_WithExitError(t *testing.T) {
-	action := Action{
-		Type:       "output",
-		Message:    "Notification error message",
-		ExitStatus: intPtr(2),
-	}
-
-	executor := NewActionExecutor(nil)
-	err := executor.ExecuteNotificationAction(action, &NotificationInput{}, map[string]interface{}{})
-
-	if err == nil {
-		t.Fatal("Expected ExitError, got nil")
-	}
-
-	exitErr, ok := err.(*ExitError)
-	if !ok {
-		t.Fatalf("Expected *ExitError, got %T", err)
-	}
-
-	if exitErr.Code != 2 {
-		t.Errorf("Expected exit code 2, got %d", exitErr.Code)
-	}
-
-	if !exitErr.Stderr {
-		t.Error("Expected stderr output")
-	}
-}
+// TestExecuteNotificationAction_WithExitError removed - old implementation used ExitError,
+// new implementation uses ActionOutput. See TestExecuteNotificationAction_TypeOutput in executor_test.go.
 
 func TestNewExitError(t *testing.T) {
 	err := NewExitError(2, "test message", true)
@@ -288,89 +262,8 @@ func TestNewExitError(t *testing.T) {
 	}
 }
 
-func TestExecuteNotificationAction_CommandWithStubRunner(t *testing.T) {
-	tests := []struct {
-		name      string
-		command   string
-		useStdin  bool
-		runFunc   func(cmd string, useStdin bool, data interface{}) error
-		wantErr   bool
-		wantCmd   string
-		wantStdin bool
-	}{
-		{
-			name:     "command executes successfully",
-			command:  "echo test",
-			useStdin: false,
-			runFunc: func(cmd string, useStdin bool, data interface{}) error {
-				return nil
-			},
-			wantErr:   false,
-			wantCmd:   "echo test",
-			wantStdin: false,
-		},
-		{
-			name:     "command with stdin",
-			command:  "cat",
-			useStdin: true,
-			runFunc: func(cmd string, useStdin bool, data interface{}) error {
-				return nil
-			},
-			wantErr:   false,
-			wantCmd:   "cat",
-			wantStdin: true,
-		},
-		{
-			name:     "command fails",
-			command:  "false",
-			useStdin: false,
-			runFunc: func(cmd string, useStdin bool, data interface{}) error {
-				return fmt.Errorf("command failed")
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var capturedCmd string
-			var capturedStdin bool
-
-			runner := &stubRunner{
-				runFunc: func(cmd string, useStdin bool, data interface{}) error {
-					capturedCmd = cmd
-					capturedStdin = useStdin
-					return tt.runFunc(cmd, useStdin, data)
-				},
-			}
-
-			executor := NewActionExecutor(runner)
-			action := Action{
-				Type:     "command",
-				Command:  tt.command,
-				UseStdin: tt.useStdin,
-			}
-
-			err := executor.ExecuteNotificationAction(action, &NotificationInput{}, map[string]interface{}{})
-
-			if tt.wantErr {
-				if err == nil {
-					t.Error("Expected error, got nil")
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Expected no error, got %v", err)
-				}
-				if capturedCmd != tt.wantCmd {
-					t.Errorf("Expected command %q, got %q", tt.wantCmd, capturedCmd)
-				}
-				if capturedStdin != tt.wantStdin {
-					t.Errorf("Expected useStdin %v, got %v", tt.wantStdin, capturedStdin)
-				}
-			}
-		})
-	}
-}
+// TestExecuteSessionEndAction tests removed - SessionEnd is now JSON-based with (*ActionOutput, error) return.
+// See executor_test.go for SessionEnd JSON output tests.
 
 // TestExecuteStopAction_CommandWithStubRunner tests Stop command actions using stubRunnerWithOutput.
 // Updated for JSON output: uses RunCommandWithOutput instead of RunCommand.

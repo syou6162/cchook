@@ -18,7 +18,8 @@ func runHooks(config *Config, eventType HookEventType) error {
 		if err != nil {
 			return err
 		}
-		return executeNotificationHooks(config, input, rawJSON)
+		_, err = executeNotificationHooksJSON(config, input, rawJSON)
+		return err
 	case Stop:
 		input, rawJSON, err := parseInput[*StopInput](eventType)
 		if err != nil {
@@ -545,10 +546,23 @@ func dryRunUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, r
 
 // executePostToolUseHooks executes all matching PostToolUse hooks based on matcher and condition checks.
 // Collects all condition check errors and returns them aggregated.
-// executeNotificationHooks executes all matching Notification hooks based on condition checks.
-func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON interface{}) error {
+// executeNotificationHooksJSON executes all matching Notification hooks and returns JSON output.
+// Notification follows SessionStart pattern (hookSpecificOutput + additionalContext).
+// Continue is always forced to true (Notification cannot block - official spec "Can block? = No").
+// Returns (*NotificationOutput, error) where output is always non-nil.
+func executeNotificationHooksJSON(config *Config, input *NotificationInput, rawJSON interface{}) (*NotificationOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
+	var actionErrors []error
+
+	// Initialize finalOutput with Continue: true (forced for Notification)
+	finalOutput := &NotificationOutput{
+		Continue: true,
+	}
+
+	var additionalContextBuilder strings.Builder
+	var systemMessageBuilder strings.Builder
+	hookEventName := ""
 
 	for i, hook := range config.Notification {
 		// 条件チェック
@@ -571,31 +585,96 @@ func executeNotificationHooks(config *Config, input *NotificationInput, rawJSON 
 		}
 
 		for _, action := range hook.Actions {
-			if err := executor.ExecuteNotificationAction(action, input, rawJSON); err != nil {
-				if exitErr, ok := err.(*ExitError); ok {
-					actionErr := &ExitError{
-						Code:    exitErr.Code,
-						Message: fmt.Sprintf("Notification hook %d failed: %s", i, exitErr.Message),
-						Stderr:  exitErr.Stderr,
-					}
-					if len(conditionErrors) > 0 {
-						return errors.Join(append(conditionErrors, actionErr)...)
-					}
-					return actionErr
-				}
-				actionErr := fmt.Errorf("Notification hook %d failed: %w", i, err)
-				if len(conditionErrors) > 0 {
-					return errors.Join(append(conditionErrors, actionErr)...)
-				}
-				return actionErr
+			actionOutput, err := executor.ExecuteNotificationAction(action, input, rawJSON)
+			if err != nil {
+				actionErrors = append(actionErrors, fmt.Errorf("notification hook %d action failed: %w", i, err))
+				continue
 			}
+
+			if actionOutput == nil {
+				continue
+			}
+
+			// Update finalOutput fields following merge rules
+
+			// Continue: Always force to true (ignore action result - Notification cannot block)
+			finalOutput.Continue = true
+
+			// HookEventName: set once and preserve
+			if hookEventName == "" && actionOutput.HookEventName != "" {
+				hookEventName = actionOutput.HookEventName
+			}
+
+			// AdditionalContext: concatenate with "\n"
+			if actionOutput.AdditionalContext != "" {
+				if additionalContextBuilder.Len() > 0 {
+					additionalContextBuilder.WriteString("\n")
+				}
+				additionalContextBuilder.WriteString(actionOutput.AdditionalContext)
+			}
+
+			// SystemMessage: concatenate with "\n"
+			if actionOutput.SystemMessage != "" {
+				if systemMessageBuilder.Len() > 0 {
+					systemMessageBuilder.WriteString("\n")
+				}
+				systemMessageBuilder.WriteString(actionOutput.SystemMessage)
+			}
+
+			// StopReason: 最後の非空値が勝ち
+			if actionOutput.StopReason != "" {
+				finalOutput.StopReason = actionOutput.StopReason
+			}
+
+			// SuppressOutput: 最後の値が勝ち
+			finalOutput.SuppressOutput = actionOutput.SuppressOutput
+
+			// No early return for Notification (cannot block)
 		}
 	}
 
-	if len(conditionErrors) > 0 {
-		return errors.Join(conditionErrors...)
+	// Build final output
+	// Always set hookEventName to "Notification"
+	if hookEventName == "" {
+		hookEventName = "Notification"
 	}
-	return nil
+	finalOutput.HookSpecificOutput = &NotificationHookSpecificOutput{
+		HookEventName:     hookEventName,
+		AdditionalContext: additionalContextBuilder.String(),
+	}
+
+	finalOutput.SystemMessage = systemMessageBuilder.String()
+
+	// Collect all errors
+	var allErrors []error
+	allErrors = append(allErrors, conditionErrors...)
+	allErrors = append(allErrors, actionErrors...)
+
+	if len(allErrors) > 0 {
+		// Continue remains true (Notification cannot block)
+		// Add error info to SystemMessage for graceful degradation
+		errorMsg := errors.Join(allErrors...).Error()
+		if finalOutput.SystemMessage != "" {
+			finalOutput.SystemMessage += "\n" + errorMsg
+		} else {
+			finalOutput.SystemMessage = errorMsg
+		}
+		// Return error to trigger stderr warning in main.go
+		return finalOutput, errors.Join(allErrors...)
+	}
+
+	return finalOutput, nil
+}
+
+// RunNotificationHooks is the wrapper function called from main.go.
+// It delegates to executeNotificationHooksJSON.
+func RunNotificationHooks(config *Config) (*NotificationOutput, error) {
+	input, rawJSON, err := parseInput[*NotificationInput](Notification)
+	if err != nil {
+		return nil, err
+	}
+
+	return executeNotificationHooksJSON(config, input, rawJSON)
 }
 
 // executeStopHooks executes all matching Stop hooks and returns JSON output.
@@ -892,16 +971,6 @@ func RunSubagentStopHooks(config *Config) (*SubagentStopOutput, error) {
 		return nil, err
 	}
 	return executeSubagentStopHooks(config, input, rawJSON)
-}
-
-// RunSessionEndHooks parses input from stdin and executes SessionEnd hooks.
-// Returns SessionEndOutput for JSON serialization.
-func RunSessionEndHooks(config *Config) (*SessionEndOutput, error) {
-	input, rawJSON, err := parseInput[*SessionEndInput](SessionEnd)
-	if err != nil {
-		return nil, err
-	}
-	return executeSessionEndHooksJSON(config, input, rawJSON)
 }
 
 // RunPostToolUseHooks parses input from stdin and executes PostToolUse hooks.
@@ -1748,6 +1817,16 @@ func executeSessionEndHooksJSON(config *Config, input *SessionEndInput, rawJSON 
 	}
 
 	return finalOutput, nil
+}
+
+// RunSessionEndHooks is the wrapper function called from main.go.
+// It delegates to executeSessionEndHooksJSON.
+func RunSessionEndHooks(config *Config) (*SessionEndOutput, error) {
+	input, rawJSON, err := parseInput[*SessionEndInput](SessionEnd)
+	if err != nil {
+		return nil, err
+	}
+	return executeSessionEndHooksJSON(config, input, rawJSON)
 }
 
 // dryRunSessionEndHooks performs a dry-run of SessionEnd hooks, showing what would be executed without actually running.

@@ -63,11 +63,11 @@ func TestPostToolUseIntegration(t *testing.T) {
 				t.Fatalf("Failed to parse input: %v", err)
 			}
 
-		output, err := executePostToolUseHooksJSON(config, input, rawJSON)
+			output, err := executePostToolUseHooksJSON(config, input, rawJSON)
 
-		if output == nil {
-			t.Fatal("Expected output, got nil")
-		}
+			if output == nil {
+				t.Fatal("Expected output, got nil")
+			}
 
 			if tt.wantErr {
 				if err == nil {
@@ -107,9 +107,25 @@ func TestNotificationIntegration(t *testing.T) {
 		t.Fatalf("Failed to parse input: %v", err)
 	}
 
-	err = executeNotificationHooks(config, &input, rawJSON)
+	output, err := executeNotificationHooksJSON(config, &input, rawJSON)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
+	}
+
+	if output == nil {
+		t.Fatal("Expected output, got nil")
+	}
+
+	if !output.Continue {
+		t.Errorf("Expected Continue=true, got false")
+	}
+
+	if output.HookSpecificOutput == nil {
+		t.Fatal("Expected HookSpecificOutput, got nil")
+	}
+
+	if output.HookSpecificOutput.HookEventName != "Notification" {
+		t.Errorf("Expected HookEventName=Notification, got %q", output.HookSpecificOutput.HookEventName)
 	}
 }
 
