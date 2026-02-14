@@ -1241,6 +1241,28 @@ func checkUnsupportedFieldsSessionEnd(stdout string) {
 	}
 }
 
+//nolint:unused // Will be used in Step 3
+func checkUnsupportedFieldsPreCompact(stdout string) {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+		return
+	}
+
+	supportedFields := map[string]bool{
+		"continue":       true,
+		"stopReason":     true,
+		"suppressOutput": true,
+		"systemMessage":  true,
+		// Note: decision, reason, hookSpecificOutput are NOT supported for PreCompact hooks
+	}
+
+	for field := range data {
+		if !supportedFields[field] {
+			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for PreCompact hooks\n", field)
+		}
+	}
+}
+
 // checkUnsupportedFieldsNotification checks for unsupported fields in Notification JSON output
 // and logs warnings to stderr for any fields that are not in the supported list.
 func checkUnsupportedFieldsNotification(stdout string) {
