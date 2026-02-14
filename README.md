@@ -627,18 +627,18 @@ All conditions return proper error messages for unknown condition types, ensurin
   - Print message
   - Default `exit_status`:
     - 0 for SessionStart, UserPromptSubmit (non-blocking events)
-    - 2 for Notification, PreCompact
-  - Note: PreToolUse, Stop, PostToolUse, and SubagentStop use JSON output (exit_status ignored)
+    - 2 for Notification (legacy)
+  - Note: Most events use JSON output (exit_status ignored). See "JSON Output Events" below.
 
 ### Exit Status Control
 
-**JSON Output Events** (SessionStart, UserPromptSubmit, PreToolUse, Stop, SubagentStop, PostToolUse, SessionEnd):
+**JSON Output Events** (SessionStart, UserPromptSubmit, PreToolUse, Stop, SubagentStop, PostToolUse, PreCompact, SessionEnd, Notification):
 - Always exit with code 0
 - Control behavior via JSON fields (`decision`, `permissionDecision`, etc.)
 - Errors logged to stderr as warnings
 - See CLAUDE.md for detailed JSON output format
 
-**Legacy Exit Code Events** (Notification, PreCompact):
+**Legacy Exit Code Events** (Notification only):
 - 0
   - Success, allow execution, output to stdout
 - 2
@@ -652,6 +652,13 @@ All conditions return proper error messages for unknown condition types, ensurin
 - Prior to JSON support, Stop used `exit_status: 0` (allow) or `exit_status: 2` (block, default)
 - After JSON migration, use `decision` field: omit for allow, `"block"` for deny
 - `exit_status` field is ignored in JSON mode (stderr warning emitted)
+
+**Migration Note** (PreCompact):
+- Prior to JSON support, PreCompact used exit codes (default `exit_status: 2`)
+- After JSON migration, PreCompact uses Common JSON Fields only (no `decision` field)
+- PreCompact always returns `continue: true` (compaction cannot be blocked)
+- `exit_status` field is ignored in JSON mode (stderr warning emitted)
+- Matcher support added: `matcher: "manual"` or `"auto"` to filter by trigger type
 
 ### Template Syntax
 
