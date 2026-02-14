@@ -2673,6 +2673,135 @@ func TestValidateNotificationOutput(t *testing.T) {
 	}
 }
 
+func TestValidateSubagentStartOutput(t *testing.T) {
+	tests := []struct {
+		name      string
+		jsonData  string
+		wantError bool
+		errorMsg  string
+	}{
+		{
+			name: "Valid output with only continue",
+			jsonData: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "SubagentStart"
+				}
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Valid output with hookSpecificOutput and additionalContext",
+			jsonData: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "SubagentStart",
+					"additionalContext": "Explore agent started"
+				}
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Valid output with all fields",
+			jsonData: `{
+				"continue": true,
+				"systemMessage": "System message",
+				"stopReason": "test reason",
+				"suppressOutput": true,
+				"hookSpecificOutput": {
+					"hookEventName": "SubagentStart",
+					"additionalContext": "Additional context"
+				}
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Invalid continue type (string instead of bool)",
+			jsonData: `{
+				"continue": "true",
+				"hookSpecificOutput": {
+					"hookEventName": "SubagentStart"
+				}
+			}`,
+			wantError: true,
+			errorMsg:  "continue",
+		},
+		{
+			name: "hookSpecificOutput missing",
+			jsonData: `{
+				"continue": true
+			}`,
+			wantError: true,
+			errorMsg:  "hookSpecificOutput",
+		},
+		{
+			name: "hookEventName missing in hookSpecificOutput",
+			jsonData: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"additionalContext": "Test message"
+				}
+			}`,
+			wantError: true,
+			errorMsg:  "hookEventName",
+		},
+		{
+			name: "hookEventName mismatch",
+			jsonData: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "Notification",
+					"additionalContext": "Wrong event name"
+				}
+			}`,
+			wantError: true,
+			errorMsg:  "hookEventName",
+		},
+		{
+			name: "Unsupported field: decision",
+			jsonData: `{
+				"continue": true,
+				"decision": "block",
+				"hookSpecificOutput": {
+					"hookEventName": "SubagentStart"
+				}
+			}`,
+			wantError: true,
+			errorMsg:  "decision",
+		},
+		{
+			name: "Unsupported field: reason",
+			jsonData: `{
+				"continue": true,
+				"reason": "test reason",
+				"hookSpecificOutput": {
+					"hookEventName": "SubagentStart"
+				}
+			}`,
+			wantError: true,
+			errorMsg:  "reason",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateSubagentStartOutput([]byte(tt.jsonData))
+
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("Expected validation error containing %q, got nil", tt.errorMsg)
+				} else if !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("Expected error containing %q, got: %s", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %s", err.Error())
+				}
+			}
+		})
+	}
+}
+
 func TestValidatePreCompactOutput(t *testing.T) {
 	tests := []struct {
 		name      string
