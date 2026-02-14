@@ -1864,8 +1864,8 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 	allErrors = append(allErrors, actionErrors...)
 
 	// Build final output
-	// Set HookSpecificOutput only when permissionDecision is set or errors occurred
-	if permissionDecision != "" || len(allErrors) > 0 {
+	// Set HookSpecificOutput when any hook-specific field is set or errors occurred
+	if permissionDecision != "" || additionalContextBuilder.Len() > 0 || updatedInput != nil || len(allErrors) > 0 {
 		// Always set hookEventName to "PreToolUse"
 		if hookEventName == "" {
 			hookEventName = "PreToolUse"
