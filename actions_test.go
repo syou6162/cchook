@@ -162,11 +162,6 @@ func TestActionStructsWithExitStatus(t *testing.T) {
 	})
 }
 
-// Helper function to create *int
-func intPtr(i int) *int {
-	return &i
-}
-
 func TestHandleOutput(t *testing.T) {
 	tests := []struct {
 		name       string
