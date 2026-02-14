@@ -151,16 +151,20 @@ The application follows a modular architecture with clear separation of concerns
 - Tool-specific parsing for PreToolUse/PostToolUse (complex tool_input handling)
 - Returns both structured data and raw JSON for template processing
 
-**Hook Execution** (`hooks.go`)
-- Event-specific hook execution functions
-- Matcher checking (partial string matching with pipe separation)
-- Condition evaluation per event type
-- Dry-run mode for debugging configurations
+**Hook Execution**
+- `hooks_dispatch.go`: Entry points and routing for all hook types
+- `hooks_execute.go`: Standard event hook execution (8 events: Notification, SubagentStart, Stop, SubagentStop, PreCompact, SessionStart, UserPromptSubmit, SessionEnd)
+- `hooks_tool_permission.go`: Tool and permission related hooks (PreToolUse, PostToolUse, PermissionRequest)
+- `hooks_dryrun.go`: Dry-run mode implementations for all 11 event types
 
 **Action Execution** (`actions.go`)
 - Command execution via shell
 - Output handling with exit status control
 - ExitError creation for blocking execution (PreToolUse only)
+
+**Action Executors**
+- `executor.go`: ActionExecutor struct and standard event action execution (8 events with adjacent checkUnsupportedFields functions)
+- `executor_tool_permission.go`: Tool and permission related action execution (PreToolUse, PostToolUse, PermissionRequest)
 
 **Template Engine** (`template_jq.go`)
 - Unified `{.field}` syntax for JSON field access
@@ -168,13 +172,10 @@ The application follows a modular architecture with clear separation of concerns
 - Query caching for performance
 - Error handling with `[JQ_ERROR: ...]` format
 
-**Utilities** (`utils.go`)
-- Condition checking functions per event type with `(bool, error)` return
-- Sentinel error pattern (`ErrConditionNotHandled`) for unknown condition types
-- Command execution wrapper
-- File existence, extension, and URL pattern matching
-- Prompt regex matching for UserPromptSubmit events
-- Transcript file parsing for `every_n_prompts` condition using json.Decoder
+**Utilities**
+- `conditions.go`: Condition checking functions per event type with `(bool, error)` return and sentinel error pattern (`ErrConditionNotHandled`)
+- `validation.go`: Output validation functions for all event types using JSON schema
+- `utils.go`: General utilities (file/directory existence, git operations, command execution, matcher checking)
 
 ### Data Flow
 
@@ -1019,9 +1020,17 @@ Available reason values:
 1. Define the input structure in `types.go` with embedded BaseInput
 2. Add condition types if needed in `types.go` using the opaque struct pattern
 3. Implement parsing logic in `parser.go`
-4. Add hook execution function in `hooks.go`
-5. Implement condition checking in `utils.go` with `(bool, error)` return
-6. Add tests in corresponding `*_test.go` files
+4. Add hook execution functions in appropriate hooks files:
+   - Standard events: `hooks_execute.go`
+   - Tool/permission events: `hooks_tool_permission.go`
+   - Dry-run implementations: `hooks_dryrun.go`
+   - Entry points: `hooks_dispatch.go`
+5. Add action execution in appropriate executor files:
+   - Standard events: `executor.go`
+   - Tool/permission events: `executor_tool_permission.go`
+6. Implement condition checking in `conditions.go` with `(bool, error)` return
+7. Add output validation in `validation.go` using JSON schema
+8. Add tests in corresponding `*_test.go` files
 
 ### Testing Template Processing
 Template processing can be tested independently:
