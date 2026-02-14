@@ -258,6 +258,28 @@ func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON i
 
 	executed := false
 	for i, hook := range config.Notification {
+		// Matcher check: filter by notification_type
+		if hook.Matcher != "" {
+			// Warn if matcher contains unknown notification_type values
+			knownTypes := map[string]bool{
+				"permission_prompt":  true,
+				"idle_prompt":        true,
+				"auth_success":       true,
+				"elicitation_dialog": true,
+			}
+			for _, pattern := range strings.Split(hook.Matcher, "|") {
+				trimmedPattern := strings.TrimSpace(pattern)
+				if trimmedPattern != "" && !knownTypes[trimmedPattern] {
+					fmt.Fprintf(os.Stderr, "Warning: Notification hook matcher contains unknown notification_type: %q (known types: permission_prompt, idle_prompt, auth_success, elicitation_dialog)\n", trimmedPattern)
+				}
+			}
+
+			// Filter hooks by matcher
+			if !checkNotificationMatcher(hook.Matcher, input.NotificationType) {
+				continue
+			}
+		}
+
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
@@ -278,6 +300,9 @@ func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON i
 
 		executed = true
 		fmt.Printf("[Hook %d] Would execute:\n", i+1)
+		if hook.Matcher != "" {
+			fmt.Printf("  Matcher: %s\n", hook.Matcher)
+		}
 		for _, action := range hook.Actions {
 			switch action.Type {
 			case "command":
