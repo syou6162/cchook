@@ -227,7 +227,7 @@ func countUserPromptsFromTranscript(transcriptPath, sessionID string) (int, erro
 	count := 0
 
 	for {
-		var entry map[string]interface{}
+		var entry map[string]any
 		if err := decoder.Decode(&entry); err != nil {
 			if err == io.EOF {
 				break

@@ -44,12 +44,12 @@ func TestPreToolUseIntegration_AllowOperation(t *testing.T) {
 		},
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
 		"tool_name":       input.ToolName,
-		"tool_input": map[string]interface{}{
+		"tool_input": map[string]any{
 			"file_path": input.ToolInput.FilePath,
 		},
 	}
@@ -118,12 +118,12 @@ func TestPreToolUseIntegration_DenyOperation(t *testing.T) {
 		},
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
 		"tool_name":       input.ToolName,
-		"tool_input": map[string]interface{}{
+		"tool_input": map[string]any{
 			"command": input.ToolInput.Command,
 		},
 	}
@@ -192,12 +192,12 @@ func TestPreToolUseIntegration_AskOperation(t *testing.T) {
 		},
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
 		"tool_name":       input.ToolName,
-		"tool_input": map[string]interface{}{
+		"tool_input": map[string]any{
 			"file_path": input.ToolInput.FilePath,
 		},
 	}
@@ -266,12 +266,12 @@ func TestPreToolUseIntegration_MultipleActions(t *testing.T) {
 		},
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
 		"tool_name":       input.ToolName,
-		"tool_input": map[string]interface{}{
+		"tool_input": map[string]any{
 			"file_path": input.ToolInput.FilePath,
 		},
 	}
@@ -334,12 +334,12 @@ func TestPreToolUseIntegration_EarlyReturnOnDeny(t *testing.T) {
 		},
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
 		"tool_name":       input.ToolName,
-		"tool_input": map[string]interface{}{
+		"tool_input": map[string]any{
 			"file_path": input.ToolInput.FilePath,
 		},
 	}

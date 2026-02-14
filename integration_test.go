@@ -53,7 +53,7 @@ func TestPostToolUseIntegration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			jsonBytes := []byte(tt.jsonInput)
 
-			var rawJSON map[string]interface{}
+			var rawJSON map[string]any
 			if err := json.Unmarshal(jsonBytes, &rawJSON); err != nil {
 				t.Fatalf("Failed to unmarshal JSON: %v", err)
 			}
@@ -96,7 +96,7 @@ func TestNotificationIntegration(t *testing.T) {
 		"body": "This is a test notification"
 	}`
 
-	var rawJSON map[string]interface{}
+	var rawJSON map[string]any
 	jsonBytes := []byte(jsonInput)
 	if err := json.Unmarshal(jsonBytes, &rawJSON); err != nil {
 		t.Fatalf("Failed to unmarshal JSON: %v", err)
@@ -134,14 +134,14 @@ func TestComplexJSONTemplateProcessing(t *testing.T) {
 	tests := []struct {
 		name     string
 		template string
-		jsonData map[string]interface{}
+		jsonData map[string]any
 		want     string
 	}{
 		{
 			name:     "Nested object access",
 			template: "File: {.tool_input.file_path}",
-			jsonData: map[string]interface{}{
-				"tool_input": map[string]interface{}{
+			jsonData: map[string]any{
+				"tool_input": map[string]any{
 					"file_path": "/path/to/file.go",
 				},
 			},
@@ -150,7 +150,7 @@ func TestComplexJSONTemplateProcessing(t *testing.T) {
 		{
 			name:     "jq transformation",
 			template: "Uppercase: {.tool_name | ascii_upcase}",
-			jsonData: map[string]interface{}{
+			jsonData: map[string]any{
 				"tool_name": "write",
 			},
 			want: "Uppercase: WRITE",
@@ -158,17 +158,17 @@ func TestComplexJSONTemplateProcessing(t *testing.T) {
 		{
 			name:     "Array access",
 			template: "First item: {.items[0]}",
-			jsonData: map[string]interface{}{
-				"items": []interface{}{"first", "second", "third"},
+			jsonData: map[string]any{
+				"items": []any{"first", "second", "third"},
 			},
 			want: "First item: first",
 		},
 		{
 			name:     "Multiple field access",
 			template: "{.tool_name}: {.tool_input.file_path}",
-			jsonData: map[string]interface{}{
+			jsonData: map[string]any{
 				"tool_name": "Write",
-				"tool_input": map[string]interface{}{
+				"tool_input": map[string]any{
 					"file_path": "test.go",
 				},
 			},

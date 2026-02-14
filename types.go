@@ -9,9 +9,9 @@ import (
 // This interface allows for dependency injection in tests.
 type CommandRunner interface {
 	// RunCommand executes a shell command with optional stdin data.
-	RunCommand(cmd string, useStdin bool, data interface{}) error
+	RunCommand(cmd string, useStdin bool, data any) error
 	// RunCommandWithOutput executes a shell command and returns stdout, stderr, exit code, and error.
-	RunCommandWithOutput(cmd string, useStdin bool, data interface{}) (stdout, stderr string, exitCode int, err error)
+	RunCommandWithOutput(cmd string, useStdin bool, data any) (stdout, stderr string, exitCode int, err error)
 }
 
 // イベントタイプのenum定義
@@ -229,20 +229,20 @@ type SubagentStartHookSpecificOutput struct {
 // ActionOutput はアクション実行結果を表す内部型（JSONには直接出力されない）
 type ActionOutput struct {
 	Continue                 bool
-	Decision                 string                 // "block" or "" (internal: empty string will be omitted from JSON via omitempty; UserPromptSubmit only, empty for SessionStart)
-	PermissionDecision       string                 // "allow", "deny", or "ask" (PreToolUse only, empty for SessionStart/UserPromptSubmit)
-	PermissionDecisionReason string                 // Reason for permission decision (PreToolUse only)
-	UpdatedInput             map[string]interface{} // Updated tool input parameters (PreToolUse only)
-	Behavior                 string                 // "allow" or "deny" (PermissionRequest only)
-	Message                  string                 // Deny message (PermissionRequest only)
-	Interrupt                bool                   // Interrupt flag for deny (PermissionRequest only)
-	Reason                   string                 // Reason for decision (Stop/SubagentStop/PostToolUse only, required when decision is "block")
+	Decision                 string         // "block" or "" (internal: empty string will be omitted from JSON via omitempty; UserPromptSubmit only, empty for SessionStart)
+	PermissionDecision       string         // "allow", "deny", or "ask" (PreToolUse only, empty for SessionStart/UserPromptSubmit)
+	PermissionDecisionReason string         // Reason for permission decision (PreToolUse only)
+	UpdatedInput             map[string]any // Updated tool input parameters (PreToolUse only)
+	Behavior                 string         // "allow" or "deny" (PermissionRequest only)
+	Message                  string         // Deny message (PermissionRequest only)
+	Interrupt                bool           // Interrupt flag for deny (PermissionRequest only)
+	Reason                   string         // Reason for decision (Stop/SubagentStop/PostToolUse only, required when decision is "block")
 	StopReason               string
 	SuppressOutput           bool
 	SystemMessage            string
 	HookEventName            string
 	AdditionalContext        string
-	UpdatedMCPToolOutput     interface{} // For MCP tools only: replaces the tool's output (PostToolUse only)
+	UpdatedMCPToolOutput     any // For MCP tools only: replaces the tool's output (PostToolUse only)
 }
 
 // PreToolUseOutput represents the complete JSON output structure for PreToolUse hooks
@@ -257,11 +257,11 @@ type PreToolUseOutput struct {
 
 // PreToolUseHookSpecificOutput represents the hookSpecificOutput field for PreToolUse hooks
 type PreToolUseHookSpecificOutput struct {
-	HookEventName            string                 `json:"hookEventName"`                // Always "PreToolUse"
-	PermissionDecision       string                 `json:"permissionDecision,omitempty"` // "allow", "deny", or "ask" (omit when empty to delegate)
-	PermissionDecisionReason string                 `json:"permissionDecisionReason,omitempty"`
-	UpdatedInput             map[string]interface{} `json:"updatedInput,omitempty"`
-	AdditionalContext        string                 `json:"additionalContext,omitempty"` // Additional information for Claude
+	HookEventName            string         `json:"hookEventName"`                // Always "PreToolUse"
+	PermissionDecision       string         `json:"permissionDecision,omitempty"` // "allow", "deny", or "ask" (omit when empty to delegate)
+	PermissionDecisionReason string         `json:"permissionDecisionReason,omitempty"`
+	UpdatedInput             map[string]any `json:"updatedInput,omitempty"`
+	AdditionalContext        string         `json:"additionalContext,omitempty"` // Additional information for Claude
 }
 
 // PermissionRequestOutput represents the complete JSON output structure for PermissionRequest hooks
@@ -282,10 +282,10 @@ type PermissionRequestHookSpecificOutput struct {
 
 // PermissionRequestDecision represents the decision object within PermissionRequest hookSpecificOutput
 type PermissionRequestDecision struct {
-	Behavior     string                 `json:"behavior"`               // Required: "allow" or "deny"
-	UpdatedInput map[string]interface{} `json:"updatedInput,omitempty"` // Optional: allow時のみ
-	Message      string                 `json:"message,omitempty"`      // Optional: deny時のみ
-	Interrupt    bool                   `json:"interrupt,omitempty"`    // Optional: deny時のみ、デフォルトfalse
+	Behavior     string         `json:"behavior"`               // Required: "allow" or "deny"
+	UpdatedInput map[string]any `json:"updatedInput,omitempty"` // Optional: allow時のみ
+	Message      string         `json:"message,omitempty"`      // Optional: deny時のみ
+	Interrupt    bool           `json:"interrupt,omitempty"`    // Optional: deny時のみ、デフォルトfalse
 }
 
 // UserPromptSubmit用
@@ -367,7 +367,7 @@ type PostToolUseOutput struct {
 	SuppressOutput       bool                           `json:"suppressOutput,omitempty"`
 	SystemMessage        string                         `json:"systemMessage,omitempty"`
 	HookSpecificOutput   *PostToolUseHookSpecificOutput `json:"hookSpecificOutput,omitempty"`   // Optional: omit when no additionalContext
-	UpdatedMCPToolOutput interface{}                    `json:"updatedMCPToolOutput,omitempty"` // For MCP tools only: replaces the tool's output (top-level field, not in hookSpecificOutput)
+	UpdatedMCPToolOutput any                            `json:"updatedMCPToolOutput,omitempty"` // For MCP tools only: replaces the tool's output (top-level field, not in hookSpecificOutput)
 }
 
 // PostToolUseHookSpecificOutput represents the hookSpecificOutput field for PostToolUse hooks
@@ -502,7 +502,7 @@ var (
 )
 
 // UnmarshalYAML implements yaml.Unmarshaler for ConditionType
-func (c *ConditionType) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (c *ConditionType) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err
@@ -558,7 +558,7 @@ func (c *ConditionType) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // MarshalYAML implements yaml.Marshaler for ConditionType
-func (c ConditionType) MarshalYAML() (interface{}, error) {
+func (c ConditionType) MarshalYAML() (any, error) {
 	return c.v, nil
 }
 

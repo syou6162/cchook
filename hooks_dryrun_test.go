@@ -66,9 +66,9 @@ func TestDryRunPreToolUseHooks_WithMatch(t *testing.T) {
 	}
 
 	// JQクエリが動作するようにrawJSONを作成
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"tool_name": "Write",
-		"tool_input": map[string]interface{}{
+		"tool_input": map[string]any{
 			"file_path": "test.go",
 		},
 	}
@@ -135,12 +135,12 @@ func TestDryRunPreToolUseHooks_ProcessSubstitution(t *testing.T) {
 		ToolInput: ToolInput{Command: "diff -u file1 <(head -48 file2)"},
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
 		"tool_name":       input.ToolName,
-		"tool_input": map[string]interface{}{
+		"tool_input": map[string]any{
 			"command": input.ToolInput.Command,
 		},
 	}
@@ -200,12 +200,12 @@ func TestDryRunPostToolUseHooks_ProcessSubstitution(t *testing.T) {
 		ToolInput: ToolInput{Command: "diff -u file1 <(head -48 file2)"},
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
 		"tool_name":       input.ToolName,
-		"tool_input": map[string]interface{}{
+		"tool_input": map[string]any{
 			"command": input.ToolInput.Command,
 		},
 	}
