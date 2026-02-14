@@ -258,12 +258,12 @@ func checkGitTrackedFileOperation(command string, blockedOps string) (bool, erro
 type realCommandRunner struct{}
 
 // RunCommand implements CommandRunner.RunCommand
-func (r *realCommandRunner) RunCommand(cmd string, useStdin bool, data interface{}) error {
+func (r *realCommandRunner) RunCommand(cmd string, useStdin bool, data any) error {
 	return runCommand(cmd, useStdin, data)
 }
 
 // RunCommandWithOutput implements CommandRunner.RunCommandWithOutput
-func (r *realCommandRunner) RunCommandWithOutput(cmd string, useStdin bool, data interface{}) (stdout, stderr string, exitCode int, err error) {
+func (r *realCommandRunner) RunCommandWithOutput(cmd string, useStdin bool, data any) (stdout, stderr string, exitCode int, err error) {
 	return runCommandWithOutput(cmd, useStdin, data)
 }
 
@@ -271,7 +271,7 @@ func (r *realCommandRunner) RunCommandWithOutput(cmd string, useStdin bool, data
 var DefaultCommandRunner CommandRunner = &realCommandRunner{}
 
 // runCommand executes a shell command with optional JSON data passed via stdin.
-func runCommand(command string, useStdin bool, data interface{}) error {
+func runCommand(command string, useStdin bool, data any) error {
 	if strings.TrimSpace(command) == "" {
 		return fmt.Errorf("empty command")
 	}
@@ -294,7 +294,7 @@ func runCommand(command string, useStdin bool, data interface{}) error {
 }
 
 // runCommandWithOutput executes a command and captures stdout, stderr, and exit code
-func runCommandWithOutput(command string, useStdin bool, data interface{}) (stdout string, stderr string, exitCode int, err error) {
+func runCommandWithOutput(command string, useStdin bool, data any) (stdout string, stderr string, exitCode int, err error) {
 	if strings.TrimSpace(command) == "" {
 		return "", "", 1, fmt.Errorf("empty command")
 	}

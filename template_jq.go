@@ -20,7 +20,7 @@ var (
 
 // executeJQQuery executes a gojq query against the input and returns the result as a string.
 // It caches compiled queries for performance. Returns an error if the query is invalid or execution fails.
-func executeJQQuery(queryStr string, input interface{}) (string, error) {
+func executeJQQuery(queryStr string, input any) (string, error) {
 	// クエリをキャッシュから取得または作成
 	jqCacheMutex.RLock()
 	query, exists := jqQueryCache[queryStr]
@@ -45,14 +45,14 @@ func executeJQQuery(queryStr string, input interface{}) (string, error) {
 		return "", fmt.Errorf("failed to marshal input to JSON: %w", err)
 	}
 
-	var gojqInput interface{}
+	var gojqInput any
 	if err := json.Unmarshal(inputJSON, &gojqInput); err != nil {
 		return "", fmt.Errorf("failed to unmarshal JSON for gojq: %w", err)
 	}
 
 	// クエリを実行
 	iter := query.Run(gojqInput)
-	var results []interface{}
+	var results []any
 
 	for {
 		v, ok := iter.Next()
@@ -83,7 +83,7 @@ func executeJQQuery(queryStr string, input interface{}) (string, error) {
 
 // jqValueToString converts a gojq result value to a string representation.
 // Handles strings, booleans, null, numbers, and objects/arrays (as JSON).
-func jqValueToString(value interface{}) string {
+func jqValueToString(value any) string {
 	switch v := value.(type) {
 	case string:
 		return v
@@ -107,7 +107,7 @@ func jqValueToString(value interface{}) string {
 
 // unifiedTemplateReplace replaces all {query} patterns in the template with JQ query results.
 // Patterns are detected using {}, and the content is treated as a JQ query executed against rawJSON.
-func unifiedTemplateReplace(template string, rawJSON interface{}) string {
+func unifiedTemplateReplace(template string, rawJSON any) string {
 	// パターン: { で始まり } で終わる任意の内容
 	pattern := regexp.MustCompile(`\{([^}]+)\}`)
 

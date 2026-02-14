@@ -13,7 +13,7 @@ import (
 // Notification follows SessionStart pattern (hookSpecificOutput + additionalContext).
 // Continue is always forced to true (Notification cannot block - official spec "Can block? = No").
 // Returns (*NotificationOutput, error) where output is always non-nil.
-func executeNotificationHooksJSON(config *Config, input *NotificationInput, rawJSON interface{}) (*NotificationOutput, error) {
+func executeNotificationHooksJSON(config *Config, input *NotificationInput, rawJSON any) (*NotificationOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 	var actionErrors []error
@@ -154,7 +154,7 @@ func executeNotificationHooksJSON(config *Config, input *NotificationInput, rawJ
 // executeSubagentStartHooksJSON executes all matching SubagentStart hooks and returns JSON output.
 // Similar to Notification, SubagentStart uses hookSpecificOutput with additionalContext.
 // Includes matcher check on agent_type.
-func executeSubagentStartHooksJSON(config *Config, input *SubagentStartInput, rawJSON interface{}) (*SubagentStartOutput, error) {
+func executeSubagentStartHooksJSON(config *Config, input *SubagentStartInput, rawJSON any) (*SubagentStartOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 	var actionErrors []error
@@ -278,7 +278,7 @@ func executeSubagentStartHooksJSON(config *Config, input *SubagentStartInput, ra
 // executeStopHooks executes all matching Stop hooks and returns JSON output.
 // Stop uses top-level decision pattern (no hookSpecificOutput).
 // Returns (*StopOutput, error) where output is always non-nil.
-func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) (*StopOutput, error) {
+func executeStopHooks(config *Config, input *StopInput, rawJSON any) (*StopOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 	var actionErrors []error
@@ -397,7 +397,7 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON interface{}) (*S
 
 // executeSubagentStopHooks executes all matching SubagentStop hooks based on condition checks.
 // Returns an error to block the subagent stop operation if any hook fails.
-func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON interface{}) (*SubagentStopOutput, error) {
+func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON any) (*SubagentStopOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 	var actionErrors []error
@@ -515,7 +515,7 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 }
 
 // executePreCompactHooks executes all matching PreCompact hooks based on condition checks.
-func executePreCompactHooksJSON(config *Config, input *PreCompactInput, rawJSON interface{}) (*PreCompactOutput, error) {
+func executePreCompactHooksJSON(config *Config, input *PreCompactInput, rawJSON any) (*PreCompactOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 	var actionErrors []error
@@ -613,7 +613,7 @@ func executePreCompactHooksJSON(config *Config, input *PreCompactInput, rawJSON 
 
 // executeSessionStartHooks executes all matching SessionStart hooks based on matcher and condition checks.
 // Returns SessionStartOutput for JSON serialization.
-func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON interface{}) (*SessionStartOutput, error) {
+func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON any) (*SessionStartOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 	var actionErrors []error
@@ -741,7 +741,7 @@ func executeSessionStartHooks(config *Config, input *SessionStartInput, rawJSON 
 
 // executeUserPromptSubmitHooks executes all matching UserPromptSubmit hooks and returns JSON output.
 // This implements Phase 2 JSON output functionality for UserPromptSubmit hooks.
-func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, rawJSON interface{}) (*UserPromptSubmitOutput, error) {
+func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, rawJSON any) (*UserPromptSubmitOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 	var actionErrors []error
@@ -879,7 +879,7 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 // executeSessionEndHooksJSON executes all matching SessionEnd hooks and returns SessionEndOutput.
 // SessionEnd always returns continue=true (fail-safe: session end cannot be blocked).
 // Errors are reported via systemMessage field, not by blocking execution.
-func executeSessionEndHooksJSON(config *Config, input *SessionEndInput, rawJSON interface{}) (*SessionEndOutput, error) {
+func executeSessionEndHooksJSON(config *Config, input *SessionEndInput, rawJSON any) (*SessionEndOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 	var actionErrors []error

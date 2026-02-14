@@ -8,7 +8,7 @@ import (
 )
 
 // dryRunPreToolUseHooks performs a dry-run of PreToolUse hooks, showing what would be executed without actually running.
-func dryRunPreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON interface{}) error {
+func dryRunPreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON any) error {
 	fmt.Println("=== PreToolUse Hooks (Dry Run) ===")
 	executed := false
 	for i, hook := range config.PreToolUse {
@@ -45,7 +45,7 @@ func dryRunPreToolUseHooks(config *Config, input *PreToolUseInput, rawJSON inter
 }
 
 // dryRunPostToolUseHooks performs a dry-run of PostToolUse hooks, showing what would be executed without actually running.
-func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON interface{}) error {
+func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON any) error {
 	fmt.Println("=== PostToolUse Hooks (Dry Run) ===")
 	executed := false
 	for i, hook := range config.PostToolUse {
@@ -82,7 +82,7 @@ func dryRunPostToolUseHooks(config *Config, input *PostToolUseInput, rawJSON int
 }
 
 // dryRunNotificationHooks performs a dry-run of Notification hooks, showing what would be executed without actually running.
-func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON interface{}) error {
+func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON any) error {
 	fmt.Println("=== Notification Hooks (Dry Run) ===")
 
 	if len(config.Notification) == 0 {
@@ -159,7 +159,7 @@ func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON i
 
 // dryRunSubagentStartHooks performs a dry-run of SubagentStart hooks, showing what would be executed without actually running.
 // Includes matcher check on agent_type.
-func dryRunSubagentStartHooks(config *Config, input *SubagentStartInput, rawJSON interface{}) error {
+func dryRunSubagentStartHooks(config *Config, input *SubagentStartInput, rawJSON any) error {
 	fmt.Println("=== SubagentStart Hooks (Dry Run) ===")
 
 	if len(config.SubagentStart) == 0 {
@@ -216,7 +216,7 @@ func dryRunSubagentStartHooks(config *Config, input *SubagentStartInput, rawJSON
 }
 
 // dryRunStopHooks performs a dry-run of Stop hooks, showing what would be executed without actually running.
-func dryRunStopHooks(config *Config, input *StopInput, rawJSON interface{}) error {
+func dryRunStopHooks(config *Config, input *StopInput, rawJSON any) error {
 	fmt.Println("=== Stop Hooks (Dry Run) ===")
 
 	if len(config.Stop) == 0 {
@@ -267,7 +267,7 @@ func dryRunStopHooks(config *Config, input *StopInput, rawJSON interface{}) erro
 }
 
 // dryRunSubagentStopHooks performs a dry-run of SubagentStop hooks, showing what would be executed without actually running.
-func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON interface{}) error {
+func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON any) error {
 	fmt.Println("=== SubagentStop Hooks (Dry Run) ===")
 
 	if len(config.SubagentStop) == 0 {
@@ -318,7 +318,7 @@ func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON i
 }
 
 // dryRunPreCompactHooks performs a dry-run of PreCompact hooks, showing what would be executed without actually running.
-func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON interface{}) error {
+func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON any) error {
 	fmt.Println("=== PreCompact Hooks (Dry Run) ===")
 
 	if len(config.PreCompact) == 0 {
@@ -379,7 +379,7 @@ func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON inter
 }
 
 // dryRunSessionStartHooks performs a dry-run of SessionStart hooks, showing what would be executed without actually running.
-func dryRunSessionStartHooks(config *Config, input *SessionStartInput, rawJSON interface{}) error {
+func dryRunSessionStartHooks(config *Config, input *SessionStartInput, rawJSON any) error {
 	fmt.Println("=== SessionStart Hooks (Dry Run) ===")
 
 	if len(config.SessionStart) == 0 {
@@ -435,7 +435,7 @@ func dryRunSessionStartHooks(config *Config, input *SessionStartInput, rawJSON i
 }
 
 // dryRunUserPromptSubmitHooks performs a dry-run of UserPromptSubmit hooks, showing what would be executed without actually running.
-func dryRunUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, rawJSON interface{}) error {
+func dryRunUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, rawJSON any) error {
 	fmt.Println("=== UserPromptSubmit Hooks (Dry Run) ===")
 
 	if len(config.UserPromptSubmit) == 0 {
@@ -486,7 +486,7 @@ func dryRunUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, r
 }
 
 // dryRunSessionEndHooks performs a dry-run of SessionEnd hooks, showing what would be executed without actually running.
-func dryRunSessionEndHooks(config *Config, input *SessionEndInput, rawJSON interface{}) error {
+func dryRunSessionEndHooks(config *Config, input *SessionEndInput, rawJSON any) error {
 	fmt.Println("=== SessionEnd Hooks (Dry Run) ===")
 
 	if len(config.SessionEnd) == 0 {
@@ -538,7 +538,7 @@ func dryRunSessionEndHooks(config *Config, input *SessionEndInput, rawJSON inter
 }
 
 // dryRunPermissionRequestHooks prints what would be executed for PermissionRequest hooks
-func dryRunPermissionRequestHooks(config *Config, input *PermissionRequestInput, rawJSON interface{}) error {
+func dryRunPermissionRequestHooks(config *Config, input *PermissionRequestInput, rawJSON any) error {
 	fmt.Println("\n=== PermissionRequest Hooks ===")
 	if len(config.PermissionRequest) == 0 {
 		fmt.Println("No PermissionRequest hooks configured")

@@ -43,7 +43,7 @@ func TestUserPromptSubmitIntegration_BlockPattern(t *testing.T) {
 		Prompt: "delete all files",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
@@ -106,7 +106,7 @@ func TestUserPromptSubmitIntegration_AllowPattern(t *testing.T) {
 		Prompt: "list files",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
@@ -173,7 +173,7 @@ func TestUserPromptSubmitIntegration_MultipleActions(t *testing.T) {
 		Prompt: "test prompt",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
@@ -234,7 +234,7 @@ func TestUserPromptSubmitIntegration_EarlyReturn(t *testing.T) {
 		Prompt: "test prompt",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),

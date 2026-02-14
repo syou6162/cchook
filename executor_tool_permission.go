@@ -9,7 +9,7 @@ import (
 
 // ExecutePreToolUseAction executes an action for the PreToolUse event and returns JSON output.
 // This method implements Phase 3 JSON output functionality for PreToolUse hooks.
-func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUseInput, rawJSON interface{}) (*ActionOutput, error) {
+func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUseInput, rawJSON any) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -188,7 +188,7 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 // checkUnsupportedFieldsPreToolUse checks for unsupported fields in PreToolUse JSON output
 // and logs warnings to stderr for any fields that are not in the supported list.
 func checkUnsupportedFieldsPreToolUse(stdout string) {
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
 		// JSON parsing failed - this will be caught by the main validation
 		return
@@ -213,7 +213,7 @@ func checkUnsupportedFieldsPreToolUse(stdout string) {
 // ExecutePostToolUseAction executes an action for the PostToolUse event with JSON output format.
 // Supports command execution and output actions.
 // Returns (*ActionOutput, error) following the new JSON output pattern.
-func (e *ActionExecutor) ExecutePostToolUseAction(action Action, input *PostToolUseInput, rawJSON interface{}) (*ActionOutput, error) {
+func (e *ActionExecutor) ExecutePostToolUseAction(action Action, input *PostToolUseInput, rawJSON any) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -405,7 +405,7 @@ func (e *ActionExecutor) ExecutePostToolUseAction(action Action, input *PostTool
 
 // checkUnsupportedFieldsPostToolUse checks for unsupported fields in PostToolUse hook output
 func checkUnsupportedFieldsPostToolUse(stdout string) {
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
 		return
 	}
@@ -441,7 +441,7 @@ func createPermissionRequestDenyOutput(errMsg string) *ActionOutput {
 }
 
 // ExecutePermissionRequestAction executes a PermissionRequest action
-func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *PermissionRequestInput, rawJSON interface{}) (*ActionOutput, error) {
+func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *PermissionRequestInput, rawJSON any) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -502,7 +502,7 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 
 		// Determine Continue value: default to true if not specified
 		continueValue := true
-		var rawData map[string]interface{}
+		var rawData map[string]any
 		if err := json.Unmarshal([]byte(stdout), &rawData); err == nil {
 			if val, exists := rawData["continue"]; exists {
 				if boolVal, ok := val.(bool); ok {
@@ -591,7 +591,7 @@ func (e *ActionExecutor) ExecutePermissionRequestAction(action Action, input *Pe
 
 // checkUnsupportedFieldsPermissionRequest checks for unsupported fields in PermissionRequest command output
 func checkUnsupportedFieldsPermissionRequest(stdout string) {
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
 		return // Skip validation if JSON parsing fails
 	}

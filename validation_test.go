@@ -117,7 +117,6 @@ func TestValidateSessionStartOutput(t *testing.T) {
 	}
 }
 
-
 func TestValidateSubagentStopOutput(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -191,7 +190,6 @@ func TestValidateSubagentStopOutput(t *testing.T) {
 	}
 }
 
-
 func TestValidateStopOutput(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -264,7 +262,6 @@ func TestValidateStopOutput(t *testing.T) {
 		})
 	}
 }
-
 
 func TestValidatePostToolUseOutput(t *testing.T) {
 	tests := []struct {
@@ -362,7 +359,6 @@ func TestValidatePostToolUseOutput(t *testing.T) {
 		})
 	}
 }
-
 
 func TestValidateNotificationOutput(t *testing.T) {
 	tests := []struct {
@@ -493,7 +489,6 @@ func TestValidateNotificationOutput(t *testing.T) {
 	}
 }
 
-
 func TestValidateSubagentStartOutput(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -622,7 +617,6 @@ func TestValidateSubagentStartOutput(t *testing.T) {
 		})
 	}
 }
-
 
 func TestValidatePreCompactOutput(t *testing.T) {
 	tests := []struct {

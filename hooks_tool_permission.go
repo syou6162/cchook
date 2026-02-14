@@ -65,7 +65,7 @@ func RunPermissionRequestHooks(config *Config) error {
 
 // executePreToolUseHooksJSON executes all matching PreToolUse hooks and returns JSON output.
 // This function implements Phase 3 JSON output functionality for PreToolUse hooks.
-func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON interface{}) (*PreToolUseOutput, error) {
+func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON any) (*PreToolUseOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 	var actionErrors []error
@@ -80,7 +80,7 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 	var systemMessageBuilder strings.Builder
 	hookEventName := ""
 	permissionDecision := "" // Empty = delegate to Claude Code's permission system
-	var updatedInput map[string]interface{}
+	var updatedInput map[string]any
 	stopReason := ""
 	suppressOutput := false
 
@@ -268,7 +268,7 @@ func shouldExecutePreToolUseHook(hook PreToolUseHook, input *PreToolUseInput) (b
 
 // executePreToolUseHook executes all actions for a single PreToolUse hook and returns JSON output.
 // This function implements Phase 3 JSON output functionality for PreToolUse hooks.
-func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input *PreToolUseInput, rawJSON interface{}) (*ActionOutput, error) {
+func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input *PreToolUseInput, rawJSON any) (*ActionOutput, error) {
 	// Initialize output with Continue: true (always true for PreToolUse)
 	// permissionDecision starts empty and will be set by actions or remain empty to delegate
 	output := &ActionOutput{
@@ -280,7 +280,7 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 	var reasonBuilder strings.Builder
 	var additionalContextBuilder strings.Builder
 	var systemMessageBuilder strings.Builder
-	var updatedInput map[string]interface{}
+	var updatedInput map[string]any
 
 	for _, action := range hook.Actions {
 		actionOutput, err := executor.ExecutePreToolUseAction(action, input, rawJSON)
@@ -371,7 +371,7 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 
 // executePostToolUseHooksJSON executes all matching PostToolUse hooks and returns JSON output.
 // Implements merging rules for multiple hook outputs.
-func executePostToolUseHooksJSON(config *Config, input *PostToolUseInput, rawJSON interface{}) (*PostToolUseOutput, error) {
+func executePostToolUseHooksJSON(config *Config, input *PostToolUseInput, rawJSON any) (*PostToolUseOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 	var actionErrors []error
@@ -556,7 +556,7 @@ func shouldExecutePostToolUseHook(hook PostToolUseHook, input *PostToolUseInput)
 }
 
 // executePermissionRequestHooksJSON executes PermissionRequest hooks and returns JSON output
-func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestInput, rawJSON interface{}) (*PermissionRequestOutput, error) {
+func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestInput, rawJSON any) (*PermissionRequestOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
 	var actionErrors []error
@@ -570,7 +570,7 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 	var systemMessageBuilder strings.Builder
 	hookEventName := "PermissionRequest"
 	behavior := "allow" // Default: allow when no hooks match
-	var updatedInput map[string]interface{}
+	var updatedInput map[string]any
 	interrupt := false
 	stopReason := ""
 	suppressOutput := false
@@ -733,7 +733,7 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 }
 
 // executePermissionRequestHook executes all actions in a single hook and merges their outputs
-func executePermissionRequestHook(executor *ActionExecutor, hook PermissionRequestHook, input *PermissionRequestInput, rawJSON interface{}) (*ActionOutput, error) {
+func executePermissionRequestHook(executor *ActionExecutor, hook PermissionRequestHook, input *PermissionRequestInput, rawJSON any) (*ActionOutput, error) {
 	var mergedOutput *ActionOutput
 
 	for _, action := range hook.Actions {

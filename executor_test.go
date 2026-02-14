@@ -94,7 +94,7 @@ func TestExecuteSessionStartAction_TypeOutput(t *testing.T) {
 					SessionID: "test-session-123",
 				},
 			}
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id": "test-session-123",
 			}
 
@@ -136,7 +136,6 @@ func TestExecuteSessionStartAction_TypeOutput(t *testing.T) {
 		})
 	}
 }
-
 
 func TestExecuteSessionStartAction_TypeCommand(t *testing.T) {
 	tests := []struct {
@@ -343,7 +342,7 @@ func TestExecuteSessionStartAction_TypeCommand(t *testing.T) {
 					SessionID: "test-session-123",
 				},
 			}
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id": "test-session-123",
 			}
 
@@ -376,7 +375,6 @@ func TestExecuteSessionStartAction_TypeCommand(t *testing.T) {
 		})
 	}
 }
-
 
 func TestExecuteUserPromptSubmitAction_TypeOutput(t *testing.T) {
 	tests := []struct {
@@ -478,7 +476,7 @@ func TestExecuteUserPromptSubmitAction_TypeOutput(t *testing.T) {
 				Prompt: "test prompt",
 			}
 
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":      "test-session-123",
 				"transcript_path": "/path/to/transcript",
 				"cwd":             "/test/cwd",
@@ -511,7 +509,6 @@ func TestExecuteUserPromptSubmitAction_TypeOutput(t *testing.T) {
 		})
 	}
 }
-
 
 func TestExecuteUserPromptSubmitAction_TypeCommand(t *testing.T) {
 	tests := []struct {
@@ -821,7 +818,7 @@ func TestExecuteUserPromptSubmitAction_TypeCommand(t *testing.T) {
 				Prompt: "test prompt",
 			}
 
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":      "test-session-123",
 				"transcript_path": "/path/to/transcript",
 				"cwd":             "/test/cwd",
@@ -920,7 +917,6 @@ func TestCheckUnsupportedFieldsSessionStart(t *testing.T) {
 	}
 }
 
-
 func TestCheckUnsupportedFieldsUserPromptSubmit(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -1005,7 +1001,7 @@ func TestExecuteSessionStartAction_CommandFailure_StderrWarning(t *testing.T) {
 		},
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id": "test-session-123",
 	}
 
@@ -1069,7 +1065,7 @@ func TestExecuteSessionStartAction_JSONParseError_StderrWarning(t *testing.T) {
 		},
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id": "test-session-123",
 	}
 
@@ -1138,7 +1134,7 @@ func TestExecuteUserPromptSubmitAction_CommandFailure_StderrWarning(t *testing.T
 		Prompt: "test prompt",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      "test-session-123",
 		"transcript_path": "/path/to/transcript",
 		"cwd":             "/test/cwd",
@@ -1212,7 +1208,7 @@ func TestExecuteUserPromptSubmitAction_JSONParseError_StderrWarning(t *testing.T
 		Prompt: "test prompt",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      "test-session-123",
 		"transcript_path": "/path/to/transcript",
 		"cwd":             "/test/cwd",
@@ -1259,7 +1255,6 @@ func TestExecuteUserPromptSubmitAction_JSONParseError_StderrWarning(t *testing.T
 		t.Errorf("Expected JSON error message in stderr, got: %s", stderr)
 	}
 }
-
 
 func TestExecuteStopAction_TypeOutput(t *testing.T) {
 	tests := []struct {
@@ -1392,7 +1387,7 @@ func TestExecuteStopAction_TypeOutput(t *testing.T) {
 				},
 				StopHookActive: false,
 			}
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":       "test-session-123",
 				"stop_hook_active": false,
 			}
@@ -1608,7 +1603,7 @@ func TestExecuteStopAction_TypeCommand(t *testing.T) {
 				},
 				StopHookActive: false,
 			}
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":       "test-session-123",
 				"stop_hook_active": false,
 			}
@@ -1704,7 +1699,7 @@ func TestExecuteStopAction_TypeCommand_StderrWarnings(t *testing.T) {
 			_, _ = executor.ExecuteStopAction(
 				Action{Type: "command", Command: "test.sh"},
 				&StopInput{},
-				map[string]interface{}{},
+				map[string]any{},
 			)
 
 			_ = w.Close()
@@ -1720,7 +1715,6 @@ func TestExecuteStopAction_TypeCommand_StderrWarnings(t *testing.T) {
 		})
 	}
 }
-
 
 func TestExecuteSubagentStopAction_TypeOutput(t *testing.T) {
 	tests := []struct {
@@ -1855,7 +1849,7 @@ func TestExecuteSubagentStopAction_TypeOutput(t *testing.T) {
 				},
 				StopHookActive: true,
 			}
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":       "test-session-123",
 				"hook_event_name":  "SubagentStop",
 				"stop_hook_active": true,
@@ -1889,7 +1883,6 @@ func TestExecuteSubagentStopAction_TypeOutput(t *testing.T) {
 		})
 	}
 }
-
 
 func TestExecuteSubagentStopAction_TypeCommand(t *testing.T) {
 	tests := []struct {
@@ -2070,7 +2063,7 @@ func TestExecuteSubagentStopAction_TypeCommand(t *testing.T) {
 				},
 				StopHookActive: true,
 			}
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":       "test-session-123",
 				"hook_event_name":  "SubagentStop",
 				"stop_hook_active": true,
@@ -2114,7 +2107,6 @@ func TestExecuteSubagentStopAction_TypeCommand(t *testing.T) {
 		})
 	}
 }
-
 
 func TestExecuteNotificationAction_TypeOutput(t *testing.T) {
 	tests := []struct {
@@ -2205,7 +2197,7 @@ func TestExecuteNotificationAction_TypeOutput(t *testing.T) {
 				},
 				Message: "Test notification from Claude",
 			}
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":      "test-session-123",
 				"hook_event_name": "Notification",
 				"message":         "Test notification from Claude",
@@ -2248,7 +2240,6 @@ func TestExecuteNotificationAction_TypeOutput(t *testing.T) {
 		})
 	}
 }
-
 
 func TestExecuteNotificationAction_TypeCommand(t *testing.T) {
 	tests := []struct {
@@ -2421,7 +2412,7 @@ func TestExecuteNotificationAction_TypeCommand(t *testing.T) {
 				},
 				Message: "Test notification from Claude",
 			}
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":      "test-session-123",
 				"hook_event_name": "Notification",
 				"message":         "Test notification from Claude",
@@ -2512,7 +2503,7 @@ func TestExecuteSessionEndAction_TypeOutput(t *testing.T) {
 			executor := &ActionExecutor{runner: runner}
 			input := &SessionEndInput{}
 
-			result, err := executor.ExecuteSessionEndAction(tt.action, input, map[string]interface{}{})
+			result, err := executor.ExecuteSessionEndAction(tt.action, input, map[string]any{})
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ExecuteSessionEndAction() error = %v, wantErr %v", err, tt.wantErr)
@@ -2533,7 +2524,6 @@ func TestExecuteSessionEndAction_TypeOutput(t *testing.T) {
 		})
 	}
 }
-
 
 func TestExecuteSessionEndAction_TypeCommand(t *testing.T) {
 	tests := []struct {
@@ -2614,7 +2604,7 @@ func TestExecuteSessionEndAction_TypeCommand(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stderr = w
 
-			result, err := executor.ExecuteSessionEndAction(action, input, map[string]interface{}{})
+			result, err := executor.ExecuteSessionEndAction(action, input, map[string]any{})
 
 			_ = w.Close()
 			os.Stderr = oldStderr
@@ -2648,7 +2638,6 @@ func TestExecuteSessionEndAction_TypeCommand(t *testing.T) {
 		})
 	}
 }
-
 
 func TestExecutePreCompactAction_TypeOutput(t *testing.T) {
 	tests := []struct {
@@ -2697,7 +2686,7 @@ func TestExecutePreCompactAction_TypeOutput(t *testing.T) {
 			executor := &ActionExecutor{runner: runner}
 			input := &PreCompactInput{}
 
-			result, err := executor.ExecutePreCompactAction(tt.action, input, map[string]interface{}{})
+			result, err := executor.ExecutePreCompactAction(tt.action, input, map[string]any{})
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ExecutePreCompactAction() error = %v, wantErr %v", err, tt.wantErr)
@@ -2718,7 +2707,6 @@ func TestExecutePreCompactAction_TypeOutput(t *testing.T) {
 		})
 	}
 }
-
 
 func TestExecutePreCompactAction_TypeCommand(t *testing.T) {
 	tests := []struct {
@@ -2799,7 +2787,7 @@ func TestExecutePreCompactAction_TypeCommand(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stderr = w
 
-			result, err := executor.ExecutePreCompactAction(action, input, map[string]interface{}{})
+			result, err := executor.ExecutePreCompactAction(action, input, map[string]any{})
 
 			_ = w.Close()
 			os.Stderr = oldStderr
@@ -2832,7 +2820,6 @@ func TestExecutePreCompactAction_TypeCommand(t *testing.T) {
 		})
 	}
 }
-
 
 func TestExecuteSubagentStartAction_TypeOutput(t *testing.T) {
 	tests := []struct {
@@ -2898,7 +2885,7 @@ func TestExecuteSubagentStartAction_TypeOutput(t *testing.T) {
 				AgentID:   "agent-explore-001",
 				AgentType: "Explore",
 			}
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":      "test-session-123",
 				"hook_event_name": "SubagentStart",
 				"agent_id":        "agent-explore-001",
@@ -2930,7 +2917,6 @@ func TestExecuteSubagentStartAction_TypeOutput(t *testing.T) {
 		})
 	}
 }
-
 
 func TestExecuteSubagentStartAction_TypeCommand(t *testing.T) {
 	tests := []struct {
@@ -3015,7 +3001,7 @@ func TestExecuteSubagentStartAction_TypeCommand(t *testing.T) {
 				AgentID:   "agent-explore-001",
 				AgentType: "Explore",
 			}
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":      "test-session-123",
 				"hook_event_name": "SubagentStart",
 				"agent_id":        "agent-explore-001",

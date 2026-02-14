@@ -1347,7 +1347,7 @@ func TestPreToolUseOutput_JSONSerialization(t *testing.T) {
 					HookEventName:            "PreToolUse",
 					PermissionDecision:       "allow",
 					PermissionDecisionReason: "Safe operation",
-					UpdatedInput: map[string]interface{}{
+					UpdatedInput: map[string]any{
 						"file_path": "modified.txt",
 						"content":   "new content",
 					},
@@ -1421,12 +1421,12 @@ func TestPreToolUseOutput_JSONSerialization(t *testing.T) {
 				HookSpecificOutput: &PreToolUseHookSpecificOutput{
 					HookEventName:      "PreToolUse",
 					PermissionDecision: "allow",
-					UpdatedInput: map[string]interface{}{
+					UpdatedInput: map[string]any{
 						"string_field": "value",
 						"number_field": 42,
 						"bool_field":   true,
-						"array_field":  []interface{}{"a", "b", "c"},
-						"object_field": map[string]interface{}{
+						"array_field":  []any{"a", "b", "c"},
+						"object_field": map[string]any{
 							"nested": "value",
 						},
 					},
@@ -1557,7 +1557,7 @@ func TestPreToolUseOutputSchemaValidation(t *testing.T) {
 					HookEventName:            "PreToolUse",
 					PermissionDecision:       "allow",
 					PermissionDecisionReason: "Safe operation",
-					UpdatedInput: map[string]interface{}{
+					UpdatedInput: map[string]any{
 						"file_path": "modified.txt",
 					},
 				},
@@ -1671,11 +1671,11 @@ func TestPreToolUseOutputSchemaValidation(t *testing.T) {
 				HookSpecificOutput: &PreToolUseHookSpecificOutput{
 					HookEventName:      "PreToolUse",
 					PermissionDecision: "allow",
-					UpdatedInput: map[string]interface{}{
+					UpdatedInput: map[string]any{
 						"string_field": "value",
 						"number_field": 42,
 						"bool_field":   true,
-						"array_field":  []interface{}{"a", "b", "c"},
+						"array_field":  []any{"a", "b", "c"},
 					},
 				},
 			},
@@ -2060,9 +2060,9 @@ func TestPostToolUseOutput_JSONSerialization_UpdatedMCPToolOutput(t *testing.T) 
 				HookSpecificOutput: &PostToolUseHookSpecificOutput{
 					HookEventName: "PostToolUse",
 				},
-				UpdatedMCPToolOutput: map[string]interface{}{
+				UpdatedMCPToolOutput: map[string]any{
 					"key": "value",
-					"nested": map[string]interface{}{
+					"nested": map[string]any{
 						"field": 123,
 					},
 				},

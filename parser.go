@@ -8,7 +8,7 @@ import (
 
 // parseInput parses JSON input from stdin and returns both structured data and raw JSON.
 // It handles special processing for PreToolUse and PostToolUse events that have complex tool_input fields.
-func parseInput[T HookInput](eventType HookEventType) (T, interface{}, error) {
+func parseInput[T HookInput](eventType HookEventType) (T, any, error) {
 	var rawInput json.RawMessage
 	var input T
 
@@ -18,7 +18,7 @@ func parseInput[T HookInput](eventType HookEventType) (T, interface{}, error) {
 	}
 
 	// 生のJSONをinterface{}に変換（JQ用）
-	var rawJSON interface{}
+	var rawJSON any
 	if err := json.Unmarshal(rawInput, &rawJSON); err != nil {
 		return input, nil, fmt.Errorf("failed to parse raw JSON: %w", err)
 	}
@@ -31,7 +31,7 @@ func parseInput[T HookInput](eventType HookEventType) (T, interface{}, error) {
 		if err != nil {
 			return input, nil, err
 		}
-		if result, ok := interface{}(preInput).(T); ok {
+		if result, ok := any(preInput).(T); ok {
 			return result, rawJSON, nil
 		}
 		return input, nil, fmt.Errorf("type assertion failed for %s", eventType)
@@ -41,7 +41,7 @@ func parseInput[T HookInput](eventType HookEventType) (T, interface{}, error) {
 		if err != nil {
 			return input, nil, err
 		}
-		if result, ok := interface{}(postInput).(T); ok {
+		if result, ok := any(postInput).(T); ok {
 			return result, rawJSON, nil
 		}
 		return input, nil, fmt.Errorf("type assertion failed for PostToolUse")

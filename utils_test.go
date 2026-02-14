@@ -180,10 +180,10 @@ func createTestTranscript(t *testing.T, sessionID string, userPromptCount int) s
 
 	// Write test data
 	for i := 0; i < userPromptCount; i++ {
-		entry := map[string]interface{}{
+		entry := map[string]any{
 			"type":      "user",
 			"sessionId": sessionID,
-			"message": map[string]interface{}{
+			"message": map[string]any{
 				"content": fmt.Sprintf("Test prompt %d", i+1),
 			},
 		}
@@ -208,10 +208,10 @@ func createTestTranscript(t *testing.T, sessionID string, userPromptCount int) s
 
 	// Add some assistant messages
 	for i := 0; i < 3; i++ {
-		entry := map[string]interface{}{
+		entry := map[string]any{
 			"type":      "assistant",
 			"sessionId": sessionID,
-			"message": map[string]interface{}{
+			"message": map[string]any{
 				"content": fmt.Sprintf("Response %d", i+1),
 			},
 		}
@@ -238,7 +238,7 @@ func TestRunCommand_WithStdin(t *testing.T) {
 		name        string
 		command     string
 		useStdin    bool
-		data        interface{}
+		data        any
 		wantErr     bool
 		wantErrMsg  string
 		validateOut func(t *testing.T) // Optional validation function
@@ -254,7 +254,7 @@ func TestRunCommand_WithStdin(t *testing.T) {
 			name:     "useStdin=true, simple data",
 			command:  "cat",
 			useStdin: true,
-			data: map[string]interface{}{
+			data: map[string]any{
 				"tool_name": "Write",
 				"file_path": "test.go",
 			},
@@ -264,9 +264,9 @@ func TestRunCommand_WithStdin(t *testing.T) {
 			name:     "useStdin=true, complex nested data",
 			command:  "cat > /dev/null",
 			useStdin: true,
-			data: map[string]interface{}{
+			data: map[string]any{
 				"session_id": "test123",
-				"tool_input": map[string]interface{}{
+				"tool_input": map[string]any{
 					"file_path": "main.go",
 					"content":   "package main\n\nfunc main() {}",
 				},
