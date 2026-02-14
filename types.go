@@ -166,7 +166,9 @@ func (p *PreCompactInput) GetToolName() string {
 // SessionStart用
 type SessionStartInput struct {
 	BaseInput
-	Source string `json:"source"` // "startup", "resume", "clear", or "compact"
+	Source    string `json:"source"`     // "startup", "resume", "clear", or "compact"
+	AgentType string `json:"agent_type"` // Agent type name (if started with --agent flag)
+	Model     string `json:"model"`      // Model identifier
 }
 
 // GetToolName returns an empty string as SessionStart events have no associated tool.

@@ -217,6 +217,67 @@ func TestSessionStartParsing(t *testing.T) {
 				Source: "compact",
 			},
 		},
+		{
+			name: "With agent_type and model",
+			jsonInput: `{
+				"session_id": "agent123",
+				"transcript_path": "/tmp/transcript5.json",
+				"hook_event_name": "SessionStart",
+				"source": "startup",
+				"agent_type": "Explore",
+				"model": "claude-sonnet-4-5-20250929"
+			}`,
+			want: SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "agent123",
+					TranscriptPath: "/tmp/transcript5.json",
+					HookEventName:  SessionStart,
+				},
+				Source:    "startup",
+				AgentType: "Explore",
+				Model:     "claude-sonnet-4-5-20250929",
+			},
+		},
+		{
+			name: "agent_type omitted",
+			jsonInput: `{
+				"session_id": "agent456",
+				"transcript_path": "/tmp/transcript6.json",
+				"hook_event_name": "SessionStart",
+				"source": "startup",
+				"model": "claude-opus-4-6"
+			}`,
+			want: SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "agent456",
+					TranscriptPath: "/tmp/transcript6.json",
+					HookEventName:  SessionStart,
+				},
+				Source:    "startup",
+				AgentType: "",
+				Model:     "claude-opus-4-6",
+			},
+		},
+		{
+			name: "model omitted",
+			jsonInput: `{
+				"session_id": "agent789",
+				"transcript_path": "/tmp/transcript7.json",
+				"hook_event_name": "SessionStart",
+				"source": "startup",
+				"agent_type": "Plan"
+			}`,
+			want: SessionStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "agent789",
+					TranscriptPath: "/tmp/transcript7.json",
+					HookEventName:  SessionStart,
+				},
+				Source:    "startup",
+				AgentType: "Plan",
+				Model:     "",
+			},
+		},
 	}
 
 	for _, tt := range tests {
