@@ -702,6 +702,68 @@ Notification:
         command: "get-task-status.sh"  # Returns JSON with additionalContext
 ```
 
+### PreCompact JSON Output
+
+PreCompact hooks support JSON output format for Claude Code integration. Actions can return structured output for pre-compaction processing:
+
+**Output Action** (type: `output`):
+```yaml
+PreCompact:
+  - matcher: "manual"  # optional: "manual" or "auto"
+    actions:
+      - type: output
+        message: "Pre-compaction processing message"
+```
+
+**Command Action** (type: `command`):
+Commands must output JSON with the following structure:
+```json
+{
+  "continue": true,
+  "stopReason": "Optional stop reason",
+  "suppressOutput": false,
+  "systemMessage": "Optional system message"
+}
+```
+
+**Important**: PreCompact uses **Common JSON Fields only**. Unlike other events, it has no `decision`, `reason`, or `hookSpecificOutput` fields. PreCompact is a pre-processing hook and **cannot block** compaction.
+
+**Matcher Support**:
+PreCompact hooks support a `matcher` field to filter by trigger type:
+- `"manual"`: Matches manual compaction triggers
+- `"auto"`: Matches automatic compaction triggers
+- Empty/omitted: Matches all triggers
+
+**Field Merging**:
+When multiple actions execute:
+- `continue`: Always `true` (compaction cannot be blocked)
+- `systemMessage`: Concatenated with newline separator
+- `stopReason` and `suppressOutput`: Last value wins
+
+**Exit Code Behavior**:
+PreCompact hooks **always exit with code 0**. The `continue` field is always `true` because compaction cannot be blocked.
+
+Errors are logged to stderr as warnings, but cchook continues to output JSON and exits successfully. This ensures pre-compaction processing completes even on errors.
+
+**Message Mapping**:
+Output action `message` field is mapped to `systemMessage` (shown to user, not to Claude). This maintains backward compatibility with the old stdout-based implementation.
+
+**Example**:
+```yaml
+PreCompact:
+  - matcher: "manual"
+    actions:
+      - type: output
+        message: "Manual compaction triggered - preparing context"
+  - matcher: "auto"
+    actions:
+      - type: command
+        command: "prepare-auto-compaction.sh"  # Returns JSON with systemMessage
+  - actions:
+      - type: output
+        message: "General pre-compaction cleanup"
+```
+
 ### SessionEnd JSON Output
 
 SessionEnd hooks support JSON output format for Claude Code integration. Actions can return structured output for session cleanup:

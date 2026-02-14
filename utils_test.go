@@ -2672,3 +2672,93 @@ func TestValidateNotificationOutput(t *testing.T) {
 		})
 	}
 }
+
+func TestValidatePreCompactOutput(t *testing.T) {
+	tests := []struct {
+		name      string
+		jsonData  string
+		wantError bool
+		errorMsg  string
+	}{
+		{
+			name: "Valid output with all fields",
+			jsonData: `{
+				"continue": true,
+				"stopReason": "test reason",
+				"suppressOutput": true,
+				"systemMessage": "test message"
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Valid output with only continue",
+			jsonData: `{
+				"continue": true
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Valid output with empty optional fields",
+			jsonData: `{
+				"continue": false,
+				"stopReason": "",
+				"suppressOutput": false,
+				"systemMessage": ""
+			}`,
+			wantError: false,
+		},
+		{
+			name: "Invalid continue type (string instead of bool)",
+			jsonData: `{
+				"continue": "true"
+			}`,
+			wantError: true,
+			errorMsg:  "continue",
+		},
+		{
+			name: "Invalid stopReason type (number instead of string)",
+			jsonData: `{
+				"continue": true,
+				"stopReason": 123
+			}`,
+			wantError: true,
+			errorMsg:  "stopReason",
+		},
+		{
+			name: "Invalid suppressOutput type (string instead of bool)",
+			jsonData: `{
+				"continue": true,
+				"suppressOutput": "false"
+			}`,
+			wantError: true,
+			errorMsg:  "suppressOutput",
+		},
+		{
+			name: "Invalid systemMessage type (number instead of string)",
+			jsonData: `{
+				"continue": true,
+				"systemMessage": 456
+			}`,
+			wantError: true,
+			errorMsg:  "systemMessage",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePreCompactOutput([]byte(tt.jsonData))
+
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("Expected validation error containing %q, got nil", tt.errorMsg)
+				} else if !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("Expected error containing %q, got: %s", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %s", err.Error())
+				}
+			}
+		})
+	}
+}

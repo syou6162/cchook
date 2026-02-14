@@ -1463,9 +1463,9 @@ func TestNotificationOutput_JSONSerialization(t *testing.T) {
 		{
 			name: "Full output with all fields",
 			output: NotificationOutput{
-				Continue:      true,
-				SystemMessage: "Test message",
-				StopReason:    "test reason",
+				Continue:       true,
+				SystemMessage:  "Test message",
+				StopReason:     "test reason",
 				SuppressOutput: true,
 				HookSpecificOutput: &NotificationHookSpecificOutput{
 					HookEventName:     "Notification",
@@ -1575,6 +1575,96 @@ func TestNotificationOutput_JSONSerialization(t *testing.T) {
 							unmarshaled.HookSpecificOutput.AdditionalContext, tt.output.HookSpecificOutput.AdditionalContext)
 					}
 				}
+			}
+		})
+	}
+}
+
+func TestPreCompactOutput_JSONSerialization(t *testing.T) {
+	tests := []struct {
+		name           string
+		output         PreCompactOutput
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name: "Full output with all fields",
+			output: PreCompactOutput{
+				Continue:       true,
+				StopReason:     "test reason",
+				SuppressOutput: true,
+				SystemMessage:  "Test message",
+			},
+			wantContains: []string{
+				"\"continue\":true",
+				"\"stopReason\":\"test reason\"",
+				"\"suppressOutput\":true",
+				"\"systemMessage\":\"Test message\"",
+			},
+			wantNotContain: []string{},
+		},
+		{
+			name: "Minimal output with only continue",
+			output: PreCompactOutput{
+				Continue: true,
+			},
+			wantContains:   []string{"\"continue\":true"},
+			wantNotContain: []string{"stopReason", "suppressOutput", "systemMessage"},
+		},
+		{
+			name: "Empty strings are omitted (omitempty)",
+			output: PreCompactOutput{
+				Continue:       true,
+				StopReason:     "",
+				SuppressOutput: false,
+				SystemMessage:  "",
+			},
+			wantContains:   []string{"\"continue\":true"},
+			wantNotContain: []string{"stopReason", "suppressOutput", "systemMessage"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Marshal
+			jsonBytes, err := json.Marshal(tt.output)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+			jsonStr := string(jsonBytes)
+
+			// Check expected content
+			for _, want := range tt.wantContains {
+				if !stringContains(jsonStr, want) {
+					t.Errorf("JSON does not contain expected string %q. JSON: %s", want, jsonStr)
+				}
+			}
+
+			// Check unexpected content
+			for _, notWant := range tt.wantNotContain {
+				if stringContains(jsonStr, notWant) {
+					t.Errorf("JSON contains unexpected string %q. JSON: %s", notWant, jsonStr)
+				}
+			}
+
+			// Unmarshal (round-trip)
+			var unmarshaled PreCompactOutput
+			if err := json.Unmarshal(jsonBytes, &unmarshaled); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+
+			// Verify round-trip preserves data
+			if unmarshaled.Continue != tt.output.Continue {
+				t.Errorf("Round-trip: Continue mismatch. Got %v, want %v", unmarshaled.Continue, tt.output.Continue)
+			}
+			if unmarshaled.StopReason != tt.output.StopReason {
+				t.Errorf("Round-trip: StopReason mismatch. Got %q, want %q", unmarshaled.StopReason, tt.output.StopReason)
+			}
+			if unmarshaled.SuppressOutput != tt.output.SuppressOutput {
+				t.Errorf("Round-trip: SuppressOutput mismatch. Got %v, want %v", unmarshaled.SuppressOutput, tt.output.SuppressOutput)
+			}
+			if unmarshaled.SystemMessage != tt.output.SystemMessage {
+				t.Errorf("Round-trip: SystemMessage mismatch. Got %q, want %q", unmarshaled.SystemMessage, tt.output.SystemMessage)
 			}
 		})
 	}
