@@ -19,6 +19,7 @@ func TestHookEventType_IsValid(t *testing.T) {
 		{"Notification", Notification, true},
 		{"Stop", Stop, true},
 		{"SubagentStop", SubagentStop, true},
+		{"SubagentStart", SubagentStart, true},
 		{"PreCompact", PreCompact, true},
 		{"SessionStart", SessionStart, true},
 		{"UserPromptSubmit", UserPromptSubmit, true},
@@ -129,6 +130,14 @@ func TestUserPromptSubmitInput_GetToolName(t *testing.T) {
 
 	if got := input.GetToolName(); got != "" {
 		t.Errorf("UserPromptSubmitInput.GetToolName() = %v, want empty string", got)
+	}
+}
+
+func TestSubagentStartInput_GetToolName(t *testing.T) {
+	input := &SubagentStartInput{}
+
+	if got := input.GetToolName(); got != "" {
+		t.Errorf("SubagentStartInput.GetToolName() = %v, want empty string", got)
 	}
 }
 
