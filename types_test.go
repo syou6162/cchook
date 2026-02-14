@@ -66,79 +66,65 @@ func TestBaseInput_GetEventType(t *testing.T) {
 	}
 }
 
-func TestPreToolUseInput_GetToolName(t *testing.T) {
-	input := &PreToolUseInput{
-		ToolName: "Write",
+func TestGetToolName(t *testing.T) {
+	tests := []struct {
+		name  string
+		input HookInput
+		want  string
+	}{
+		{
+			name:  "PreToolUseInput",
+			input: &PreToolUseInput{ToolName: "Write"},
+			want:  "Write",
+		},
+		{
+			name:  "PostToolUseInput",
+			input: &PostToolUseInput{ToolName: "Edit"},
+			want:  "Edit",
+		},
+		{
+			name:  "NotificationInput",
+			input: &NotificationInput{},
+			want:  "",
+		},
+		{
+			name:  "StopInput",
+			input: &StopInput{},
+			want:  "",
+		},
+		{
+			name:  "SubagentStopInput",
+			input: &SubagentStopInput{},
+			want:  "",
+		},
+		{
+			name:  "PreCompactInput",
+			input: &PreCompactInput{},
+			want:  "",
+		},
+		{
+			name:  "SessionStartInput",
+			input: &SessionStartInput{},
+			want:  "",
+		},
+		{
+			name:  "UserPromptSubmitInput",
+			input: &UserPromptSubmitInput{},
+			want:  "",
+		},
+		{
+			name:  "SubagentStartInput",
+			input: &SubagentStartInput{},
+			want:  "",
+		},
 	}
 
-	if got := input.GetToolName(); got != "Write" {
-		t.Errorf("PreToolUseInput.GetToolName() = %v, want %v", got, "Write")
-	}
-}
-
-func TestPostToolUseInput_GetToolName(t *testing.T) {
-	input := &PostToolUseInput{
-		ToolName: "Edit",
-	}
-
-	if got := input.GetToolName(); got != "Edit" {
-		t.Errorf("PostToolUseInput.GetToolName() = %v, want %v", got, "Edit")
-	}
-}
-
-func TestNotificationInput_GetToolName(t *testing.T) {
-	input := &NotificationInput{}
-
-	if got := input.GetToolName(); got != "" {
-		t.Errorf("NotificationInput.GetToolName() = %v, want empty string", got)
-	}
-}
-
-func TestStopInput_GetToolName(t *testing.T) {
-	input := &StopInput{}
-
-	if got := input.GetToolName(); got != "" {
-		t.Errorf("StopInput.GetToolName() = %v, want empty string", got)
-	}
-}
-
-func TestSubagentStopInput_GetToolName(t *testing.T) {
-	input := &SubagentStopInput{}
-
-	if got := input.GetToolName(); got != "" {
-		t.Errorf("SubagentStopInput.GetToolName() = %v, want empty string", got)
-	}
-}
-
-func TestPreCompactInput_GetToolName(t *testing.T) {
-	input := &PreCompactInput{}
-
-	if got := input.GetToolName(); got != "" {
-		t.Errorf("PreCompactInput.GetToolName() = %v, want empty string", got)
-	}
-}
-
-func TestSessionStartInput_GetToolName(t *testing.T) {
-	input := &SessionStartInput{}
-
-	if got := input.GetToolName(); got != "" {
-		t.Errorf("SessionStartInput.GetToolName() = %v, want empty string", got)
-	}
-}
-
-func TestUserPromptSubmitInput_GetToolName(t *testing.T) {
-	input := &UserPromptSubmitInput{}
-
-	if got := input.GetToolName(); got != "" {
-		t.Errorf("UserPromptSubmitInput.GetToolName() = %v, want empty string", got)
-	}
-}
-
-func TestSubagentStartInput_GetToolName(t *testing.T) {
-	input := &SubagentStartInput{}
-
-	if got := input.GetToolName(); got != "" {
-		t.Errorf("SubagentStartInput.GetToolName() = %v, want empty string", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.input.GetToolName(); got != tt.want {
+				t.Errorf("GetToolName() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
