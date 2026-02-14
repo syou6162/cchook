@@ -1128,7 +1128,10 @@ func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON inte
 		}
 
 		for _, action := range hook.Actions {
-			if err := executor.ExecutePreCompactAction(action, input, rawJSON); err != nil {
+			// Note: This function will be replaced by executePreCompactHooksJSON in Step 4
+			// For now, we ignore the ActionOutput since this is the old exit-code-based implementation
+			_, err := executor.ExecutePreCompactAction(action, input, rawJSON)
+			if err != nil {
 				if exitErr, ok := err.(*ExitError); ok {
 					actionErr := &ExitError{
 						Code:    exitErr.Code,
