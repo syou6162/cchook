@@ -1140,6 +1140,11 @@ func executePostToolUseHooksJSON(config *Config, input *PostToolUseInput, rawJSO
 			// SuppressOutput: 最後の値が勝ち
 			finalOutput.SuppressOutput = actionOutput.SuppressOutput
 
+			// UpdatedMCPToolOutput: 最後の非nil値が勝ち
+			if actionOutput.UpdatedMCPToolOutput != nil {
+				finalOutput.UpdatedMCPToolOutput = actionOutput.UpdatedMCPToolOutput
+			}
+
 		}
 
 	}

@@ -2027,3 +2027,113 @@ func TestPreCompactOutput_JSONSerialization(t *testing.T) {
 		})
 	}
 }
+
+func TestPostToolUseOutput_JSONSerialization_UpdatedMCPToolOutput(t *testing.T) {
+	tests := []struct {
+		name           string
+		output         PostToolUseOutput
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name: "With updatedMCPToolOutput string",
+			output: PostToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PostToolUseHookSpecificOutput{
+					HookEventName:     "PostToolUse",
+					AdditionalContext: "Context message",
+				},
+				UpdatedMCPToolOutput: "replaced output",
+			},
+			wantContains: []string{
+				"\"continue\":true",
+				"\"updatedMCPToolOutput\":\"replaced output\"",
+				"\"hookSpecificOutput\"",
+				"\"additionalContext\":\"Context message\"",
+			},
+			wantNotContain: []string{},
+		},
+		{
+			name: "With updatedMCPToolOutput object",
+			output: PostToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PostToolUseHookSpecificOutput{
+					HookEventName: "PostToolUse",
+				},
+				UpdatedMCPToolOutput: map[string]interface{}{
+					"key": "value",
+					"nested": map[string]interface{}{
+						"field": 123,
+					},
+				},
+			},
+			wantContains: []string{
+				"\"continue\":true",
+				"\"updatedMCPToolOutput\"",
+				"\"key\":\"value\"",
+				"\"nested\"",
+			},
+			wantNotContain: []string{},
+		},
+		{
+			name: "Without updatedMCPToolOutput (omitempty)",
+			output: PostToolUseOutput{
+				Continue: true,
+				HookSpecificOutput: &PostToolUseHookSpecificOutput{
+					HookEventName:     "PostToolUse",
+					AdditionalContext: "Context only",
+				},
+			},
+			wantContains: []string{
+				"\"continue\":true",
+				"\"additionalContext\":\"Context only\"",
+			},
+			wantNotContain: []string{"updatedMCPToolOutput"},
+		},
+		{
+			name: "With nil updatedMCPToolOutput (omitempty)",
+			output: PostToolUseOutput{
+				Continue:             true,
+				UpdatedMCPToolOutput: nil,
+			},
+			wantContains:   []string{"\"continue\":true"},
+			wantNotContain: []string{"updatedMCPToolOutput", "hookSpecificOutput"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Marshal
+			jsonBytes, err := json.Marshal(tt.output)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+			jsonStr := string(jsonBytes)
+
+			// Check expected content
+			for _, want := range tt.wantContains {
+				if !stringContains(jsonStr, want) {
+					t.Errorf("JSON does not contain expected string %q. JSON: %s", want, jsonStr)
+				}
+			}
+
+			// Check unexpected content
+			for _, notWant := range tt.wantNotContain {
+				if stringContains(jsonStr, notWant) {
+					t.Errorf("JSON contains unexpected string %q. JSON: %s", notWant, jsonStr)
+				}
+			}
+
+			// Unmarshal (round-trip)
+			var unmarshaled PostToolUseOutput
+			if err := json.Unmarshal(jsonBytes, &unmarshaled); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+
+			// Verify round-trip preserves data
+			if unmarshaled.Continue != tt.output.Continue {
+				t.Errorf("Round-trip: Continue mismatch. Got %v, want %v", unmarshaled.Continue, tt.output.Continue)
+			}
+		})
+	}
+}

@@ -242,6 +242,7 @@ type ActionOutput struct {
 	SystemMessage            string
 	HookEventName            string
 	AdditionalContext        string
+	UpdatedMCPToolOutput     interface{} // For MCP tools only: replaces the tool's output (PostToolUse only)
 }
 
 // PreToolUseOutput represents the complete JSON output structure for PreToolUse hooks
@@ -359,13 +360,14 @@ type PreCompactOutput struct {
 // PostToolUseOutput represents the complete JSON output structure for PostToolUse hooks
 // following Claude Code JSON specification
 type PostToolUseOutput struct {
-	Continue           bool                           `json:"continue"`
-	Decision           string                         `json:"decision,omitempty"` // "block" only; omit field to allow tool result
-	Reason             string                         `json:"reason,omitempty"`   // Required when decision is "block"
-	StopReason         string                         `json:"stopReason,omitempty"`
-	SuppressOutput     bool                           `json:"suppressOutput,omitempty"`
-	SystemMessage      string                         `json:"systemMessage,omitempty"`
-	HookSpecificOutput *PostToolUseHookSpecificOutput `json:"hookSpecificOutput,omitempty"` // Optional: omit when no additionalContext
+	Continue             bool                           `json:"continue"`
+	Decision             string                         `json:"decision,omitempty"` // "block" only; omit field to allow tool result
+	Reason               string                         `json:"reason,omitempty"`   // Required when decision is "block"
+	StopReason           string                         `json:"stopReason,omitempty"`
+	SuppressOutput       bool                           `json:"suppressOutput,omitempty"`
+	SystemMessage        string                         `json:"systemMessage,omitempty"`
+	HookSpecificOutput   *PostToolUseHookSpecificOutput `json:"hookSpecificOutput,omitempty"`   // Optional: omit when no additionalContext
+	UpdatedMCPToolOutput interface{}                    `json:"updatedMCPToolOutput,omitempty"` // For MCP tools only: replaces the tool's output (top-level field, not in hookSpecificOutput)
 }
 
 // PostToolUseHookSpecificOutput represents the hookSpecificOutput field for PostToolUse hooks

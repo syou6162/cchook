@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -4215,6 +4216,152 @@ func TestExecuteSubagentStartAction_TypeCommand(t *testing.T) {
 
 			if result.AdditionalContext != tt.wantAdditionalCtx {
 				t.Errorf("AdditionalContext = %v, want %v", result.AdditionalContext, tt.wantAdditionalCtx)
+			}
+		})
+	}
+}
+
+func TestExecutePostToolUseAction_CommandWithUpdatedMCPToolOutput(t *testing.T) {
+	tests := []struct {
+		name                     string
+		stubStdout               string
+		stubStderr               string
+		stubExitCode             int
+		action                   Action
+		wantContinue             bool
+		wantDecision             string
+		wantReason               string
+		wantAdditionalCtx        string
+		wantUpdatedMCPToolOutput interface{}
+		wantErr                  bool
+	}{
+		{
+			name: "updatedMCPToolOutput with string value",
+			stubStdout: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PostToolUse",
+					"additionalContext": "Tool output replaced"
+				},
+				"updatedMCPToolOutput": "replaced output value"
+			}`,
+			stubStderr:   "",
+			stubExitCode: 0,
+			action: Action{
+				Type:    "command",
+				Command: "echo test",
+			},
+			wantContinue:             true,
+			wantDecision:             "",
+			wantReason:               "",
+			wantAdditionalCtx:        "Tool output replaced",
+			wantUpdatedMCPToolOutput: "replaced output value",
+			wantErr:                  false,
+		},
+		{
+			name: "updatedMCPToolOutput with object value",
+			stubStdout: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PostToolUse"
+				},
+				"updatedMCPToolOutput": {
+					"result": "success",
+					"data": {"key": "value"}
+				}
+			}`,
+			stubStderr:   "",
+			stubExitCode: 0,
+			action: Action{
+				Type:    "command",
+				Command: "echo test",
+			},
+			wantContinue:      true,
+			wantDecision:      "",
+			wantReason:        "",
+			wantAdditionalCtx: "",
+			wantUpdatedMCPToolOutput: map[string]interface{}{
+				"result": "success",
+				"data":   map[string]interface{}{"key": "value"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "updatedMCPToolOutput omitted (nil)",
+			stubStdout: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PostToolUse",
+					"additionalContext": "No tool output replacement"
+				}
+			}`,
+			stubStderr:   "",
+			stubExitCode: 0,
+			action: Action{
+				Type:    "command",
+				Command: "echo test",
+			},
+			wantContinue:             true,
+			wantDecision:             "",
+			wantReason:               "",
+			wantAdditionalCtx:        "No tool output replacement",
+			wantUpdatedMCPToolOutput: nil,
+			wantErr:                  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stubRunner := &stubRunnerWithOutput{
+				stdout:   tt.stubStdout,
+				stderr:   tt.stubStderr,
+				exitCode: tt.stubExitCode,
+			}
+			executor := NewActionExecutor(stubRunner)
+
+			input := &PostToolUseInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session-123",
+					HookEventName: "PostToolUse",
+				},
+				ToolName: "Write",
+			}
+			rawJSON := map[string]interface{}{
+				"session_id":      "test-session-123",
+				"hook_event_name": "PostToolUse",
+				"tool_name":       "Write",
+			}
+
+			result, err := executor.ExecutePostToolUseAction(tt.action, input, rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ExecutePostToolUseAction() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if result == nil {
+				t.Fatal("Expected non-nil ActionOutput, got nil")
+			}
+
+			if result.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", result.Continue, tt.wantContinue)
+			}
+
+			if result.Decision != tt.wantDecision {
+				t.Errorf("Decision = %v, want %v", result.Decision, tt.wantDecision)
+			}
+
+			if result.Reason != tt.wantReason {
+				t.Errorf("Reason = %v, want %v", result.Reason, tt.wantReason)
+			}
+
+			if result.AdditionalContext != tt.wantAdditionalCtx {
+				t.Errorf("AdditionalContext = %v, want %v", result.AdditionalContext, tt.wantAdditionalCtx)
+			}
+
+			// Compare UpdatedMCPToolOutput
+			if !reflect.DeepEqual(result.UpdatedMCPToolOutput, tt.wantUpdatedMCPToolOutput) {
+				t.Errorf("UpdatedMCPToolOutput = %v, want %v", result.UpdatedMCPToolOutput, tt.wantUpdatedMCPToolOutput)
 			}
 		})
 	}
