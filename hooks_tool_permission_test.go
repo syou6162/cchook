@@ -221,7 +221,6 @@ func TestShouldExecutePostToolUseHook(t *testing.T) {
 
 // TODO: Task 7 - Implement UserPromptSubmit integration tests with JSON output
 
-
 func TestExecutePostToolUseHooks_ConditionErrorAggregation(t *testing.T) {
 	// 複数の無効な条件タイプを含む設定
 	config := &Config{
@@ -319,7 +318,7 @@ func TestExecutePreToolUseHook_NewSignature(t *testing.T) {
 		wantPermissionDecision       string
 		wantPermissionDecisionReason string
 		wantHookEventName            string
-		wantUpdatedInput             map[string]interface{}
+		wantUpdatedInput             map[string]any
 		wantSystemMessage            string
 		wantNilOutput                bool
 		useStubRunner                bool
@@ -596,7 +595,7 @@ func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
 				executor := NewActionExecutor(runner)
 
 				// Test the single hook execution path
-				actionOutput, hookErr := executePreToolUseHook(executor, tt.config.PreToolUse[0], tt.input, map[string]interface{}{
+				actionOutput, hookErr := executePreToolUseHook(executor, tt.config.PreToolUse[0], tt.input, map[string]any{
 					"tool_name":  tt.input.ToolName,
 					"tool_input": tt.input.ToolInput,
 				})
@@ -614,7 +613,7 @@ func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
 				}
 				err = hookErr
 			} else {
-				output, err = executePreToolUseHooksJSON(tt.config, tt.input, map[string]interface{}{
+				output, err = executePreToolUseHooksJSON(tt.config, tt.input, map[string]any{
 					"tool_name":  tt.input.ToolName,
 					"tool_input": tt.input.ToolInput,
 				})
@@ -654,7 +653,7 @@ func TestExecutePreToolUseHooksJSON_HookSpecificOutput(t *testing.T) {
 				t.Fatalf("json.Marshal() error = %v", err)
 			}
 
-			var jsonMap map[string]interface{}
+			var jsonMap map[string]any
 			if err := json.Unmarshal(jsonBytes, &jsonMap); err != nil {
 				t.Fatalf("json.Unmarshal() error = %v", err)
 			}
@@ -698,12 +697,12 @@ func TestExecutePreToolUseHooksJSON_ProcessSubstitution(t *testing.T) {
 		ToolInput: ToolInput{Command: "diff -u file1 <(head -48 file2)"},
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
 		"tool_name":       input.ToolName,
-		"tool_input": map[string]interface{}{
+		"tool_input": map[string]any{
 			"command": input.ToolInput.Command,
 		},
 	}
@@ -822,7 +821,7 @@ func TestExecutePreToolUseHooksJSON_AdditionalContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"tool_name": tt.input.ToolName,
 			}
 
@@ -880,12 +879,12 @@ func TestExecutePostToolUseHooks_ProcessSubstitution(t *testing.T) {
 		ToolInput: ToolInput{Command: "diff -u file1 <(head -48 file2)"},
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
 		"tool_name":       input.ToolName,
-		"tool_input": map[string]interface{}{
+		"tool_input": map[string]any{
 			"command": input.ToolInput.Command,
 		},
 	}
@@ -920,7 +919,7 @@ func TestExecutePostToolUseHooksJSON(t *testing.T) {
 		name                  string
 		config                *Config
 		input                 *PostToolUseInput
-		rawJSON               interface{}
+		rawJSON               any
 		wantContinue          bool
 		wantDecision          string
 		wantReason            string
@@ -932,7 +931,7 @@ func TestExecutePostToolUseHooksJSON(t *testing.T) {
 			name:         "1. No hooks configured - allow tool result",
 			config:       &Config{},
 			input:        &PostToolUseInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PostToolUse}, ToolName: "Write"},
-			rawJSON:      map[string]interface{}{},
+			rawJSON:      map[string]any{},
 			wantContinue: true,
 			wantDecision: "",
 			wantErr:      false,
@@ -954,7 +953,7 @@ func TestExecutePostToolUseHooksJSON(t *testing.T) {
 				},
 			},
 			input:                 &PostToolUseInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PostToolUse}, ToolName: "Write"},
-			rawJSON:               map[string]interface{}{},
+			rawJSON:               map[string]any{},
 			wantContinue:          true,
 			wantDecision:          "block",
 			wantReason:            "Contains sensitive data",
@@ -976,7 +975,7 @@ func TestExecutePostToolUseHooksJSON(t *testing.T) {
 				},
 			},
 			input:                 &PostToolUseInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PostToolUse}, ToolName: "Write"},
-			rawJSON:               map[string]interface{}{},
+			rawJSON:               map[string]any{},
 			wantContinue:          true,
 			wantDecision:          "",
 			wantReason:            "",
@@ -1005,7 +1004,7 @@ func TestExecutePostToolUseHooksJSON(t *testing.T) {
 				},
 			},
 			input:                 &PostToolUseInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PostToolUse}, ToolName: "Write"},
-			rawJSON:               map[string]interface{}{},
+			rawJSON:               map[string]any{},
 			wantContinue:          true,
 			wantDecision:          "block",
 			wantReason:            "Final decision",
@@ -1034,7 +1033,7 @@ func TestExecutePostToolUseHooksJSON(t *testing.T) {
 				},
 			},
 			input:                 &PostToolUseInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PostToolUse}, ToolName: "Write"},
-			rawJSON:               map[string]interface{}{},
+			rawJSON:               map[string]any{},
 			wantContinue:          true,
 			wantDecision:          "",
 			wantReason:            "",
@@ -1195,12 +1194,12 @@ func TestExecutePermissionRequestHooks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// rawJSON作成
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":      tt.input.SessionID,
 				"transcript_path": tt.input.TranscriptPath,
 				"hook_event_name": string(tt.input.HookEventName),
 				"tool_name":       tt.input.ToolName,
-				"tool_input": map[string]interface{}{
+				"tool_input": map[string]any{
 					"command":   tt.input.ToolInput.Command,
 					"file_path": tt.input.ToolInput.FilePath,
 				},
@@ -1248,9 +1247,9 @@ func TestExecutePermissionRequestHooks_BehaviorChange(t *testing.T) {
 		actions          []Action
 		commandOutputs   []string // stubRunnerで返すJSON出力（各アクション用）
 		input            *PermissionRequestInput
-		rawJSON          map[string]interface{}
+		rawJSON          map[string]any
 		wantBehavior     string
-		wantUpdatedInput map[string]interface{}
+		wantUpdatedInput map[string]any
 		wantMessage      string
 		wantInterrupt    bool
 	}{
@@ -1275,9 +1274,9 @@ func TestExecutePermissionRequestHooks_BehaviorChange(t *testing.T) {
 					FilePath: "test.go",
 				},
 			},
-			rawJSON: map[string]interface{}{
+			rawJSON: map[string]any{
 				"tool_name": "Write",
-				"tool_input": map[string]interface{}{
+				"tool_input": map[string]any{
 					"file_path": "test.go",
 				},
 			},
@@ -1307,14 +1306,14 @@ func TestExecutePermissionRequestHooks_BehaviorChange(t *testing.T) {
 					FilePath: "test.go",
 				},
 			},
-			rawJSON: map[string]interface{}{
+			rawJSON: map[string]any{
 				"tool_name": "Write",
-				"tool_input": map[string]interface{}{
+				"tool_input": map[string]any{
 					"file_path": "test.go",
 				},
 			},
 			wantBehavior:     "allow",
-			wantUpdatedInput: map[string]interface{}{"file_path": "test.go"},
+			wantUpdatedInput: map[string]any{"file_path": "test.go"},
 			wantMessage:      "",    // クリアされるべき
 			wantInterrupt:    false, // クリアされるべき
 		},
@@ -1408,9 +1407,9 @@ func TestExecutePermissionRequestHooks_MultipleActions(t *testing.T) {
 		},
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"tool_name": "Write",
-		"tool_input": map[string]interface{}{
+		"tool_input": map[string]any{
 			"file_path": "test.go",
 		},
 	}
@@ -1468,9 +1467,9 @@ func TestExecutePermissionRequestHooks_DenyEarlyReturn(t *testing.T) {
 		},
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"tool_name": "Write",
-		"tool_input": map[string]interface{}{
+		"tool_input": map[string]any{
 			"file_path": "test.go",
 		},
 	}

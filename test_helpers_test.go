@@ -10,11 +10,11 @@ type stubRunnerWithOutput struct {
 	err      error
 }
 
-func (s *stubRunnerWithOutput) RunCommand(cmd string, useStdin bool, data interface{}) error {
+func (s *stubRunnerWithOutput) RunCommand(cmd string, useStdin bool, data any) error {
 	return s.err
 }
 
-func (s *stubRunnerWithOutput) RunCommandWithOutput(cmd string, useStdin bool, data interface{}) (stdout, stderr string, exitCode int, err error) {
+func (s *stubRunnerWithOutput) RunCommandWithOutput(cmd string, useStdin bool, data any) (stdout, stderr string, exitCode int, err error) {
 	return s.stdout, s.stderr, s.exitCode, s.err
 }
 
@@ -24,11 +24,11 @@ type stubRunnerWithMultipleOutputs struct {
 	index   int
 }
 
-func (s *stubRunnerWithMultipleOutputs) RunCommand(cmd string, useStdin bool, data interface{}) error {
+func (s *stubRunnerWithMultipleOutputs) RunCommand(cmd string, useStdin bool, data any) error {
 	return nil
 }
 
-func (s *stubRunnerWithMultipleOutputs) RunCommandWithOutput(cmd string, useStdin bool, data interface{}) (stdout, stderr string, exitCode int, err error) {
+func (s *stubRunnerWithMultipleOutputs) RunCommandWithOutput(cmd string, useStdin bool, data any) (stdout, stderr string, exitCode int, err error) {
 	if s.index >= len(s.outputs) {
 		return "", "", 1, errors.New("no more outputs configured")
 	}

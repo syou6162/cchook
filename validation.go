@@ -29,7 +29,7 @@ func validateSessionStartOutput(jsonData []byte) error {
 		if hookSpecific := hookSpecificProp; hookSpecific != nil {
 			if hookEventNameProp, ok := hookSpecific.Properties.Get("hookEventName"); ok {
 				if hookEventName := hookEventNameProp; hookEventName != nil {
-					hookEventName.Enum = []interface{}{"SessionStart"}
+					hookEventName.Enum = []any{"SessionStart"}
 				}
 			}
 			// hookSpecificOutput.hookEventName is required
@@ -45,7 +45,7 @@ func validateSessionStartOutput(jsonData []byte) error {
 		return fmt.Errorf("failed to marshal schema: %w", err)
 	}
 
-	var schemaMap map[string]interface{}
+	var schemaMap map[string]any
 	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
 		return fmt.Errorf("failed to unmarshal schema: %w", err)
 	}
@@ -86,7 +86,7 @@ func validateUserPromptSubmitOutput(jsonData []byte) error {
 	// 3. Add custom validation: decision must be "block" only (or omitted entirely)
 	if decisionProp, ok := schema.Properties.Get("decision"); ok {
 		if decision := decisionProp; decision != nil {
-			decision.Enum = []interface{}{"block"}
+			decision.Enum = []any{"block"}
 		}
 	}
 
@@ -95,7 +95,7 @@ func validateUserPromptSubmitOutput(jsonData []byte) error {
 		if hookSpecific := hookSpecificProp; hookSpecific != nil {
 			if hookEventNameProp, ok := hookSpecific.Properties.Get("hookEventName"); ok {
 				if hookEventName := hookEventNameProp; hookEventName != nil {
-					hookEventName.Enum = []interface{}{"UserPromptSubmit"}
+					hookEventName.Enum = []any{"UserPromptSubmit"}
 				}
 			}
 			// hookSpecificOutput.hookEventName is required
@@ -111,7 +111,7 @@ func validateUserPromptSubmitOutput(jsonData []byte) error {
 		return fmt.Errorf("failed to marshal schema: %w", err)
 	}
 
-	var schemaMap map[string]interface{}
+	var schemaMap map[string]any
 	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
 		return fmt.Errorf("failed to unmarshal schema: %w", err)
 	}
@@ -158,13 +158,13 @@ func validatePreToolUseOutput(jsonData []byte) error {
 			// hookEventName must be "PreToolUse"
 			if hookEventNameProp, ok := hookSpecific.Properties.Get("hookEventName"); ok {
 				if hookEventName := hookEventNameProp; hookEventName != nil {
-					hookEventName.Enum = []interface{}{"PreToolUse"}
+					hookEventName.Enum = []any{"PreToolUse"}
 				}
 			}
 			// permissionDecision must be "allow", "deny", or "ask"
 			if permissionDecisionProp, ok := hookSpecific.Properties.Get("permissionDecision"); ok {
 				if permissionDecision := permissionDecisionProp; permissionDecision != nil {
-					permissionDecision.Enum = []interface{}{"allow", "deny", "ask"}
+					permissionDecision.Enum = []any{"allow", "deny", "ask"}
 				}
 			}
 			// hookSpecificOutput.hookEventName and permissionDecision are required
@@ -180,7 +180,7 @@ func validatePreToolUseOutput(jsonData []byte) error {
 		return fmt.Errorf("failed to marshal schema: %w", err)
 	}
 
-	var schemaMap map[string]interface{}
+	var schemaMap map[string]any
 	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
 		return fmt.Errorf("failed to unmarshal schema: %w", err)
 	}
@@ -226,7 +226,7 @@ func validatePermissionRequestOutput(jsonData []byte) error {
 			// hookEventName must be "PermissionRequest"
 			if hookEventNameProp, ok := hookSpecific.Properties.Get("hookEventName"); ok {
 				if hookEventName := hookEventNameProp; hookEventName != nil {
-					hookEventName.Enum = []interface{}{"PermissionRequest"}
+					hookEventName.Enum = []any{"PermissionRequest"}
 				}
 			}
 			// hookSpecificOutput.hookEventName and decision are required
@@ -240,7 +240,7 @@ func validatePermissionRequestOutput(jsonData []byte) error {
 					// behavior must be "allow" or "deny"
 					if behaviorProp, ok := decision.Properties.Get("behavior"); ok {
 						if behavior := behaviorProp; behavior != nil {
-							behavior.Enum = []interface{}{"allow", "deny"}
+							behavior.Enum = []any{"allow", "deny"}
 						}
 					}
 					// decision.behavior is required
@@ -258,7 +258,7 @@ func validatePermissionRequestOutput(jsonData []byte) error {
 		return fmt.Errorf("failed to marshal schema: %w", err)
 	}
 
-	var schemaMap map[string]interface{}
+	var schemaMap map[string]any
 	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
 		return fmt.Errorf("failed to unmarshal schema: %w", err)
 	}
@@ -333,7 +333,7 @@ func validateSubagentStopOutput(jsonData []byte) error {
 	// 3. Add custom validation: decision must be "block" only (or omitted entirely)
 	if decisionProp, ok := schema.Properties.Get("decision"); ok {
 		if decision := decisionProp; decision != nil {
-			decision.Enum = []interface{}{"block"}
+			decision.Enum = []any{"block"}
 		}
 	}
 
@@ -343,7 +343,7 @@ func validateSubagentStopOutput(jsonData []byte) error {
 		return fmt.Errorf("failed to marshal schema: %w", err)
 	}
 
-	var schemaMap map[string]interface{}
+	var schemaMap map[string]any
 	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
 		return fmt.Errorf("failed to unmarshal schema: %w", err)
 	}
@@ -397,7 +397,7 @@ func validateStopOutput(jsonData []byte) error {
 	// 3. Add custom validation: decision must be "block" only (or omitted entirely)
 	if decisionProp, ok := schema.Properties.Get("decision"); ok {
 		if decision := decisionProp; decision != nil {
-			decision.Enum = []interface{}{"block"}
+			decision.Enum = []any{"block"}
 		}
 	}
 
@@ -407,7 +407,7 @@ func validateStopOutput(jsonData []byte) error {
 		return fmt.Errorf("failed to marshal schema: %w", err)
 	}
 
-	var schemaMap map[string]interface{}
+	var schemaMap map[string]any
 	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
 		return fmt.Errorf("failed to unmarshal schema: %w", err)
 	}
@@ -461,7 +461,7 @@ func validateNotificationOutput(jsonData []byte) error {
 		if hookSpecific := hookSpecificProp; hookSpecific != nil {
 			if hookEventNameProp, ok := hookSpecific.Properties.Get("hookEventName"); ok {
 				if hookEventName := hookEventNameProp; hookEventName != nil {
-					hookEventName.Enum = []interface{}{"Notification"}
+					hookEventName.Enum = []any{"Notification"}
 				}
 			}
 			// hookSpecificOutput.hookEventName is required
@@ -477,7 +477,7 @@ func validateNotificationOutput(jsonData []byte) error {
 		return fmt.Errorf("failed to marshal schema: %w", err)
 	}
 
-	var schemaMap map[string]interface{}
+	var schemaMap map[string]any
 	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
 		return fmt.Errorf("failed to unmarshal schema: %w", err)
 	}
@@ -500,7 +500,7 @@ func validateNotificationOutput(jsonData []byte) error {
 
 	// Additional validation: check for unsupported fields (decision, reason)
 	// Notification does NOT support decision/reason fields (those are for Stop/SubagentStop/PostToolUse)
-	var rawOutput map[string]interface{}
+	var rawOutput map[string]any
 	if err := json.Unmarshal(jsonData, &rawOutput); err != nil {
 		return fmt.Errorf("failed to unmarshal for unsupported field check: %w", err)
 	}
@@ -536,7 +536,7 @@ func validateSubagentStartOutput(jsonData []byte) error {
 		if hookSpecific := hookSpecificProp; hookSpecific != nil {
 			if hookEventNameProp, ok := hookSpecific.Properties.Get("hookEventName"); ok {
 				if hookEventName := hookEventNameProp; hookEventName != nil {
-					hookEventName.Enum = []interface{}{"SubagentStart"}
+					hookEventName.Enum = []any{"SubagentStart"}
 				}
 			}
 			// hookSpecificOutput.hookEventName is required
@@ -552,7 +552,7 @@ func validateSubagentStartOutput(jsonData []byte) error {
 		return fmt.Errorf("failed to marshal schema: %w", err)
 	}
 
-	var schemaMap map[string]interface{}
+	var schemaMap map[string]any
 	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
 		return fmt.Errorf("failed to unmarshal schema: %w", err)
 	}
@@ -575,7 +575,7 @@ func validateSubagentStartOutput(jsonData []byte) error {
 
 	// Additional validation: check for unsupported fields (decision, reason)
 	// SubagentStart does NOT support decision/reason fields (those are for Stop/SubagentStop/PostToolUse)
-	var rawOutput map[string]interface{}
+	var rawOutput map[string]any
 	if err := json.Unmarshal(jsonData, &rawOutput); err != nil {
 		return fmt.Errorf("failed to unmarshal for unsupported field check: %w", err)
 	}
@@ -609,7 +609,7 @@ func validatePostToolUseOutput(jsonData []byte) error {
 	// 3. Add custom validation: decision must be "block" only (or omitted entirely)
 	if decisionProp, ok := schema.Properties.Get("decision"); ok {
 		if decision := decisionProp; decision != nil {
-			decision.Enum = []interface{}{"block"}
+			decision.Enum = []any{"block"}
 		}
 	}
 
@@ -618,7 +618,7 @@ func validatePostToolUseOutput(jsonData []byte) error {
 		if hookSpecific := hookSpecificProp; hookSpecific != nil {
 			if hookEventNameProp, ok := hookSpecific.Properties.Get("hookEventName"); ok {
 				if hookEventName := hookEventNameProp; hookEventName != nil {
-					hookEventName.Enum = []interface{}{"PostToolUse"}
+					hookEventName.Enum = []any{"PostToolUse"}
 				}
 			}
 		}
@@ -630,7 +630,7 @@ func validatePostToolUseOutput(jsonData []byte) error {
 		return fmt.Errorf("failed to marshal schema: %w", err)
 	}
 
-	var schemaMap map[string]interface{}
+	var schemaMap map[string]any
 	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
 		return fmt.Errorf("failed to unmarshal schema: %w", err)
 	}
@@ -687,7 +687,7 @@ func validateSessionEndOutput(jsonData []byte) error {
 		return fmt.Errorf("failed to marshal schema: %w", err)
 	}
 
-	var schemaMap map[string]interface{}
+	var schemaMap map[string]any
 	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
 		return fmt.Errorf("failed to unmarshal schema: %w", err)
 	}
@@ -732,7 +732,7 @@ func validatePreCompactOutput(jsonData []byte) error {
 		return fmt.Errorf("failed to marshal schema: %w", err)
 	}
 
-	var schemaMap map[string]interface{}
+	var schemaMap map[string]any
 	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
 		return fmt.Errorf("failed to unmarshal schema: %w", err)
 	}

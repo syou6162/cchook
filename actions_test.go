@@ -187,7 +187,7 @@ func TestHandleOutput(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rawJSON := map[string]interface{}{}
+			rawJSON := map[string]any{}
 			err := handleOutput(tt.message, tt.exitStatus, rawJSON)
 
 			if tt.wantErr {
@@ -285,7 +285,7 @@ func TestExecuteStopAction_CommandWithStubRunner(t *testing.T) {
 				Command: tt.command,
 			}
 
-			output, err := executor.ExecuteStopAction(action, &StopInput{}, map[string]interface{}{})
+			output, err := executor.ExecuteStopAction(action, &StopInput{}, map[string]any{})
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)

@@ -6,7 +6,7 @@ import (
 
 // handleOutput processes an output action and returns ExitError if a non-zero exit status is specified.
 // Exit status 2 outputs to stderr, while other non-zero statuses output to stdout with error.
-func handleOutput(message string, exitStatus *int, rawJSON interface{}) error {
+func handleOutput(message string, exitStatus *int, rawJSON any) error {
 	processedMessage := unifiedTemplateReplace(message, rawJSON)
 	status := getExitStatus(exitStatus, "output")
 	if status != 0 {

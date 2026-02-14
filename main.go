@@ -437,7 +437,6 @@ func main() {
 			os.Exit(0)
 		}
 
-
 		if HookEventType(*eventType) == Notification {
 			// Notification special handling with JSON output
 			output, err := RunNotificationHooks(config)

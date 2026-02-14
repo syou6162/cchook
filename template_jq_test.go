@@ -9,7 +9,7 @@ func TestExecuteJQQuery(t *testing.T) {
 	tests := []struct {
 		name    string
 		query   string
-		input   interface{}
+		input   any
 		want    string
 		wantErr bool
 	}{
@@ -17,28 +17,28 @@ func TestExecuteJQQuery(t *testing.T) {
 		{
 			"simple field access",
 			".name",
-			map[string]interface{}{"name": "test", "age": 30},
+			map[string]any{"name": "test", "age": 30},
 			"test",
 			false,
 		},
 		{
 			"nested field access",
 			".user.name",
-			map[string]interface{}{"user": map[string]interface{}{"name": "alice"}},
+			map[string]any{"user": map[string]any{"name": "alice"}},
 			"alice",
 			false,
 		},
 		{
 			"array access",
 			".[0]",
-			[]interface{}{"first", "second"},
+			[]any{"first", "second"},
 			"first",
 			false,
 		},
 		{
 			"array length",
 			"length",
-			[]interface{}{"a", "b", "c"},
+			[]any{"a", "b", "c"},
 			"3",
 			false,
 		},
@@ -47,28 +47,28 @@ func TestExecuteJQQuery(t *testing.T) {
 		{
 			"number to string",
 			".count",
-			map[string]interface{}{"count": 42},
+			map[string]any{"count": 42},
 			"42",
 			false,
 		},
 		{
 			"boolean true",
 			".active",
-			map[string]interface{}{"active": true},
+			map[string]any{"active": true},
 			"true",
 			false,
 		},
 		{
 			"boolean false",
 			".active",
-			map[string]interface{}{"active": false},
+			map[string]any{"active": false},
 			"false",
 			false,
 		},
 		{
 			"null value",
 			".missing",
-			map[string]interface{}{"existing": "value"},
+			map[string]any{"existing": "value"},
 			"",
 			false,
 		},
@@ -77,10 +77,10 @@ func TestExecuteJQQuery(t *testing.T) {
 		{
 			"array filter",
 			"map(select(.age > 20))",
-			[]interface{}{
-				map[string]interface{}{"name": "alice", "age": 25},
-				map[string]interface{}{"name": "bob", "age": 15},
-				map[string]interface{}{"name": "charlie", "age": 30},
+			[]any{
+				map[string]any{"name": "alice", "age": 25},
+				map[string]any{"name": "bob", "age": 15},
+				map[string]any{"name": "charlie", "age": 30},
 			},
 			"[{\"age\":25,\"name\":\"alice\"},{\"age\":30,\"name\":\"charlie\"}]",
 			false,
@@ -88,14 +88,14 @@ func TestExecuteJQQuery(t *testing.T) {
 		{
 			"string manipulation",
 			".name | ascii_upcase",
-			map[string]interface{}{"name": "hello"},
+			map[string]any{"name": "hello"},
 			"HELLO",
 			false,
 		},
 		{
 			"array reverse",
 			"reverse",
-			[]interface{}{"a", "b", "c"},
+			[]any{"a", "b", "c"},
 			"[\"c\",\"b\",\"a\"]",
 			false,
 		},
@@ -104,14 +104,14 @@ func TestExecuteJQQuery(t *testing.T) {
 		{
 			"invalid syntax",
 			".invalid.[",
-			map[string]interface{}{"test": "value"},
+			map[string]any{"test": "value"},
 			"",
 			true,
 		},
 		{
 			"non-existent path with error",
 			".missing.deeply.nested",
-			map[string]interface{}{"test": "value"},
+			map[string]any{"test": "value"},
 			"",
 			false, // gojqではnullを返すのでエラーにならない
 		},
@@ -120,24 +120,24 @@ func TestExecuteJQQuery(t *testing.T) {
 		{
 			"empty object",
 			".",
-			map[string]interface{}{},
+			map[string]any{},
 			"{}",
 			false,
 		},
 		{
 			"empty array",
 			".",
-			[]interface{}{},
+			[]any{},
 			"[]",
 			false,
 		},
 		{
 			"complex nested structure",
 			".data[0].items | length",
-			map[string]interface{}{
-				"data": []interface{}{
-					map[string]interface{}{
-						"items": []interface{}{"a", "b", "c"},
+			map[string]any{
+				"data": []any{
+					map[string]any{
+						"items": []any{"a", "b", "c"},
 					},
 				},
 			},
@@ -163,7 +163,7 @@ func TestExecuteJQQuery(t *testing.T) {
 func TestJqValueToString(t *testing.T) {
 	tests := []struct {
 		name  string
-		value interface{}
+		value any
 		want  string
 	}{
 		{"string value", "hello", "hello"},
@@ -172,8 +172,8 @@ func TestJqValueToString(t *testing.T) {
 		{"false boolean", false, "false"},
 		{"integer", 42, "42"},
 		{"float", 3.14, "3.14"},
-		{"array", []interface{}{"a", "b"}, "[\"a\",\"b\"]"},
-		{"object", map[string]interface{}{"key": "value"}, "{\"key\":\"value\"}"},
+		{"array", []any{"a", "b"}, "[\"a\",\"b\"]"},
+		{"object", map[string]any{"key": "value"}, "{\"key\":\"value\"}"},
 	}
 
 	for _, tt := range tests {
@@ -186,12 +186,12 @@ func TestJqValueToString(t *testing.T) {
 }
 
 func TestUnifiedTemplateReplace(t *testing.T) {
-	sampleData := map[string]interface{}{
+	sampleData := map[string]any{
 		"name":   "test-user",
 		"age":    25,
 		"active": true,
-		"tags":   []interface{}{"dev", "golang"},
-		"profile": map[string]interface{}{
+		"tags":   []any{"dev", "golang"},
+		"profile": map[string]any{
 			"email": "test@example.com",
 			"city":  "Tokyo",
 		},
@@ -312,7 +312,7 @@ func TestUnifiedTemplateReplace_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
 		template string
-		data     interface{}
+		data     any
 		want     string
 	}{
 		{
@@ -336,13 +336,13 @@ func TestUnifiedTemplateReplace_EdgeCases(t *testing.T) {
 		{
 			"array data",
 			"First: {.[0]}, Length: {length}",
-			[]interface{}{"a", "b", "c"},
+			[]any{"a", "b", "c"},
 			"First: a, Length: 3",
 		},
 		{
 			"simple nested access",
 			"Name: {.name}",
-			map[string]interface{}{"name": "test"},
+			map[string]any{"name": "test"},
 			"Name: test",
 		},
 	}
@@ -360,7 +360,7 @@ func TestUnifiedTemplateReplace_EdgeCases(t *testing.T) {
 func TestJQQueryCache(t *testing.T) {
 	// キャッシュの動作確認
 	query := ".test"
-	data := map[string]interface{}{"test": "value"}
+	data := map[string]any{"test": "value"}
 
 	// 初回実行
 	result1, err1 := executeJQQuery(query, data)
@@ -391,7 +391,7 @@ func TestJQQueryCache(t *testing.T) {
 
 func TestExecuteJQQuery_Performance(t *testing.T) {
 	// パフォーマンステスト用の大きなデータ
-	largeData := make(map[string]interface{})
+	largeData := make(map[string]any)
 	for i := 0; i < 1000; i++ {
 		largeData[fmt.Sprintf("field_%d", i)] = fmt.Sprintf("value_%d", i)
 	}
@@ -412,7 +412,7 @@ func TestExecuteJQQuery_Performance(t *testing.T) {
 
 func TestExecuteJQQuery_ConcurrentAccess(t *testing.T) {
 	// 並行アクセステスト
-	data := map[string]interface{}{"test": "value"}
+	data := map[string]any{"test": "value"}
 	query := ".test"
 
 	// 複数のgoroutineで同時実行
@@ -440,16 +440,16 @@ func TestExecuteJQQuery_ConcurrentAccess(t *testing.T) {
 
 func TestUnifiedTemplateReplace_RealWorldExamples(t *testing.T) {
 	// 実際のClaude Code Transcriptデータのサンプル
-	transcriptData := map[string]interface{}{
+	transcriptData := map[string]any{
 		"session_id":      "abc123",
 		"transcript_path": "/tmp/transcript.json",
 		"hook_event_name": "PostToolUse",
 		"tool_name":       "Write",
-		"tool_input": map[string]interface{}{
+		"tool_input": map[string]any{
 			"file_path": "main.go",
 			"content":   "package main",
 		},
-		"tool_response": map[string]interface{}{
+		"tool_response": map[string]any{
 			"success": true,
 		},
 	}

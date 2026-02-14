@@ -25,7 +25,7 @@ func NewActionExecutor(runner CommandRunner) *ActionExecutor {
 
 // ExecuteNotificationAction executes an action for the Notification event and returns JSON output.
 // Similar to SessionStart, Notification uses hookSpecificOutput with additionalContext.
-func (e *ActionExecutor) ExecuteNotificationAction(action Action, input *NotificationInput, rawJSON interface{}) (*ActionOutput, error) {
+func (e *ActionExecutor) ExecuteNotificationAction(action Action, input *NotificationInput, rawJSON any) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -145,7 +145,7 @@ func (e *ActionExecutor) ExecuteNotificationAction(action Action, input *Notific
 
 // ExecuteSubagentStartAction executes an action for the SubagentStart event and returns JSON output.
 // Similar to Notification, SubagentStart uses hookSpecificOutput with additionalContext.
-func (e *ActionExecutor) ExecuteSubagentStartAction(action Action, input *SubagentStartInput, rawJSON interface{}) (*ActionOutput, error) {
+func (e *ActionExecutor) ExecuteSubagentStartAction(action Action, input *SubagentStartInput, rawJSON any) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -266,7 +266,7 @@ func (e *ActionExecutor) ExecuteSubagentStartAction(action Action, input *Subage
 // ExecuteStopAction executes an action for the Stop event.
 // Returns ActionOutput for JSON serialization with decision/reason fields.
 // Stop hooks use top-level decision pattern (no hookSpecificOutput).
-func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJSON interface{}) (*ActionOutput, error) {
+func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJSON any) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -426,7 +426,7 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 
 // ExecuteSubagentStopAction executes an action for the SubagentStop event.
 // Command failures result in exit status 2 to block the subagent stop operation.
-func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *SubagentStopInput, rawJSON interface{}) (*ActionOutput, error) {
+func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *SubagentStopInput, rawJSON any) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -589,7 +589,7 @@ func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *Subagen
 // ExecutePreCompactAction executes an action for the PreCompact event and returns ActionOutput.
 // PreCompact always returns continue=true (fail-safe: compaction cannot be blocked).
 // Errors are reported via systemMessage field, not by blocking execution.
-func (e *ActionExecutor) ExecutePreCompactAction(action Action, input *PreCompactInput, rawJSON interface{}) (*ActionOutput, error) {
+func (e *ActionExecutor) ExecutePreCompactAction(action Action, input *PreCompactInput, rawJSON any) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -668,7 +668,7 @@ func (e *ActionExecutor) ExecutePreCompactAction(action Action, input *PreCompac
 
 // ExecuteSessionStartAction executes an action for the SessionStart event.
 // Returns ActionOutput for JSON serialization.
-func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *SessionStartInput, rawJSON interface{}) (*ActionOutput, error) {
+func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *SessionStartInput, rawJSON any) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -780,7 +780,7 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 
 // ExecuteUserPromptSubmitAction executes an action for the UserPromptSubmit event and returns JSON output.
 // This method implements Phase 2 JSON output functionality for UserPromptSubmit hooks.
-func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *UserPromptSubmitInput, rawJSON interface{}) (*ActionOutput, error) {
+func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *UserPromptSubmitInput, rawJSON any) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -940,7 +940,7 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 // ExecuteSessionEndAction executes an action for the SessionEnd event and returns ActionOutput.
 // SessionEnd always returns continue=true (fail-safe: session end cannot be blocked).
 // Errors are reported via systemMessage field, not by blocking execution.
-func (e *ActionExecutor) ExecuteSessionEndAction(action Action, input *SessionEndInput, rawJSON interface{}) (*ActionOutput, error) {
+func (e *ActionExecutor) ExecuteSessionEndAction(action Action, input *SessionEndInput, rawJSON any) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
@@ -1022,7 +1022,7 @@ func (e *ActionExecutor) ExecuteSessionEndAction(action Action, input *SessionEn
 // and logs warnings to stderr. Supported fields are: continue, stopReason, suppressOutput,
 // systemMessage, and hookSpecificOutput.
 func checkUnsupportedFieldsSessionStart(stdout string) {
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
 		// JSON parsing failed - this will be caught by the main validation
 		return
@@ -1046,7 +1046,7 @@ func checkUnsupportedFieldsSessionStart(stdout string) {
 // checkUnsupportedFieldsSessionEnd checks for unsupported fields in SessionEnd hook output
 // SessionEnd uses Common JSON Fields only (no decision/reason/hookSpecificOutput)
 func checkUnsupportedFieldsSessionEnd(stdout string) {
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
 		return
 	}
@@ -1068,7 +1068,7 @@ func checkUnsupportedFieldsSessionEnd(stdout string) {
 
 //nolint:unused // Will be used in Step 3
 func checkUnsupportedFieldsPreCompact(stdout string) {
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
 		return
 	}
@@ -1091,7 +1091,7 @@ func checkUnsupportedFieldsPreCompact(stdout string) {
 // checkUnsupportedFieldsNotification checks for unsupported fields in Notification JSON output
 // and logs warnings to stderr for any fields that are not in the supported list.
 func checkUnsupportedFieldsNotification(stdout string) {
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
 		// JSON parsing failed - this will be caught by the main validation
 		return
@@ -1115,7 +1115,7 @@ func checkUnsupportedFieldsNotification(stdout string) {
 // checkUnsupportedFieldsSubagentStart checks for unsupported fields in SubagentStart JSON output
 // and logs warnings to stderr for any fields that are not in the supported list.
 func checkUnsupportedFieldsSubagentStart(stdout string) {
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
 		// JSON parsing failed - this will be caught by the main validation
 		return
@@ -1139,7 +1139,7 @@ func checkUnsupportedFieldsSubagentStart(stdout string) {
 // checkUnsupportedFieldsUserPromptSubmit checks for unsupported fields in UserPromptSubmit JSON output
 // and logs warnings to stderr for any fields that are not in the supported list.
 func checkUnsupportedFieldsUserPromptSubmit(stdout string) {
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
 		// JSON parsing failed - this will be caught by the main validation
 		return
@@ -1164,7 +1164,7 @@ func checkUnsupportedFieldsUserPromptSubmit(stdout string) {
 // checkUnsupportedFieldsStop checks for unsupported fields in Stop JSON output
 // and logs warnings to stderr. Stop uses top-level decision/reason (no hookSpecificOutput).
 func checkUnsupportedFieldsStop(stdout string) {
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
 		return
 	}
@@ -1189,7 +1189,7 @@ func checkUnsupportedFieldsStop(stdout string) {
 // checkUnsupportedFieldsSubagentStop checks for unsupported fields in SubagentStop hook output
 // SubagentStop uses the same schema as Stop (no hookSpecificOutput)
 func checkUnsupportedFieldsSubagentStop(stdout string) {
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
 		return
 	}

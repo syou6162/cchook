@@ -143,7 +143,7 @@ func TestExecutePreToolUseAction_TypeOutput(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			executor := NewActionExecutor(nil)
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"tool_name":  tt.input.ToolName,
 				"tool_input": tt.input.ToolInput,
 			}
@@ -200,7 +200,7 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 		wantPermissionDecision       string
 		wantPermissionDecisionReason string
 		wantAdditionalContext        string
-		wantUpdatedInput             map[string]interface{}
+		wantUpdatedInput             map[string]any
 		wantSystemMessage            string
 		wantHookEventName            string
 	}{
@@ -231,7 +231,7 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 			commandExitCode:              0,
 			wantPermissionDecision:       "allow",
 			wantPermissionDecisionReason: "Safe operation",
-			wantUpdatedInput: map[string]interface{}{
+			wantUpdatedInput: map[string]any{
 				"file_path": "modified.txt",
 			},
 			wantSystemMessage: "Command executed successfully",
@@ -325,7 +325,7 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 			}`,
 			commandExitCode:        0,
 			wantPermissionDecision: "allow",
-			wantUpdatedInput: map[string]interface{}{
+			wantUpdatedInput: map[string]any{
 				"file_path": "sanitized.txt",
 			},
 			wantHookEventName: "PreToolUse",
@@ -351,7 +351,7 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 			}`,
 			commandExitCode:        0,
 			wantPermissionDecision: "ask",
-			wantUpdatedInput: map[string]interface{}{
+			wantUpdatedInput: map[string]any{
 				"content": "modified content",
 			},
 			wantHookEventName: "PreToolUse",
@@ -377,7 +377,7 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 			}`,
 			commandExitCode:        0,
 			wantPermissionDecision: "deny",
-			wantUpdatedInput: map[string]interface{}{
+			wantUpdatedInput: map[string]any{
 				"command": "safe command",
 			},
 			wantHookEventName: "PreToolUse",
@@ -564,7 +564,7 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 				err:      tt.commandErr,
 			}
 			executor := NewActionExecutor(runner)
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"tool_name":  tt.input.ToolName,
 				"tool_input": tt.input.ToolInput,
 			}
@@ -631,7 +631,6 @@ func contains2(s, substr string) bool {
 	}
 	return false
 }
-
 
 func TestExecutePermissionRequestAction_TypeOutput(t *testing.T) {
 	tests := []struct {
@@ -770,7 +769,6 @@ func TestExecutePermissionRequestAction_TypeOutput(t *testing.T) {
 		})
 	}
 }
-
 
 func TestExecutePermissionRequestAction_TypeCommand(t *testing.T) {
 	tests := []struct {
@@ -973,7 +971,7 @@ func TestExecutePreToolUseAction_EmptyStdout(t *testing.T) {
 		exitCode: 0,
 	}
 	executor := NewActionExecutor(runner)
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"tool_name":  input.ToolName,
 		"tool_input": input.ToolInput,
 	}
@@ -1116,11 +1114,11 @@ func TestExecutePostToolUseAction_TypeOutput(t *testing.T) {
 				},
 				ToolName: "Write",
 			}
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":      "test-session",
 				"hook_event_name": "PostToolUse",
 				"tool_name":       "Write",
-				"tool_input":      map[string]interface{}{},
+				"tool_input":      map[string]any{},
 				"tool_response":   "ok",
 			}
 
@@ -1183,7 +1181,6 @@ func TestExecutePostToolUseAction_TypeOutput(t *testing.T) {
 	}
 }
 
-
 func TestExecutePostToolUseAction_CommandWithUpdatedMCPToolOutput(t *testing.T) {
 	tests := []struct {
 		name                     string
@@ -1195,7 +1192,7 @@ func TestExecutePostToolUseAction_CommandWithUpdatedMCPToolOutput(t *testing.T) 
 		wantDecision             string
 		wantReason               string
 		wantAdditionalCtx        string
-		wantUpdatedMCPToolOutput interface{}
+		wantUpdatedMCPToolOutput any
 		wantErr                  bool
 	}{
 		{
@@ -1243,9 +1240,9 @@ func TestExecutePostToolUseAction_CommandWithUpdatedMCPToolOutput(t *testing.T) 
 			wantDecision:      "",
 			wantReason:        "",
 			wantAdditionalCtx: "",
-			wantUpdatedMCPToolOutput: map[string]interface{}{
+			wantUpdatedMCPToolOutput: map[string]any{
 				"result": "success",
-				"data":   map[string]interface{}{"key": "value"},
+				"data":   map[string]any{"key": "value"},
 			},
 			wantErr: false,
 		},
@@ -1289,7 +1286,7 @@ func TestExecutePostToolUseAction_CommandWithUpdatedMCPToolOutput(t *testing.T) 
 				},
 				ToolName: "Write",
 			}
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":      "test-session-123",
 				"hook_event_name": "PostToolUse",
 				"tool_name":       "Write",

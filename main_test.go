@@ -33,7 +33,6 @@ func TestDryRunHooks_UnknownEventType(t *testing.T) {
 	}
 }
 
-
 func TestDryRunHooks_Success(t *testing.T) {
 	// 標準入力をバックアップして復元
 	oldStdin := os.Stdin
@@ -208,7 +207,7 @@ func TestSessionStartIntegration_RealConfigWithGoMod(t *testing.T) {
 		Source: "startup",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
@@ -272,7 +271,7 @@ func TestSessionStartIntegration_MultipleActions(t *testing.T) {
 		Source: "startup",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
@@ -321,7 +320,7 @@ func TestSessionStartIntegration_ContinueFalse(t *testing.T) {
 		Source: "startup",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
@@ -370,7 +369,7 @@ func TestSessionStartIntegration_JSONFieldsAlwaysPresent(t *testing.T) {
 		Source: "startup",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
@@ -427,7 +426,7 @@ func TestSessionStartIntegration_DirectoryNotExists(t *testing.T) {
 		Source: "startup",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
@@ -497,7 +496,7 @@ EOF
 		Source: "startup",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
@@ -572,7 +571,7 @@ exit 1
 		Source: "startup",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
@@ -647,7 +646,7 @@ EOF
 		Source: "startup",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
@@ -719,7 +718,7 @@ EOF
 		Source: "startup",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),
@@ -802,7 +801,7 @@ EOF
 		Source: "startup",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      input.SessionID,
 		"transcript_path": input.TranscriptPath,
 		"hook_event_name": string(input.HookEventName),

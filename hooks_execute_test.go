@@ -83,7 +83,7 @@ func TestExecuteSessionStartHooks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// rawJSON作成
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":      tt.input.SessionID,
 				"transcript_path": tt.input.TranscriptPath,
 				"hook_event_name": string(tt.input.HookEventName),
@@ -195,7 +195,7 @@ func TestSessionStartHooksWithConditions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// rawJSON作成
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":      tt.input.SessionID,
 				"transcript_path": tt.input.TranscriptPath,
 				"hook_event_name": string(tt.input.HookEventName),
@@ -235,7 +235,7 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 		name              string
 		config            *Config
 		input             *UserPromptSubmitInput
-		rawJSON           interface{}
+		rawJSON           any
 		wantContinue      bool
 		wantDecision      string
 		wantHookEventName string
@@ -266,7 +266,7 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 				},
 				Prompt: "test prompt",
 			},
-			rawJSON: map[string]interface{}{
+			rawJSON: map[string]any{
 				"session_id":      "test-session",
 				"hook_event_name": "UserPromptSubmit",
 				"prompt":          "test prompt",
@@ -303,7 +303,7 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 				},
 				Prompt: "test prompt",
 			},
-			rawJSON: map[string]interface{}{
+			rawJSON: map[string]any{
 				"session_id":      "test-session",
 				"hook_event_name": "UserPromptSubmit",
 				"prompt":          "test prompt",
@@ -341,7 +341,7 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 				},
 				Prompt: "test prompt",
 			},
-			rawJSON: map[string]interface{}{
+			rawJSON: map[string]any{
 				"session_id":      "test-session",
 				"hook_event_name": "UserPromptSubmit",
 				"prompt":          "test prompt",
@@ -379,7 +379,7 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 				},
 				Prompt: "test prompt",
 			},
-			rawJSON: map[string]interface{}{
+			rawJSON: map[string]any{
 				"session_id":      "test-session",
 				"hook_event_name": "UserPromptSubmit",
 				"prompt":          "test prompt",
@@ -412,7 +412,7 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 				},
 				Prompt: "test prompt",
 			},
-			rawJSON: map[string]interface{}{
+			rawJSON: map[string]any{
 				"session_id":      "test-session",
 				"hook_event_name": "UserPromptSubmit",
 				"prompt":          "test prompt",
@@ -609,7 +609,7 @@ func TestExecutePreCompactHooksJSON(t *testing.T) {
 		name              string
 		config            *Config
 		input             *PreCompactInput
-		rawJSON           interface{}
+		rawJSON           any
 		wantContinue      bool
 		wantSystemMessage string
 		wantErr           bool
@@ -618,7 +618,7 @@ func TestExecutePreCompactHooksJSON(t *testing.T) {
 			name:         "1. No hooks configured",
 			config:       &Config{},
 			input:        &PreCompactInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PreCompact}, Trigger: "manual"},
-			rawJSON:      map[string]interface{}{},
+			rawJSON:      map[string]any{},
 			wantContinue: true,
 			wantErr:      false,
 		},
@@ -637,7 +637,7 @@ func TestExecutePreCompactHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &PreCompactInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PreCompact}, Trigger: "manual"},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantSystemMessage: "Pre-compaction processing",
 			wantErr:           false,
@@ -661,7 +661,7 @@ func TestExecutePreCompactHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &PreCompactInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PreCompact}, Trigger: "auto"},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantSystemMessage: "First message\nSecond message",
 			wantErr:           false,
@@ -682,7 +682,7 @@ func TestExecutePreCompactHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &PreCompactInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PreCompact}, Trigger: "manual"},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantSystemMessage: "Manual trigger action",
 			wantErr:           false,
@@ -703,7 +703,7 @@ func TestExecutePreCompactHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &PreCompactInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PreCompact}, Trigger: "auto"},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantSystemMessage: "Auto trigger action",
 			wantErr:           false,
@@ -724,7 +724,7 @@ func TestExecutePreCompactHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &PreCompactInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PreCompact}, Trigger: "auto"},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantSystemMessage: "",
 			wantErr:           false,
@@ -745,7 +745,7 @@ func TestExecutePreCompactHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &PreCompactInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PreCompact}, Trigger: "manual"},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantSystemMessage: "Empty matcher executes",
 			wantErr:           false,
@@ -781,7 +781,7 @@ func TestExecuteSessionEndHooksJSON(t *testing.T) {
 		name              string
 		config            *Config
 		input             *SessionEndInput
-		rawJSON           interface{}
+		rawJSON           any
 		wantContinue      bool
 		wantSystemMessage string
 		wantErr           bool
@@ -791,7 +791,7 @@ func TestExecuteSessionEndHooksJSON(t *testing.T) {
 			name:         "1. No hooks configured - allow session end",
 			config:       &Config{},
 			input:        &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
-			rawJSON:      map[string]interface{}{},
+			rawJSON:      map[string]any{},
 			wantContinue: true,
 			wantErr:      false,
 		},
@@ -810,7 +810,7 @@ func TestExecuteSessionEndHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantSystemMessage: "Session cleanup completed",
 			wantErr:           false,
@@ -834,7 +834,7 @@ func TestExecuteSessionEndHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "logout"},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantSystemMessage: "First message\nSecond message",
 			wantErr:           false,
@@ -857,7 +857,7 @@ func TestExecuteSessionEndHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantSystemMessage: "Clear cleanup",
 			wantErr:           false,
@@ -880,7 +880,7 @@ func TestExecuteSessionEndHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantSystemMessage: "",
 			wantErr:           false,
@@ -900,7 +900,7 @@ func TestExecuteSessionEndHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &SessionEndInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SessionEnd}, Reason: "clear"},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantSystemMessage: "Empty message in SessionEnd action",
 			wantErr:           false,
@@ -1185,7 +1185,7 @@ func TestExecuteSessionStartHooks_NewSignature(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":      tt.input.SessionID,
 				"hook_event_name": string(tt.input.HookEventName),
 				"source":          tt.input.Source,
@@ -1289,7 +1289,7 @@ func TestExecuteSessionStartHooks_ErrorHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":      tt.input.SessionID,
 				"transcript_path": tt.input.TranscriptPath,
 				"hook_event_name": string(tt.input.HookEventName),
@@ -1369,7 +1369,7 @@ func TestExecuteUserPromptSubmitHooks_ConditionErrorAggregation(t *testing.T) {
 		Prompt: "test prompt",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      "test-session",
 		"hook_event_name": "UserPromptSubmit",
 		"prompt":          "test prompt",
@@ -1457,7 +1457,7 @@ func TestExecuteUserPromptSubmitHooks_MultipleConditionErrors(t *testing.T) {
 		Prompt: "test prompt",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      "test-session",
 		"hook_event_name": "UserPromptSubmit",
 		"transcript_path": "/nonexistent/transcript.jsonl",
@@ -1530,7 +1530,7 @@ func TestExecuteUserPromptSubmitHooks_AdditionalContextConcatenation(t *testing.
 		Prompt: "test prompt",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"session_id":      "test-session",
 		"hook_event_name": "UserPromptSubmit",
 		"prompt":          "test prompt",
@@ -1606,7 +1606,7 @@ func TestExecuteUserPromptSubmitHooks_ErrorHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rawJSON := map[string]interface{}{
+			rawJSON := map[string]any{
 				"session_id":      tt.input.SessionID,
 				"transcript_path": tt.input.TranscriptPath,
 				"hook_event_name": string(tt.input.HookEventName),
@@ -1660,7 +1660,7 @@ func TestExecuteStopHooksJSON(t *testing.T) {
 		name              string
 		config            *Config
 		input             *StopInput
-		rawJSON           interface{}
+		rawJSON           any
 		wantContinue      bool
 		wantDecision      string
 		wantReason        string
@@ -1672,7 +1672,7 @@ func TestExecuteStopHooksJSON(t *testing.T) {
 			name:         "1. No hooks configured - allow stop",
 			config:       &Config{},
 			input:        &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
-			rawJSON:      map[string]interface{}{},
+			rawJSON:      map[string]any{},
 			wantContinue: true,
 			wantDecision: "",
 			wantErr:      false,
@@ -1694,7 +1694,7 @@ func TestExecuteStopHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantDecision:      "block",
 			wantReason:        "Not safe to stop",
@@ -1717,7 +1717,7 @@ func TestExecuteStopHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantDecision:      "",
 			wantReason:        "",
@@ -1739,7 +1739,7 @@ func TestExecuteStopHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantDecision:      "",
 			wantReason:        "",
@@ -1768,7 +1768,7 @@ func TestExecuteStopHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantDecision:      "block",
 			wantReason:        "Second reason",
@@ -1797,7 +1797,7 @@ func TestExecuteStopHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantDecision:      "block",
 			wantReason:        "Blocked reason",
@@ -1825,7 +1825,7 @@ func TestExecuteStopHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantDecision:      "",
 			wantReason:        "",
@@ -1847,7 +1847,7 @@ func TestExecuteStopHooksJSON(t *testing.T) {
 				},
 			},
 			input:        &StopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: Stop}},
-			rawJSON:      map[string]interface{}{},
+			rawJSON:      map[string]any{},
 			wantContinue: true,
 			wantDecision: "block",
 			wantErr:      false,
@@ -1901,7 +1901,7 @@ func TestExecuteSubagentStopHooksJSON(t *testing.T) {
 		name              string
 		config            *Config
 		input             *SubagentStopInput
-		rawJSON           interface{}
+		rawJSON           any
 		wantContinue      bool
 		wantDecision      string
 		wantReason        string
@@ -1913,7 +1913,7 @@ func TestExecuteSubagentStopHooksJSON(t *testing.T) {
 			name:         "1. No hooks configured - allow subagent stop",
 			config:       &Config{},
 			input:        &SubagentStopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SubagentStop}},
-			rawJSON:      map[string]interface{}{},
+			rawJSON:      map[string]any{},
 			wantContinue: true,
 			wantDecision: "",
 			wantErr:      false,
@@ -1935,7 +1935,7 @@ func TestExecuteSubagentStopHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &SubagentStopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SubagentStop}},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantDecision:      "block",
 			wantReason:        "Not safe to stop subagent",
@@ -1958,7 +1958,7 @@ func TestExecuteSubagentStopHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &SubagentStopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SubagentStop}},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantDecision:      "",
 			wantReason:        "",
@@ -1980,7 +1980,7 @@ func TestExecuteSubagentStopHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &SubagentStopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SubagentStop}},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantDecision:      "",
 			wantReason:        "",
@@ -2009,7 +2009,7 @@ func TestExecuteSubagentStopHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &SubagentStopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SubagentStop}},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantDecision:      "block",
 			wantReason:        "Second reason",
@@ -2038,7 +2038,7 @@ func TestExecuteSubagentStopHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &SubagentStopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SubagentStop}},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantDecision:      "block",
 			wantReason:        "Blocked reason",
@@ -2066,7 +2066,7 @@ func TestExecuteSubagentStopHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &SubagentStopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SubagentStop}},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantDecision:      "",
 			wantReason:        "",
@@ -2088,7 +2088,7 @@ func TestExecuteSubagentStopHooksJSON(t *testing.T) {
 				},
 			},
 			input:        &SubagentStopInput{BaseInput: BaseInput{SessionID: "test", HookEventName: SubagentStop}},
-			rawJSON:      map[string]interface{}{},
+			rawJSON:      map[string]any{},
 			wantContinue: true,
 			wantDecision: "block",
 			wantReason:   "Empty message in SubagentStop action",
@@ -2139,7 +2139,7 @@ func TestExecuteNotificationHooksJSON(t *testing.T) {
 		name                  string
 		config                *Config
 		input                 *NotificationInput
-		rawJSON               map[string]interface{}
+		rawJSON               map[string]any
 		wantContinue          bool
 		wantHookEventName     string
 		wantAdditionalContext string
@@ -2155,7 +2155,7 @@ func TestExecuteNotificationHooksJSON(t *testing.T) {
 				Notification: []NotificationHook{},
 			},
 			input:             &NotificationInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "Notification"}},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantHookEventName: "Notification",
 			wantErr:           false,
@@ -2175,7 +2175,7 @@ func TestExecuteNotificationHooksJSON(t *testing.T) {
 				},
 			},
 			input:                 &NotificationInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "Notification"}},
-			rawJSON:               map[string]interface{}{},
+			rawJSON:               map[string]any{},
 			wantContinue:          true,
 			wantHookEventName:     "Notification",
 			wantAdditionalContext: "Test notification",
@@ -2200,7 +2200,7 @@ func TestExecuteNotificationHooksJSON(t *testing.T) {
 				},
 			},
 			input:                 &NotificationInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "Notification"}},
-			rawJSON:               map[string]interface{}{},
+			rawJSON:               map[string]any{},
 			wantContinue:          true,
 			wantHookEventName:     "Notification",
 			wantAdditionalContext: "First message\nSecond message",
@@ -2221,7 +2221,7 @@ func TestExecuteNotificationHooksJSON(t *testing.T) {
 				},
 			},
 			input:                 &NotificationInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "Notification"}},
-			rawJSON:               map[string]interface{}{},
+			rawJSON:               map[string]any{},
 			wantContinue:          true,
 			wantHookEventName:     "Notification",
 			wantAdditionalContext: "Message with system warning",
@@ -2246,7 +2246,7 @@ func TestExecuteNotificationHooksJSON(t *testing.T) {
 				BaseInput:        BaseInput{SessionID: "test", HookEventName: "Notification"},
 				NotificationType: "idle_prompt",
 			},
-			rawJSON:               map[string]interface{}{},
+			rawJSON:               map[string]any{},
 			wantContinue:          true,
 			wantHookEventName:     "Notification",
 			wantAdditionalContext: "Idle detected",
@@ -2271,7 +2271,7 @@ func TestExecuteNotificationHooksJSON(t *testing.T) {
 				BaseInput:        BaseInput{SessionID: "test", HookEventName: "Notification"},
 				NotificationType: "idle_prompt",
 			},
-			rawJSON:               map[string]interface{}{},
+			rawJSON:               map[string]any{},
 			wantContinue:          true,
 			wantHookEventName:     "Notification",
 			wantAdditionalContext: "",
@@ -2296,7 +2296,7 @@ func TestExecuteNotificationHooksJSON(t *testing.T) {
 				BaseInput:        BaseInput{SessionID: "test", HookEventName: "Notification"},
 				NotificationType: "permission_prompt",
 			},
-			rawJSON:               map[string]interface{}{},
+			rawJSON:               map[string]any{},
 			wantContinue:          true,
 			wantHookEventName:     "Notification",
 			wantAdditionalContext: "Matched",
@@ -2357,7 +2357,7 @@ func TestExecuteSubagentStartHooksJSON(t *testing.T) {
 		name                  string
 		config                *Config
 		input                 *SubagentStartInput
-		rawJSON               map[string]interface{}
+		rawJSON               map[string]any
 		wantContinue          bool
 		wantHookEventName     string
 		wantAdditionalContext string
@@ -2373,7 +2373,7 @@ func TestExecuteSubagentStartHooksJSON(t *testing.T) {
 				SubagentStart: []SubagentStartHook{},
 			},
 			input:             &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart"}, AgentType: "Explore"},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantHookEventName: "SubagentStart",
 			wantErr:           false,
@@ -2394,7 +2394,7 @@ func TestExecuteSubagentStartHooksJSON(t *testing.T) {
 				},
 			},
 			input:                 &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart"}, AgentType: "Explore"},
-			rawJSON:               map[string]interface{}{},
+			rawJSON:               map[string]any{},
 			wantContinue:          true,
 			wantHookEventName:     "SubagentStart",
 			wantAdditionalContext: "Explore agent started",
@@ -2416,7 +2416,7 @@ func TestExecuteSubagentStartHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart"}, AgentType: "Explore"},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantHookEventName: "SubagentStart",
 			wantErr:           false,
@@ -2437,7 +2437,7 @@ func TestExecuteSubagentStartHooksJSON(t *testing.T) {
 				},
 			},
 			input:                 &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart"}, AgentType: "Explore"},
-			rawJSON:               map[string]interface{}{},
+			rawJSON:               map[string]any{},
 			wantContinue:          true,
 			wantHookEventName:     "SubagentStart",
 			wantAdditionalContext: "Agent started",
@@ -2459,7 +2459,7 @@ func TestExecuteSubagentStartHooksJSON(t *testing.T) {
 				},
 			},
 			input:                 &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart"}, AgentType: "Explore"},
-			rawJSON:               map[string]interface{}{},
+			rawJSON:               map[string]any{},
 			wantContinue:          true,
 			wantHookEventName:     "SubagentStart",
 			wantAdditionalContext: "Known agent started",
@@ -2484,7 +2484,7 @@ func TestExecuteSubagentStartHooksJSON(t *testing.T) {
 				},
 			},
 			input:                 &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart"}, AgentType: "Explore"},
-			rawJSON:               map[string]interface{}{},
+			rawJSON:               map[string]any{},
 			wantContinue:          true,
 			wantHookEventName:     "SubagentStart",
 			wantAdditionalContext: "First message\nSecond message",
@@ -2508,7 +2508,7 @@ func TestExecuteSubagentStartHooksJSON(t *testing.T) {
 				},
 			},
 			input:                 &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart", Cwd: "/test/path"}, AgentType: "Explore"},
-			rawJSON:               map[string]interface{}{},
+			rawJSON:               map[string]any{},
 			wantContinue:          true,
 			wantHookEventName:     "SubagentStart",
 			wantAdditionalContext: "In correct directory",
@@ -2532,7 +2532,7 @@ func TestExecuteSubagentStartHooksJSON(t *testing.T) {
 				},
 			},
 			input:             &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart", Cwd: "/test/path"}, AgentType: "Explore"},
-			rawJSON:           map[string]interface{}{},
+			rawJSON:           map[string]any{},
 			wantContinue:      true,
 			wantHookEventName: "SubagentStart",
 			wantErr:           false,
@@ -2553,7 +2553,7 @@ func TestExecuteSubagentStartHooksJSON(t *testing.T) {
 				},
 			},
 			input:                 &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart"}, AgentType: "Explore"},
-			rawJSON:               map[string]interface{}{},
+			rawJSON:               map[string]any{},
 			wantContinue:          true, // Forced to true
 			wantHookEventName:     "SubagentStart",
 			wantAdditionalContext: "Test message",

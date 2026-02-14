@@ -32,7 +32,7 @@ func TestExecutePostToolUseAction_WithUseStdin(t *testing.T) {
 		ToolName: "Edit",
 	}
 
-	rawJSON := map[string]interface{}{
+	rawJSON := map[string]any{
 		"tool_name": "Edit",
 	}
 
