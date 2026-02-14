@@ -379,7 +379,7 @@ type PostToolUseHookSpecificOutput struct {
 // SessionEnd用
 type SessionEndInput struct {
 	BaseInput
-	Reason string `json:"reason"` // "clear", "logout", "prompt_input_exit", or "other"
+	Reason string `json:"reason"` // "clear", "logout", "prompt_input_exit", "bypass_permissions_disabled", or "other"
 }
 
 // GetToolName returns an empty string as SessionEnd events have no associated tool.
