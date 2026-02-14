@@ -1055,6 +1055,7 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 			Continue:                 true,
 			PermissionDecision:       permissionDecision,
 			PermissionDecisionReason: cmdOutput.HookSpecificOutput.PermissionDecisionReason,
+			AdditionalContext:        cmdOutput.HookSpecificOutput.AdditionalContext,
 			UpdatedInput:             cmdOutput.HookSpecificOutput.UpdatedInput,
 			StopReason:               cmdOutput.StopReason,
 			SuppressOutput:           cmdOutput.SuppressOutput,
@@ -1096,11 +1097,18 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 			permissionDecision = *action.PermissionDecision
 		}
 
+		// Process additional_context if present
+		var additionalContext string
+		if action.AdditionalContext != nil {
+			additionalContext = unifiedTemplateReplace(*action.AdditionalContext, rawJSON)
+		}
+
 		return &ActionOutput{
 			Continue:                 true,
 			PermissionDecision:       permissionDecision,
 			HookEventName:            "PreToolUse",
 			PermissionDecisionReason: processedMessage,
+			AdditionalContext:        additionalContext,
 		}, nil
 	}
 
@@ -1205,14 +1213,15 @@ func (e *ActionExecutor) ExecutePostToolUseAction(action Action, input *PostTool
 
 		// Build ActionOutput from parsed JSON
 		return &ActionOutput{
-			Continue:          true,
-			Decision:          decision,
-			Reason:            cmdOutput.Reason,
-			StopReason:        cmdOutput.StopReason,
-			SuppressOutput:    cmdOutput.SuppressOutput,
-			SystemMessage:     cmdOutput.SystemMessage,
-			HookEventName:     hookEventName,
-			AdditionalContext: additionalContext,
+			Continue:             true,
+			Decision:             decision,
+			Reason:               cmdOutput.Reason,
+			StopReason:           cmdOutput.StopReason,
+			SuppressOutput:       cmdOutput.SuppressOutput,
+			SystemMessage:        cmdOutput.SystemMessage,
+			HookEventName:        hookEventName,
+			AdditionalContext:    additionalContext,
+			UpdatedMCPToolOutput: cmdOutput.UpdatedMCPToolOutput,
 		}, nil
 
 	case "output":
@@ -1606,23 +1615,19 @@ func checkUnsupportedFieldsPostToolUse(stdout string) {
 	}
 
 	supportedFields := map[string]bool{
-		"continue":           true,
-		"decision":           true, // PostToolUse specific (top-level)
-		"reason":             true, // PostToolUse specific (top-level)
-		"stopReason":         true,
-		"suppressOutput":     true,
-		"systemMessage":      true,
-		"hookSpecificOutput": true, // PostToolUse supports hookSpecificOutput
-		// Note: updatedMCPToolOutput is NOT supported (MCP tools only)
+		"continue":             true,
+		"decision":             true, // PostToolUse specific (top-level)
+		"reason":               true, // PostToolUse specific (top-level)
+		"stopReason":           true,
+		"suppressOutput":       true,
+		"systemMessage":        true,
+		"hookSpecificOutput":   true, // PostToolUse supports hookSpecificOutput
+		"updatedMCPToolOutput": true, // For MCP tools only: replaces the tool's output
 	}
 
 	for field := range data {
 		if !supportedFields[field] {
-			if field == "updatedMCPToolOutput" {
-				fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for PostToolUse hooks in cchook (MCP tools only)\n", field)
-			} else {
-				fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for PostToolUse hooks\n", field)
-			}
+			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for PostToolUse hooks\n", field)
 		}
 	}
 }

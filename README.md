@@ -61,6 +61,12 @@ For example, a simple Stop hook that sends notifications via [ntfy](https://ntfy
 - **Error Handling**: Robust error handling for unknown condition types
 - **Dry-Run Mode**: Test configurations before deployment
 - **Performance**: Cached jq query compilation for efficient template processing
+- **Extended Hook Support**: Full support for Claude Code hooks specification including:
+  - SessionStart input fields (agent_type, model)
+  - PreToolUse additional context output
+  - Notification matcher filtering and extended input fields
+  - PostToolUse MCP tool output replacement
+  - SessionEnd bypass_permissions_disabled reason
 
 ## Installation
 

@@ -258,6 +258,28 @@ func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON i
 
 	executed := false
 	for i, hook := range config.Notification {
+		// Matcher check: filter by notification_type
+		if hook.Matcher != "" {
+			// Warn if matcher contains unknown notification_type values
+			knownTypes := map[string]bool{
+				"permission_prompt":  true,
+				"idle_prompt":        true,
+				"auth_success":       true,
+				"elicitation_dialog": true,
+			}
+			for _, pattern := range strings.Split(hook.Matcher, "|") {
+				trimmedPattern := strings.TrimSpace(pattern)
+				if trimmedPattern != "" && !knownTypes[trimmedPattern] {
+					fmt.Fprintf(os.Stderr, "Warning: Notification hook matcher contains unknown notification_type: %q (known types: permission_prompt, idle_prompt, auth_success, elicitation_dialog)\n", trimmedPattern)
+				}
+			}
+
+			// Filter hooks by matcher
+			if !checkNotificationMatcher(hook.Matcher, input.NotificationType) {
+				continue
+			}
+		}
+
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
@@ -278,6 +300,9 @@ func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON i
 
 		executed = true
 		fmt.Printf("[Hook %d] Would execute:\n", i+1)
+		if hook.Matcher != "" {
+			fmt.Printf("  Matcher: %s\n", hook.Matcher)
+		}
 		for _, action := range hook.Actions {
 			switch action.Type {
 			case "command":
@@ -647,6 +672,28 @@ func executeNotificationHooksJSON(config *Config, input *NotificationInput, rawJ
 	hookEventName := ""
 
 	for i, hook := range config.Notification {
+		// Matcher check: filter by notification_type
+		if hook.Matcher != "" {
+			// Warn if matcher contains unknown notification_type values
+			knownTypes := map[string]bool{
+				"permission_prompt":  true,
+				"idle_prompt":        true,
+				"auth_success":       true,
+				"elicitation_dialog": true,
+			}
+			for _, pattern := range strings.Split(hook.Matcher, "|") {
+				trimmedPattern := strings.TrimSpace(pattern)
+				if trimmedPattern != "" && !knownTypes[trimmedPattern] {
+					fmt.Fprintf(os.Stderr, "Warning: Notification hook matcher contains unknown notification_type: %q (known types: permission_prompt, idle_prompt, auth_success, elicitation_dialog)\n", trimmedPattern)
+				}
+			}
+
+			// Filter hooks by matcher
+			if !checkNotificationMatcher(hook.Matcher, input.NotificationType) {
+				continue
+			}
+		}
+
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
@@ -1117,6 +1164,11 @@ func executePostToolUseHooksJSON(config *Config, input *PostToolUseInput, rawJSO
 
 			// SuppressOutput: 最後の値が勝ち
 			finalOutput.SuppressOutput = actionOutput.SuppressOutput
+
+			// UpdatedMCPToolOutput: 最後の非nil値が勝ち
+			if actionOutput.UpdatedMCPToolOutput != nil {
+				finalOutput.UpdatedMCPToolOutput = actionOutput.UpdatedMCPToolOutput
+			}
 
 		}
 
@@ -1698,6 +1750,7 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 	}
 
 	var reasonBuilder strings.Builder
+	var additionalContextBuilder strings.Builder
 	var systemMessageBuilder strings.Builder
 	hookEventName := ""
 	permissionDecision := "" // Empty = delegate to Claude Code's permission system
@@ -1770,6 +1823,14 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 			reasonBuilder.WriteString(actionOutput.PermissionDecisionReason)
 		}
 
+		// AdditionalContext: concatenate with "\n"
+		if actionOutput.AdditionalContext != "" {
+			if additionalContextBuilder.Len() > 0 {
+				additionalContextBuilder.WriteString("\n")
+			}
+			additionalContextBuilder.WriteString(actionOutput.AdditionalContext)
+		}
+
 		// SystemMessage: concatenate with "\n"
 		if actionOutput.SystemMessage != "" {
 			if systemMessageBuilder.Len() > 0 {
@@ -1803,8 +1864,8 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 	allErrors = append(allErrors, actionErrors...)
 
 	// Build final output
-	// Set HookSpecificOutput only when permissionDecision is set or errors occurred
-	if permissionDecision != "" || len(allErrors) > 0 {
+	// Set HookSpecificOutput when any hook-specific field is set or errors occurred
+	if permissionDecision != "" || additionalContextBuilder.Len() > 0 || updatedInput != nil || len(allErrors) > 0 {
 		// Always set hookEventName to "PreToolUse"
 		if hookEventName == "" {
 			hookEventName = "PreToolUse"
@@ -1821,6 +1882,7 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 			HookEventName:            hookEventName,
 			PermissionDecision:       permissionDecision,
 			PermissionDecisionReason: reasonBuilder.String(),
+			AdditionalContext:        additionalContextBuilder.String(),
 			UpdatedInput:             updatedInput,
 		}
 	}
@@ -1915,6 +1977,7 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 	}
 
 	var reasonBuilder strings.Builder
+	var additionalContextBuilder strings.Builder
 	var systemMessageBuilder strings.Builder
 	var updatedInput map[string]interface{}
 
@@ -1949,6 +2012,14 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 			reasonBuilder.WriteString(actionOutput.PermissionDecisionReason)
 		}
 
+		// AdditionalContext: concatenate with "\n"
+		if actionOutput.AdditionalContext != "" {
+			if additionalContextBuilder.Len() > 0 {
+				additionalContextBuilder.WriteString("\n")
+			}
+			additionalContextBuilder.WriteString(actionOutput.AdditionalContext)
+		}
+
 		// SystemMessage: concatenate with "\n"
 		if actionOutput.SystemMessage != "" {
 			if systemMessageBuilder.Len() > 0 {
@@ -1980,6 +2051,7 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 	// This prevents empty ActionOutput from overwriting previous hooks' decisions
 	if output.PermissionDecision == "" &&
 		reasonBuilder.Len() == 0 &&
+		additionalContextBuilder.Len() == 0 &&
 		systemMessageBuilder.Len() == 0 &&
 		updatedInput == nil &&
 		output.StopReason == "" &&
@@ -1989,6 +2061,7 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 
 	// Build final output
 	output.PermissionDecisionReason = reasonBuilder.String()
+	output.AdditionalContext = additionalContextBuilder.String()
 	output.SystemMessage = systemMessageBuilder.String()
 	output.UpdatedInput = updatedInput
 

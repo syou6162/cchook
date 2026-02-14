@@ -252,7 +252,7 @@ Available condition types:
   - `prompt_regex`: Supports regex patterns including OR conditions with `|`
   - `every_n_prompts`: Triggers every N prompts based on transcript file parsing (counts `type: "user"` entries)
 - **Session-specific** (SessionEnd):
-  - `reason_is`: Matches session end reason ("clear", "logout", "prompt_input_exit", "other")
+  - `reason_is`: Matches session end reason ("clear", "logout", "prompt_input_exit", "bypass_permissions_disabled", "other")
 
 Template variables are available based on the event type and include fields from BaseInput, tool-specific data, and full jq query support.
 
@@ -885,6 +885,133 @@ SessionEnd:
       - type: command
         command: "cleanup-session.sh"  # Returns JSON with systemMessage
 ```
+
+## Recent Hook Type Extensions
+
+The following extensions have been added to existing hook types to align with the official Claude Code hooks specification:
+
+### SessionStart Input Fields
+
+SessionStart hooks now receive additional input fields:
+
+- **`agent_type`** (string, optional): The agent name when Claude Code is started with `claude --agent <name>`
+- **`model`** (string): The model ID being used (e.g., "claude-sonnet-4-5-20250929")
+
+These fields are available in template variables and can be used in conditions or command templates:
+
+```yaml
+SessionStart:
+  - actions:
+      - type: output
+        message: "Starting session with agent: {.agent_type}, model: {.model}"
+```
+
+### PreToolUse Additional Context
+
+PreToolUse hooks can now return `additionalContext` in their output:
+
+**Output Action:**
+```yaml
+PreToolUse:
+  - matcher: "Write"
+    actions:
+      - type: output
+        message: "File validation passed"
+        permission_decision: "allow"
+        additional_context: "File meets security requirements"
+```
+
+**Command Action JSON:**
+```json
+{
+  "continue": true,
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow",
+    "additionalContext": "Additional information for Claude"
+  }
+}
+```
+
+The `additionalContext` field provides supplementary information to Claude that won't be shown to the user.
+
+### Notification Hook Extensions
+
+Notification hooks support matcher-based filtering and additional input fields:
+
+**Matcher:**
+The `matcher` field filters notifications by `notification_type`:
+- `permission_prompt`: Permission request notifications
+- `idle_prompt`: Idle state notifications
+- `auth_success`: Authentication success notifications
+- `elicitation_dialog`: Elicitation dialog notifications
+
+```yaml
+Notification:
+  - matcher: "idle_prompt|permission_prompt"
+    actions:
+      - type: output
+        message: "Handling user interaction notification"
+```
+
+**Input Fields:**
+- **`title`** (string, optional): Notification title
+- **`notification_type`** (string): Type of notification
+
+These fields are available in template variables:
+
+```yaml
+Notification:
+  - actions:
+      - type: output
+        message: "Notification: {.title} ({.notification_type})"
+```
+
+### PostToolUse Updated MCP Tool Output
+
+PostToolUse hooks can now replace MCP tool output using the `updatedMCPToolOutput` field:
+
+**Command Action JSON:**
+```json
+{
+  "continue": true,
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Tool output was sanitized"
+  },
+  "updatedMCPToolOutput": "Sanitized output content"
+}
+```
+
+**Important:** `updatedMCPToolOutput` is a **top-level field**, not part of `hookSpecificOutput`. It can be a string, object, or any JSON-serializable value.
+
+When multiple actions execute, the last non-nil `updatedMCPToolOutput` value wins.
+
+**Example Use Cases:**
+- Sanitizing sensitive information from tool output
+- Reformatting tool output for better readability
+- Adding metadata to MCP tool responses
+
+### SessionEnd Reason
+
+SessionEnd hooks now recognize the `bypass_permissions_disabled` reason value:
+
+```yaml
+SessionEnd:
+  - conditions:
+      - type: reason_is
+        value: "bypass_permissions_disabled"
+    actions:
+      - type: output
+        message: "Session ended due to bypass permissions being disabled"
+```
+
+Available reason values:
+- `clear`: User cleared the session
+- `logout`: User logged out
+- `prompt_input_exit`: User exited via prompt input
+- `bypass_permissions_disabled`: Session ended because bypass permissions were disabled
+- `other`: Other reasons
 
 ## Common Workflows
 

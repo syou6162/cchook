@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -885,6 +886,7 @@ func TestExecutePreToolUseAction_TypeOutput(t *testing.T) {
 		input                        *PreToolUseInput
 		wantPermissionDecision       string
 		wantPermissionDecisionReason string
+		wantAdditionalContext        string
 		wantSystemMessage            string
 		wantHookEventName            string
 	}{
@@ -975,6 +977,37 @@ func TestExecutePreToolUseAction_TypeOutput(t *testing.T) {
 			wantSystemMessage:      "Action output has no message",
 			wantHookEventName:      "PreToolUse",
 		},
+		{
+			name: "additional_context set -> reflected in AdditionalContext",
+			action: Action{
+				Type:               "output",
+				Message:            "Operation allowed",
+				PermissionDecision: stringPtr("allow"),
+				AdditionalContext:  stringPtr("Current environment: production"),
+			},
+			input: &PreToolUseInput{
+				ToolName: "Bash",
+			},
+			wantPermissionDecision:       "allow",
+			wantPermissionDecisionReason: "Operation allowed",
+			wantAdditionalContext:        "Current environment: production",
+			wantHookEventName:            "PreToolUse",
+		},
+		{
+			name: "additional_context omitted -> AdditionalContext empty",
+			action: Action{
+				Type:               "output",
+				Message:            "Operation allowed",
+				PermissionDecision: stringPtr("allow"),
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+			},
+			wantPermissionDecision:       "allow",
+			wantPermissionDecisionReason: "Operation allowed",
+			wantAdditionalContext:        "",
+			wantHookEventName:            "PreToolUse",
+		},
 	}
 
 	for _, tt := range tests {
@@ -1001,6 +1034,10 @@ func TestExecutePreToolUseAction_TypeOutput(t *testing.T) {
 
 			if output.PermissionDecisionReason != tt.wantPermissionDecisionReason {
 				t.Errorf("PermissionDecisionReason mismatch. Got %q, want %q", output.PermissionDecisionReason, tt.wantPermissionDecisionReason)
+			}
+
+			if output.AdditionalContext != tt.wantAdditionalContext {
+				t.Errorf("AdditionalContext mismatch. Got %q, want %q", output.AdditionalContext, tt.wantAdditionalContext)
 			}
 
 			if output.SystemMessage != tt.wantSystemMessage {
@@ -1031,6 +1068,7 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 		commandErr                   error
 		wantPermissionDecision       string
 		wantPermissionDecisionReason string
+		wantAdditionalContext        string
 		wantUpdatedInput             map[string]interface{}
 		wantSystemMessage            string
 		wantHookEventName            string
@@ -1341,6 +1379,49 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 			wantSystemMessage:      "Command failed with exit code 1: explicit error message",
 			wantHookEventName:      "PreToolUse",
 		},
+		{
+			name: "Command JSON output with additionalContext -> reflected in ActionOutput",
+			action: Action{
+				Type:    "command",
+				Command: "check-env.sh",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Bash",
+			},
+			commandOutput: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PreToolUse",
+					"permissionDecision": "allow",
+					"additionalContext": "Current environment: production"
+				}
+			}`,
+			commandExitCode:        0,
+			wantPermissionDecision: "allow",
+			wantAdditionalContext:  "Current environment: production",
+			wantHookEventName:      "PreToolUse",
+		},
+		{
+			name: "Command JSON output without additionalContext -> AdditionalContext empty",
+			action: Action{
+				Type:    "command",
+				Command: "validator.sh",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+			},
+			commandOutput: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PreToolUse",
+					"permissionDecision": "allow"
+				}
+			}`,
+			commandExitCode:        0,
+			wantPermissionDecision: "allow",
+			wantAdditionalContext:  "",
+			wantHookEventName:      "PreToolUse",
+		},
 	}
 
 	for _, tt := range tests {
@@ -1373,6 +1454,10 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 
 			if output.PermissionDecisionReason != tt.wantPermissionDecisionReason {
 				t.Errorf("PermissionDecisionReason mismatch. Got %q, want %q", output.PermissionDecisionReason, tt.wantPermissionDecisionReason)
+			}
+
+			if output.AdditionalContext != tt.wantAdditionalContext {
+				t.Errorf("AdditionalContext mismatch. Got %q, want %q", output.AdditionalContext, tt.wantAdditionalContext)
 			}
 
 			if tt.wantSystemMessage != "" && !stringContains2(output.SystemMessage, tt.wantSystemMessage) {
@@ -4131,6 +4216,152 @@ func TestExecuteSubagentStartAction_TypeCommand(t *testing.T) {
 
 			if result.AdditionalContext != tt.wantAdditionalCtx {
 				t.Errorf("AdditionalContext = %v, want %v", result.AdditionalContext, tt.wantAdditionalCtx)
+			}
+		})
+	}
+}
+
+func TestExecutePostToolUseAction_CommandWithUpdatedMCPToolOutput(t *testing.T) {
+	tests := []struct {
+		name                     string
+		stubStdout               string
+		stubStderr               string
+		stubExitCode             int
+		action                   Action
+		wantContinue             bool
+		wantDecision             string
+		wantReason               string
+		wantAdditionalCtx        string
+		wantUpdatedMCPToolOutput interface{}
+		wantErr                  bool
+	}{
+		{
+			name: "updatedMCPToolOutput with string value",
+			stubStdout: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PostToolUse",
+					"additionalContext": "Tool output replaced"
+				},
+				"updatedMCPToolOutput": "replaced output value"
+			}`,
+			stubStderr:   "",
+			stubExitCode: 0,
+			action: Action{
+				Type:    "command",
+				Command: "echo test",
+			},
+			wantContinue:             true,
+			wantDecision:             "",
+			wantReason:               "",
+			wantAdditionalCtx:        "Tool output replaced",
+			wantUpdatedMCPToolOutput: "replaced output value",
+			wantErr:                  false,
+		},
+		{
+			name: "updatedMCPToolOutput with object value",
+			stubStdout: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PostToolUse"
+				},
+				"updatedMCPToolOutput": {
+					"result": "success",
+					"data": {"key": "value"}
+				}
+			}`,
+			stubStderr:   "",
+			stubExitCode: 0,
+			action: Action{
+				Type:    "command",
+				Command: "echo test",
+			},
+			wantContinue:      true,
+			wantDecision:      "",
+			wantReason:        "",
+			wantAdditionalCtx: "",
+			wantUpdatedMCPToolOutput: map[string]interface{}{
+				"result": "success",
+				"data":   map[string]interface{}{"key": "value"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "updatedMCPToolOutput omitted (nil)",
+			stubStdout: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PostToolUse",
+					"additionalContext": "No tool output replacement"
+				}
+			}`,
+			stubStderr:   "",
+			stubExitCode: 0,
+			action: Action{
+				Type:    "command",
+				Command: "echo test",
+			},
+			wantContinue:             true,
+			wantDecision:             "",
+			wantReason:               "",
+			wantAdditionalCtx:        "No tool output replacement",
+			wantUpdatedMCPToolOutput: nil,
+			wantErr:                  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stubRunner := &stubRunnerWithOutput{
+				stdout:   tt.stubStdout,
+				stderr:   tt.stubStderr,
+				exitCode: tt.stubExitCode,
+			}
+			executor := NewActionExecutor(stubRunner)
+
+			input := &PostToolUseInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session-123",
+					HookEventName: "PostToolUse",
+				},
+				ToolName: "Write",
+			}
+			rawJSON := map[string]interface{}{
+				"session_id":      "test-session-123",
+				"hook_event_name": "PostToolUse",
+				"tool_name":       "Write",
+			}
+
+			result, err := executor.ExecutePostToolUseAction(tt.action, input, rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ExecutePostToolUseAction() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if result == nil {
+				t.Fatal("Expected non-nil ActionOutput, got nil")
+			}
+
+			if result.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", result.Continue, tt.wantContinue)
+			}
+
+			if result.Decision != tt.wantDecision {
+				t.Errorf("Decision = %v, want %v", result.Decision, tt.wantDecision)
+			}
+
+			if result.Reason != tt.wantReason {
+				t.Errorf("Reason = %v, want %v", result.Reason, tt.wantReason)
+			}
+
+			if result.AdditionalContext != tt.wantAdditionalCtx {
+				t.Errorf("AdditionalContext = %v, want %v", result.AdditionalContext, tt.wantAdditionalCtx)
+			}
+
+			// Compare UpdatedMCPToolOutput
+			if !reflect.DeepEqual(result.UpdatedMCPToolOutput, tt.wantUpdatedMCPToolOutput) {
+				t.Errorf("UpdatedMCPToolOutput = %v, want %v", result.UpdatedMCPToolOutput, tt.wantUpdatedMCPToolOutput)
 			}
 		})
 	}
