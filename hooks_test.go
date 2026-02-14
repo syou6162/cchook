@@ -2490,6 +2490,122 @@ func TestExecutePreToolUseHooksJSON_ProcessSubstitution(t *testing.T) {
 	}
 }
 
+func TestExecutePreToolUseHooksJSON_AdditionalContext(t *testing.T) {
+	tests := []struct {
+		name                   string
+		config                 *Config
+		input                  *PreToolUseInput
+		wantAdditionalContext  string
+		wantPermissionDecision string
+	}{
+		{
+			name: "Single action with additionalContext",
+			config: &Config{
+				PreToolUse: []PreToolUseHook{
+					{
+						Matcher: "Bash",
+						Actions: []Action{
+							{
+								Type:               "output",
+								Message:            "Operation allowed",
+								PermissionDecision: stringPtr("allow"),
+								AdditionalContext:  stringPtr("Current environment: production"),
+							},
+						},
+					},
+				},
+			},
+			input: &PreToolUseInput{
+				ToolName: "Bash",
+			},
+			wantAdditionalContext:  "Current environment: production",
+			wantPermissionDecision: "allow",
+		},
+		{
+			name: "Multiple actions - additionalContext concatenated with newline",
+			config: &Config{
+				PreToolUse: []PreToolUseHook{
+					{
+						Matcher: "Write",
+						Actions: []Action{
+							{
+								Type:               "output",
+								Message:            "First check",
+								PermissionDecision: stringPtr("allow"),
+								AdditionalContext:  stringPtr("Environment: staging"),
+							},
+						},
+					},
+					{
+						Matcher: "Write",
+						Actions: []Action{
+							{
+								Type:               "output",
+								Message:            "Second check",
+								PermissionDecision: stringPtr("allow"),
+								AdditionalContext:  stringPtr("User: admin"),
+							},
+						},
+					},
+				},
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+			},
+			wantAdditionalContext:  "Environment: staging\nUser: admin",
+			wantPermissionDecision: "allow",
+		},
+		{
+			name: "additionalContext empty - omitted from output",
+			config: &Config{
+				PreToolUse: []PreToolUseHook{
+					{
+						Matcher: "Edit",
+						Actions: []Action{
+							{
+								Type:               "output",
+								Message:            "Check passed",
+								PermissionDecision: stringPtr("allow"),
+							},
+						},
+					},
+				},
+			},
+			input: &PreToolUseInput{
+				ToolName: "Edit",
+			},
+			wantAdditionalContext:  "",
+			wantPermissionDecision: "allow",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rawJSON := map[string]interface{}{
+				"tool_name": tt.input.ToolName,
+			}
+
+			output, err := executePreToolUseHooksJSON(tt.config, tt.input, rawJSON)
+
+			if err != nil {
+				t.Fatalf("executePreToolUseHooksJSON() error = %v, want nil", err)
+			}
+
+			if output.HookSpecificOutput == nil {
+				t.Fatal("HookSpecificOutput should not be nil")
+			}
+
+			if output.HookSpecificOutput.AdditionalContext != tt.wantAdditionalContext {
+				t.Errorf("AdditionalContext = %q, want %q", output.HookSpecificOutput.AdditionalContext, tt.wantAdditionalContext)
+			}
+
+			if output.HookSpecificOutput.PermissionDecision != tt.wantPermissionDecision {
+				t.Errorf("PermissionDecision = %q, want %q", output.HookSpecificOutput.PermissionDecision, tt.wantPermissionDecision)
+			}
+		})
+	}
+}
+
 func TestExecutePostToolUseHooks_ProcessSubstitution(t *testing.T) {
 	// 標準エラー出力をキャプチャ
 	oldStderr := os.Stderr

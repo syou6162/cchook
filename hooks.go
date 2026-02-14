@@ -1698,6 +1698,7 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 	}
 
 	var reasonBuilder strings.Builder
+	var additionalContextBuilder strings.Builder
 	var systemMessageBuilder strings.Builder
 	hookEventName := ""
 	permissionDecision := "" // Empty = delegate to Claude Code's permission system
@@ -1770,6 +1771,14 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 			reasonBuilder.WriteString(actionOutput.PermissionDecisionReason)
 		}
 
+		// AdditionalContext: concatenate with "\n"
+		if actionOutput.AdditionalContext != "" {
+			if additionalContextBuilder.Len() > 0 {
+				additionalContextBuilder.WriteString("\n")
+			}
+			additionalContextBuilder.WriteString(actionOutput.AdditionalContext)
+		}
+
 		// SystemMessage: concatenate with "\n"
 		if actionOutput.SystemMessage != "" {
 			if systemMessageBuilder.Len() > 0 {
@@ -1821,6 +1830,7 @@ func executePreToolUseHooksJSON(config *Config, input *PreToolUseInput, rawJSON 
 			HookEventName:            hookEventName,
 			PermissionDecision:       permissionDecision,
 			PermissionDecisionReason: reasonBuilder.String(),
+			AdditionalContext:        additionalContextBuilder.String(),
 			UpdatedInput:             updatedInput,
 		}
 	}
@@ -1915,6 +1925,7 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 	}
 
 	var reasonBuilder strings.Builder
+	var additionalContextBuilder strings.Builder
 	var systemMessageBuilder strings.Builder
 	var updatedInput map[string]interface{}
 
@@ -1949,6 +1960,14 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 			reasonBuilder.WriteString(actionOutput.PermissionDecisionReason)
 		}
 
+		// AdditionalContext: concatenate with "\n"
+		if actionOutput.AdditionalContext != "" {
+			if additionalContextBuilder.Len() > 0 {
+				additionalContextBuilder.WriteString("\n")
+			}
+			additionalContextBuilder.WriteString(actionOutput.AdditionalContext)
+		}
+
 		// SystemMessage: concatenate with "\n"
 		if actionOutput.SystemMessage != "" {
 			if systemMessageBuilder.Len() > 0 {
@@ -1980,6 +1999,7 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 	// This prevents empty ActionOutput from overwriting previous hooks' decisions
 	if output.PermissionDecision == "" &&
 		reasonBuilder.Len() == 0 &&
+		additionalContextBuilder.Len() == 0 &&
 		systemMessageBuilder.Len() == 0 &&
 		updatedInput == nil &&
 		output.StopReason == "" &&
@@ -1989,6 +2009,7 @@ func executePreToolUseHook(executor *ActionExecutor, hook PreToolUseHook, input 
 
 	// Build final output
 	output.PermissionDecisionReason = reasonBuilder.String()
+	output.AdditionalContext = additionalContextBuilder.String()
 	output.SystemMessage = systemMessageBuilder.String()
 	output.UpdatedInput = updatedInput
 

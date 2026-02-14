@@ -1055,6 +1055,7 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 			Continue:                 true,
 			PermissionDecision:       permissionDecision,
 			PermissionDecisionReason: cmdOutput.HookSpecificOutput.PermissionDecisionReason,
+			AdditionalContext:        cmdOutput.HookSpecificOutput.AdditionalContext,
 			UpdatedInput:             cmdOutput.HookSpecificOutput.UpdatedInput,
 			StopReason:               cmdOutput.StopReason,
 			SuppressOutput:           cmdOutput.SuppressOutput,
@@ -1096,11 +1097,18 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 			permissionDecision = *action.PermissionDecision
 		}
 
+		// Process additional_context if present
+		var additionalContext string
+		if action.AdditionalContext != nil {
+			additionalContext = unifiedTemplateReplace(*action.AdditionalContext, rawJSON)
+		}
+
 		return &ActionOutput{
 			Continue:                 true,
 			PermissionDecision:       permissionDecision,
 			HookEventName:            "PreToolUse",
 			PermissionDecisionReason: processedMessage,
+			AdditionalContext:        additionalContext,
 		}, nil
 	}
 

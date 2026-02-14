@@ -885,6 +885,7 @@ func TestExecutePreToolUseAction_TypeOutput(t *testing.T) {
 		input                        *PreToolUseInput
 		wantPermissionDecision       string
 		wantPermissionDecisionReason string
+		wantAdditionalContext        string
 		wantSystemMessage            string
 		wantHookEventName            string
 	}{
@@ -975,6 +976,37 @@ func TestExecutePreToolUseAction_TypeOutput(t *testing.T) {
 			wantSystemMessage:      "Action output has no message",
 			wantHookEventName:      "PreToolUse",
 		},
+		{
+			name: "additional_context set -> reflected in AdditionalContext",
+			action: Action{
+				Type:               "output",
+				Message:            "Operation allowed",
+				PermissionDecision: stringPtr("allow"),
+				AdditionalContext:  stringPtr("Current environment: production"),
+			},
+			input: &PreToolUseInput{
+				ToolName: "Bash",
+			},
+			wantPermissionDecision:       "allow",
+			wantPermissionDecisionReason: "Operation allowed",
+			wantAdditionalContext:        "Current environment: production",
+			wantHookEventName:            "PreToolUse",
+		},
+		{
+			name: "additional_context omitted -> AdditionalContext empty",
+			action: Action{
+				Type:               "output",
+				Message:            "Operation allowed",
+				PermissionDecision: stringPtr("allow"),
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+			},
+			wantPermissionDecision:       "allow",
+			wantPermissionDecisionReason: "Operation allowed",
+			wantAdditionalContext:        "",
+			wantHookEventName:            "PreToolUse",
+		},
 	}
 
 	for _, tt := range tests {
@@ -1001,6 +1033,10 @@ func TestExecutePreToolUseAction_TypeOutput(t *testing.T) {
 
 			if output.PermissionDecisionReason != tt.wantPermissionDecisionReason {
 				t.Errorf("PermissionDecisionReason mismatch. Got %q, want %q", output.PermissionDecisionReason, tt.wantPermissionDecisionReason)
+			}
+
+			if output.AdditionalContext != tt.wantAdditionalContext {
+				t.Errorf("AdditionalContext mismatch. Got %q, want %q", output.AdditionalContext, tt.wantAdditionalContext)
 			}
 
 			if output.SystemMessage != tt.wantSystemMessage {
@@ -1031,6 +1067,7 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 		commandErr                   error
 		wantPermissionDecision       string
 		wantPermissionDecisionReason string
+		wantAdditionalContext        string
 		wantUpdatedInput             map[string]interface{}
 		wantSystemMessage            string
 		wantHookEventName            string
@@ -1341,6 +1378,49 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 			wantSystemMessage:      "Command failed with exit code 1: explicit error message",
 			wantHookEventName:      "PreToolUse",
 		},
+		{
+			name: "Command JSON output with additionalContext -> reflected in ActionOutput",
+			action: Action{
+				Type:    "command",
+				Command: "check-env.sh",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Bash",
+			},
+			commandOutput: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PreToolUse",
+					"permissionDecision": "allow",
+					"additionalContext": "Current environment: production"
+				}
+			}`,
+			commandExitCode:        0,
+			wantPermissionDecision: "allow",
+			wantAdditionalContext:  "Current environment: production",
+			wantHookEventName:      "PreToolUse",
+		},
+		{
+			name: "Command JSON output without additionalContext -> AdditionalContext empty",
+			action: Action{
+				Type:    "command",
+				Command: "validator.sh",
+			},
+			input: &PreToolUseInput{
+				ToolName: "Write",
+			},
+			commandOutput: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "PreToolUse",
+					"permissionDecision": "allow"
+				}
+			}`,
+			commandExitCode:        0,
+			wantPermissionDecision: "allow",
+			wantAdditionalContext:  "",
+			wantHookEventName:      "PreToolUse",
+		},
 	}
 
 	for _, tt := range tests {
@@ -1373,6 +1453,10 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 
 			if output.PermissionDecisionReason != tt.wantPermissionDecisionReason {
 				t.Errorf("PermissionDecisionReason mismatch. Got %q, want %q", output.PermissionDecisionReason, tt.wantPermissionDecisionReason)
+			}
+
+			if output.AdditionalContext != tt.wantAdditionalContext {
+				t.Errorf("AdditionalContext mismatch. Got %q, want %q", output.AdditionalContext, tt.wantAdditionalContext)
 			}
 
 			if tt.wantSystemMessage != "" && !stringContains2(output.SystemMessage, tt.wantSystemMessage) {
