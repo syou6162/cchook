@@ -912,9 +912,187 @@ func TestExecutePreCompactHooks(t *testing.T) {
 	config := &Config{}
 	input := &PreCompactInput{}
 
-	err := executePreCompactHooks(config, input, nil)
+	output, err := executePreCompactHooksJSON(config, input, nil)
 	if err != nil {
-		t.Errorf("executePreCompactHooks() error = %v, expected nil", err)
+		t.Errorf("executePreCompactHooksJSON() error = %v, expected nil", err)
+	}
+	if output == nil {
+		t.Fatal("executePreCompactHooksJSON() returned nil output")
+	}
+	if !output.Continue {
+		t.Error("executePreCompactHooksJSON() Continue = false, expected true")
+	}
+}
+
+func TestExecutePreCompactHooksJSON(t *testing.T) {
+	tests := []struct {
+		name              string
+		config            *Config
+		input             *PreCompactInput
+		rawJSON           interface{}
+		wantContinue      bool
+		wantSystemMessage string
+		wantErr           bool
+	}{
+		{
+			name:         "1. No hooks configured",
+			config:       &Config{},
+			input:        &PreCompactInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PreCompact}, Trigger: "manual"},
+			rawJSON:      map[string]interface{}{},
+			wantContinue: true,
+			wantErr:      false,
+		},
+		{
+			name: "2. Output action with message",
+			config: &Config{
+				PreCompact: []PreCompactHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Pre-compaction processing",
+							},
+						},
+					},
+				},
+			},
+			input:             &PreCompactInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PreCompact}, Trigger: "manual"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantSystemMessage: "Pre-compaction processing",
+			wantErr:           false,
+		},
+		{
+			name: "3. Multiple actions - systemMessage concatenated",
+			config: &Config{
+				PreCompact: []PreCompactHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "First message",
+							},
+							{
+								Type:    "output",
+								Message: "Second message",
+							},
+						},
+					},
+				},
+			},
+			input:             &PreCompactInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PreCompact}, Trigger: "auto"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantSystemMessage: "First message\nSecond message",
+			wantErr:           false,
+		},
+		{
+			name: "4. Matcher check - manual matches",
+			config: &Config{
+				PreCompact: []PreCompactHook{
+					{
+						Matcher: "manual",
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Manual trigger action",
+							},
+						},
+					},
+				},
+			},
+			input:             &PreCompactInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PreCompact}, Trigger: "manual"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantSystemMessage: "Manual trigger action",
+			wantErr:           false,
+		},
+		{
+			name: "5. Matcher check - auto matches",
+			config: &Config{
+				PreCompact: []PreCompactHook{
+					{
+						Matcher: "auto",
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Auto trigger action",
+							},
+						},
+					},
+				},
+			},
+			input:             &PreCompactInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PreCompact}, Trigger: "auto"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantSystemMessage: "Auto trigger action",
+			wantErr:           false,
+		},
+		{
+			name: "6. Matcher check - no match (should skip)",
+			config: &Config{
+				PreCompact: []PreCompactHook{
+					{
+						Matcher: "manual",
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Should not appear",
+							},
+						},
+					},
+				},
+			},
+			input:             &PreCompactInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PreCompact}, Trigger: "auto"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "7. Matcher check - empty matcher (should execute)",
+			config: &Config{
+				PreCompact: []PreCompactHook{
+					{
+						Matcher: "",
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Empty matcher executes",
+							},
+						},
+					},
+				},
+			},
+			input:             &PreCompactInput{BaseInput: BaseInput{SessionID: "test", HookEventName: PreCompact}, Trigger: "manual"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantSystemMessage: "Empty matcher executes",
+			wantErr:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output, err := executePreCompactHooksJSON(tt.config, tt.input, tt.rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("executePreCompactHooksJSON() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if output == nil {
+				t.Fatal("executePreCompactHooksJSON() returned nil output")
+			}
+
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			if output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+		})
 	}
 }
 

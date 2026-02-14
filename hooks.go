@@ -39,7 +39,8 @@ func runHooks(config *Config, eventType HookEventType) error {
 		if err != nil {
 			return err
 		}
-		return executePreCompactHooks(config, input, rawJSON)
+		_, err = executePreCompactHooksJSON(config, input, rawJSON)
+		return err
 	case SessionStart:
 		input, rawJSON, err := parseInput[*SessionStartInput](eventType)
 		if err != nil {
@@ -397,6 +398,11 @@ func dryRunPreCompactHooks(config *Config, input *PreCompactInput, rawJSON inter
 
 	executed := false
 	for i, hook := range config.PreCompact {
+		// マッチャーチェック (manual/auto)
+		if hook.Matcher != "" && hook.Matcher != input.Trigger {
+			continue
+		}
+
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
@@ -1103,11 +1109,29 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 }
 
 // executePreCompactHooks executes all matching PreCompact hooks based on condition checks.
-func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON interface{}) error {
+func executePreCompactHooksJSON(config *Config, input *PreCompactInput, rawJSON interface{}) (*PreCompactOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
+	var actionErrors []error
+
+	// Initialize finalOutput: Continue always true (compaction cannot be blocked)
+	finalOutput := &PreCompactOutput{
+		Continue: true,
+	}
+
+	var systemMessageBuilder strings.Builder
 
 	for i, hook := range config.PreCompact {
+		// マッチャーチェック (manual/auto)
+		if hook.Matcher != "" && hook.Matcher != input.Trigger {
+			continue
+		}
+
+		// Warn about invalid matcher values (early detection of configuration mistakes)
+		if hook.Matcher != "" && hook.Matcher != "manual" && hook.Matcher != "auto" {
+			fmt.Fprintf(os.Stderr, "Warning: PreCompact hook %d has invalid matcher value %q (expected: \"manual\", \"auto\", or empty)\n", i, hook.Matcher)
+		}
+
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
@@ -1128,34 +1152,67 @@ func executePreCompactHooks(config *Config, input *PreCompactInput, rawJSON inte
 		}
 
 		for _, action := range hook.Actions {
-			// Note: This function will be replaced by executePreCompactHooksJSON in Step 4
-			// For now, we ignore the ActionOutput since this is the old exit-code-based implementation
-			_, err := executor.ExecutePreCompactAction(action, input, rawJSON)
+			actionOutput, err := executor.ExecutePreCompactAction(action, input, rawJSON)
 			if err != nil {
-				if exitErr, ok := err.(*ExitError); ok {
-					actionErr := &ExitError{
-						Code:    exitErr.Code,
-						Message: fmt.Sprintf("PreCompact hook %d failed: %s", i, exitErr.Message),
-						Stderr:  exitErr.Stderr,
-					}
-					if len(conditionErrors) > 0 {
-						return errors.Join(append(conditionErrors, actionErr)...)
-					}
-					return actionErr
-				}
-				actionErr := fmt.Errorf("PreCompact hook %d failed: %w", i, err)
-				if len(conditionErrors) > 0 {
-					return errors.Join(append(conditionErrors, actionErr)...)
-				}
-				return actionErr
+				actionErrors = append(actionErrors, fmt.Errorf("pre compact hook %d action failed: %w", i, err))
+				continue
 			}
+
+			if actionOutput == nil {
+				continue
+			}
+
+			// SystemMessage: 改行連結
+			if actionOutput.SystemMessage != "" {
+				if systemMessageBuilder.Len() > 0 {
+					systemMessageBuilder.WriteString("\n")
+				}
+				systemMessageBuilder.WriteString(actionOutput.SystemMessage)
+			}
+
+			// StopReason: 最後の非空値が勝ち
+			if actionOutput.StopReason != "" {
+				finalOutput.StopReason = actionOutput.StopReason
+			}
+
+			// SuppressOutput: 最後の値が勝ち
+			finalOutput.SuppressOutput = actionOutput.SuppressOutput
 		}
 	}
 
-	if len(conditionErrors) > 0 {
-		return errors.Join(conditionErrors...)
+	finalOutput.SystemMessage = systemMessageBuilder.String()
+
+	// Collect all errors
+	var allErrors []error
+	allErrors = append(allErrors, conditionErrors...)
+
+	// アクションエラーがある場合はfail-safe: systemMessageに追加
+	if len(actionErrors) > 0 {
+		errorMsg := errors.Join(actionErrors...).Error()
+		if finalOutput.SystemMessage != "" {
+			finalOutput.SystemMessage += "\n" + errorMsg
+		} else {
+			finalOutput.SystemMessage = errorMsg
+		}
+
+		allErrors = append(allErrors, actionErrors...)
 	}
-	return nil
+
+	if len(allErrors) > 0 {
+		return finalOutput, errors.Join(allErrors...)
+	}
+
+	return finalOutput, nil
+}
+
+// RunPreCompactHooks is the public wrapper for PreCompact hook execution.
+// It parses input from stdin and executes matching hooks, returning PreCompactOutput for JSON serialization.
+func RunPreCompactHooks(config *Config) (*PreCompactOutput, error) {
+	input, rawJSON, err := parseInput[*PreCompactInput](PreCompact)
+	if err != nil {
+		return nil, err
+	}
+	return executePreCompactHooksJSON(config, input, rawJSON)
 }
 
 // executeSessionStartHooks executes all matching SessionStart hooks based on matcher and condition checks.
