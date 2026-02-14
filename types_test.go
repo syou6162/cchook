@@ -417,6 +417,122 @@ func TestSessionEndParsing(t *testing.T) {
 	}
 }
 
+func TestSubagentStartParsing(t *testing.T) {
+	tests := []struct {
+		name      string
+		jsonInput string
+		want      SubagentStartInput
+	}{
+		{
+			name: "Explore agent",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/transcript.json",
+				"hook_event_name": "SubagentStart",
+				"agent_id": "agent-explore-001",
+				"agent_type": "Explore"
+			}`,
+			want: SubagentStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "abc123",
+					TranscriptPath: "/tmp/transcript.json",
+					HookEventName:  SubagentStart,
+				},
+				AgentID:   "agent-explore-001",
+				AgentType: "Explore",
+			},
+		},
+		{
+			name: "Bash agent",
+			jsonInput: `{
+				"session_id": "def456",
+				"transcript_path": "/tmp/transcript2.json",
+				"hook_event_name": "SubagentStart",
+				"agent_id": "agent-bash-002",
+				"agent_type": "Bash"
+			}`,
+			want: SubagentStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "def456",
+					TranscriptPath: "/tmp/transcript2.json",
+					HookEventName:  SubagentStart,
+				},
+				AgentID:   "agent-bash-002",
+				AgentType: "Bash",
+			},
+		},
+		{
+			name: "Custom agent",
+			jsonInput: `{
+				"session_id": "ghi789",
+				"transcript_path": "/tmp/transcript3.json",
+				"hook_event_name": "SubagentStart",
+				"agent_id": "agent-custom-003",
+				"agent_type": "my-custom-agent"
+			}`,
+			want: SubagentStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "ghi789",
+					TranscriptPath: "/tmp/transcript3.json",
+					HookEventName:  SubagentStart,
+				},
+				AgentID:   "agent-custom-003",
+				AgentType: "my-custom-agent",
+			},
+		},
+		{
+			name: "With permission_mode",
+			jsonInput: `{
+				"session_id": "jkl012",
+				"transcript_path": "/tmp/transcript4.json",
+				"hook_event_name": "SubagentStart",
+				"permission_mode": "plan",
+				"agent_id": "agent-plan-004",
+				"agent_type": "Plan"
+			}`,
+			want: SubagentStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "jkl012",
+					TranscriptPath: "/tmp/transcript4.json",
+					HookEventName:  SubagentStart,
+					PermissionMode: "plan",
+				},
+				AgentID:   "agent-plan-004",
+				AgentType: "Plan",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var input SubagentStartInput
+			err := json.Unmarshal([]byte(tt.jsonInput), &input)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal JSON: %v", err)
+			}
+
+			if input.SessionID != tt.want.SessionID {
+				t.Errorf("SessionID: expected %s, got %s", tt.want.SessionID, input.SessionID)
+			}
+			if input.TranscriptPath != tt.want.TranscriptPath {
+				t.Errorf("TranscriptPath: expected %s, got %s", tt.want.TranscriptPath, input.TranscriptPath)
+			}
+			if input.HookEventName != tt.want.HookEventName {
+				t.Errorf("HookEventName: expected %s, got %s", tt.want.HookEventName, input.HookEventName)
+			}
+			if input.PermissionMode != tt.want.PermissionMode {
+				t.Errorf("PermissionMode: expected %s, got %s", tt.want.PermissionMode, input.PermissionMode)
+			}
+			if input.AgentID != tt.want.AgentID {
+				t.Errorf("AgentID: expected %s, got %s", tt.want.AgentID, input.AgentID)
+			}
+			if input.AgentType != tt.want.AgentType {
+				t.Errorf("AgentType: expected %s, got %s", tt.want.AgentType, input.AgentType)
+			}
+		})
+	}
+}
+
 func TestAction_UnmarshalYAML(t *testing.T) {
 	tests := []struct {
 		name         string
