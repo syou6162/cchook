@@ -521,6 +521,8 @@ PostToolUse:
   - When Claude Code session ends
 - `SubagentStop`
   - When a subagent terminates
+- `SubagentStart`
+  - When a subagent starts (can filter by agent type with matcher)
 - `Notification`
   - System notifications
 - `PreCompact`
@@ -632,7 +634,7 @@ All conditions return proper error messages for unknown condition types, ensurin
 
 ### Exit Status Control
 
-**JSON Output Events** (SessionStart, UserPromptSubmit, PreToolUse, Stop, SubagentStop, PostToolUse, PreCompact, SessionEnd, Notification):
+**JSON Output Events** (SessionStart, UserPromptSubmit, PreToolUse, Stop, SubagentStop, SubagentStart, PostToolUse, PreCompact, SessionEnd, Notification):
 - Always exit with code 0
 - Control behavior via JSON fields (`decision`, `permissionDecision`, etc.)
 - Errors logged to stderr as warnings

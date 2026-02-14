@@ -170,6 +170,44 @@ func TestGetDefaultConfigPath(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_SubagentStart(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	configContent := `
+SubagentStart:
+  - matcher: "Explore"
+    conditions:
+      - type: cwd_is
+        value: "/test/path"
+    actions:
+      - type: output
+        message: "Explore agent started"
+`
+
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to create test config file: %v", err)
+	}
+
+	config, err := loadConfig(configPath)
+	if err != nil {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+
+	// SubagentStart設定の検証
+	if len(config.SubagentStart) != 1 {
+		t.Errorf("Expected 1 SubagentStart hook, got %d", len(config.SubagentStart))
+	}
+
+	if config.SubagentStart[0].Matcher != "Explore" {
+		t.Errorf("Expected matcher 'Explore', got '%s'", config.SubagentStart[0].Matcher)
+	}
+
+	if len(config.SubagentStart[0].Actions) != 1 {
+		t.Errorf("Expected 1 action, got %d", len(config.SubagentStart[0].Actions))
+	}
+}
+
 func TestLoadConfig_DefaultPath(t *testing.T) {
 	// デフォルトパスでの読み込み（ファイルが存在しない場合のエラー）
 	// 存在しないパスを明示的に指定してテスト

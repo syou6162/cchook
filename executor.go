@@ -143,6 +143,126 @@ func (e *ActionExecutor) ExecuteNotificationAction(action Action, input *Notific
 	return nil, nil
 }
 
+// ExecuteSubagentStartAction executes an action for the SubagentStart event and returns JSON output.
+// Similar to Notification, SubagentStart uses hookSpecificOutput with additionalContext.
+func (e *ActionExecutor) ExecuteSubagentStartAction(action Action, input *SubagentStartInput, rawJSON interface{}) (*ActionOutput, error) {
+	switch action.Type {
+	case "command":
+		cmd := unifiedTemplateReplace(action.Command, rawJSON)
+		stdout, stderr, exitCode, err := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
+
+		// Command failed with non-zero exit code
+		if exitCode != 0 {
+			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			if strings.TrimSpace(stderr) == "" && err != nil {
+				errMsg = fmt.Sprintf("Command failed with exit code %d: %v", exitCode, err)
+			}
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Empty stdout - Allow for validation-type CLI tools
+		if strings.TrimSpace(stdout) == "" {
+			return &ActionOutput{
+				Continue:      true,
+				HookEventName: "SubagentStart",
+			}, nil
+		}
+
+		// Parse JSON output
+		var cmdOutput SubagentStartOutput
+		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			errMsg := fmt.Sprintf("Command output is not valid JSON: %s", stdout)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Complement hookSpecificOutput with default if missing (spec marks it optional)
+		if cmdOutput.HookSpecificOutput == nil {
+			cmdOutput.HookSpecificOutput = &SubagentStartHookSpecificOutput{
+				HookEventName: "SubagentStart",
+			}
+		} else if cmdOutput.HookSpecificOutput.HookEventName == "" {
+			// hookSpecificOutput exists but hookEventName is missing - this is invalid
+			errMsg := "Command output has hookSpecificOutput but missing hookEventName"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Validate against JSON Schema (using complemented data)
+		complementedJSON, err := json.Marshal(cmdOutput)
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to marshal complemented output: %s", err.Error())
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
+		}
+		if err := validateSubagentStartOutput(complementedJSON); err != nil {
+			errMsg := fmt.Sprintf("Command output validation failed: %s", err.Error())
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Check for unsupported fields and log warnings to stderr
+		checkUnsupportedFieldsSubagentStart(stdout)
+
+		// Build ActionOutput from parsed JSON
+		result := &ActionOutput{
+			Continue:       cmdOutput.Continue,
+			HookEventName:  cmdOutput.HookSpecificOutput.HookEventName,
+			SystemMessage:  cmdOutput.SystemMessage,
+			StopReason:     cmdOutput.StopReason,
+			SuppressOutput: cmdOutput.SuppressOutput,
+		}
+
+		// Set AdditionalContext
+		result.AdditionalContext = cmdOutput.HookSpecificOutput.AdditionalContext
+
+		return result, err
+
+	case "output":
+		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
+
+		// Empty message check
+		if strings.TrimSpace(processedMessage) == "" {
+			errMsg := "Action output has no message"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      false,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Determine continue value: default to true if unspecified
+		continueValue := true
+		if action.Continue != nil {
+			continueValue = *action.Continue
+		}
+
+		return &ActionOutput{
+			Continue:          continueValue,
+			HookEventName:     "SubagentStart",
+			AdditionalContext: processedMessage,
+		}, nil
+	}
+
+	return nil, nil
+}
+
 // ExecuteStopAction executes an action for the Stop event.
 // Returns ActionOutput for JSON serialization with decision/reason fields.
 // Stop hooks use top-level decision pattern (no hookSpecificOutput).
@@ -1350,6 +1470,30 @@ func checkUnsupportedFieldsNotification(stdout string) {
 	for field := range data {
 		if !supportedFields[field] {
 			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for Notification hooks\n", field)
+		}
+	}
+}
+
+// checkUnsupportedFieldsSubagentStart checks for unsupported fields in SubagentStart JSON output
+// and logs warnings to stderr for any fields that are not in the supported list.
+func checkUnsupportedFieldsSubagentStart(stdout string) {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+		// JSON parsing failed - this will be caught by the main validation
+		return
+	}
+
+	supportedFields := map[string]bool{
+		"continue":           true,
+		"stopReason":         true,
+		"suppressOutput":     true,
+		"systemMessage":      true,
+		"hookSpecificOutput": true,
+	}
+
+	for field := range data {
+		if !supportedFields[field] {
+			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for SubagentStart hooks\n", field)
 		}
 	}
 }

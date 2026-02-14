@@ -24,6 +24,7 @@ const (
 	Notification      HookEventType = "Notification"
 	Stop              HookEventType = "Stop"
 	SubagentStop      HookEventType = "SubagentStop"
+	SubagentStart     HookEventType = "SubagentStart"
 	PreCompact        HookEventType = "PreCompact"
 	SessionStart      HookEventType = "SessionStart"
 	SessionEnd        HookEventType = "SessionEnd"
@@ -33,7 +34,7 @@ const (
 // IsValid validates whether the HookEventType is a recognized event type.
 func (e HookEventType) IsValid() bool {
 	switch e {
-	case PreToolUse, PostToolUse, PermissionRequest, Notification, Stop, SubagentStop, PreCompact, SessionStart, SessionEnd, UserPromptSubmit:
+	case PreToolUse, PostToolUse, PermissionRequest, Notification, Stop, SubagentStop, SubagentStart, PreCompact, SessionStart, SessionEnd, UserPromptSubmit:
 		return true
 	default:
 		return false
@@ -186,6 +187,37 @@ type SessionStartOutput struct {
 
 // SessionStartHookSpecificOutput はSessionStart固有の出力フィールド
 type SessionStartHookSpecificOutput struct {
+	HookEventName     string `json:"hookEventName"`
+	AdditionalContext string `json:"additionalContext,omitempty"`
+}
+
+// SubagentStart入力用の構造体
+
+// SubagentStartInput はSubagentStartフックの入力JSONを表す
+type SubagentStartInput struct {
+	BaseInput
+	AgentID   string `json:"agent_id"`
+	AgentType string `json:"agent_type"`
+}
+
+// GetToolName returns an empty string as SubagentStart events have no associated tool.
+func (s *SubagentStartInput) GetToolName() string {
+	return ""
+}
+
+// SubagentStart JSON出力用の構造体
+
+// SubagentStartOutput はSubagentStartフックのJSON出力全体を表す（Claude Code共通フィールド含む）
+type SubagentStartOutput struct {
+	Continue           bool                             `json:"continue"`
+	StopReason         string                           `json:"stopReason,omitempty"`
+	SuppressOutput     bool                             `json:"suppressOutput,omitempty"`
+	SystemMessage      string                           `json:"systemMessage,omitempty"`
+	HookSpecificOutput *SubagentStartHookSpecificOutput `json:"hookSpecificOutput"`
+}
+
+// SubagentStartHookSpecificOutput はSubagentStart固有の出力フィールド
+type SubagentStartHookSpecificOutput struct {
 	HookEventName     string `json:"hookEventName"`
 	AdditionalContext string `json:"additionalContext,omitempty"`
 }
@@ -401,6 +433,13 @@ type SessionStartHook struct {
 	Actions    []Action    `yaml:"actions"`
 }
 
+// SubagentStartHook はSubagentStartフックの設定
+type SubagentStartHook struct {
+	Matcher    string      `yaml:"matcher"` // agent type (Bash, Explore, Plan, or custom agent names)
+	Conditions []Condition `yaml:"conditions,omitempty"`
+	Actions    []Action    `yaml:"actions"`
+}
+
 type UserPromptSubmitHook struct {
 	Conditions []Condition `yaml:"conditions,omitempty"`
 	Actions    []Action    `yaml:"actions"`
@@ -543,6 +582,7 @@ type Config struct {
 	Notification      []NotificationHook      `yaml:"Notification,omitempty"`
 	Stop              []StopHook              `yaml:"Stop,omitempty"`
 	SubagentStop      []SubagentStopHook      `yaml:"SubagentStop,omitempty"`
+	SubagentStart     []SubagentStartHook     `yaml:"SubagentStart,omitempty"`
 	PreCompact        []PreCompactHook        `yaml:"PreCompact,omitempty"`
 	SessionStart      []SessionStartHook      `yaml:"SessionStart,omitempty"`
 	SessionEnd        []SessionEndHook        `yaml:"SessionEnd,omitempty"`

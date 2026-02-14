@@ -34,6 +34,13 @@ func runHooks(config *Config, eventType HookEventType) error {
 		}
 		_, err = executeSubagentStopHooks(config, input, rawJSON)
 		return err
+	case SubagentStart:
+		input, rawJSON, err := parseInput[*SubagentStartInput](eventType)
+		if err != nil {
+			return err
+		}
+		_, err = executeSubagentStartHooksJSON(config, input, rawJSON)
+		return err
 	case PreCompact:
 		input, rawJSON, err := parseInput[*PreCompactInput](eventType)
 		if err != nil {
@@ -131,6 +138,12 @@ func dryRunHooks(config *Config, eventType HookEventType) error {
 			return err
 		}
 		return dryRunSubagentStopHooks(config, input, rawJSON)
+	case SubagentStart:
+		input, rawJSON, err := parseInput[*SubagentStartInput](eventType)
+		if err != nil {
+			return err
+		}
+		return dryRunSubagentStartHooks(config, input, rawJSON)
 	case PreCompact:
 		input, rawJSON, err := parseInput[*PreCompactInput](eventType)
 		if err != nil {
@@ -265,6 +278,64 @@ func dryRunNotificationHooks(config *Config, input *NotificationInput, rawJSON i
 
 		executed = true
 		fmt.Printf("[Hook %d] Would execute:\n", i+1)
+		for _, action := range hook.Actions {
+			switch action.Type {
+			case "command":
+				cmd := unifiedTemplateReplace(action.Command, rawJSON)
+				fmt.Printf("  Command: %s\n", cmd)
+				if action.UseStdin {
+					fmt.Printf("  UseStdin: true\n")
+				}
+			case "output":
+				fmt.Printf("  Message: %s\n", action.Message)
+			}
+		}
+	}
+
+	if !executed {
+		fmt.Println("No hooks would be executed")
+	}
+	return nil
+}
+
+// dryRunSubagentStartHooks performs a dry-run of SubagentStart hooks, showing what would be executed without actually running.
+// Includes matcher check on agent_type.
+func dryRunSubagentStartHooks(config *Config, input *SubagentStartInput, rawJSON interface{}) error {
+	fmt.Println("=== SubagentStart Hooks (Dry Run) ===")
+
+	if len(config.SubagentStart) == 0 {
+		fmt.Println("No SubagentStart hooks configured")
+		return nil
+	}
+
+	executed := false
+	for i, hook := range config.SubagentStart {
+		// Matcher check (agent type filter)
+		if !checkMatcher(hook.Matcher, input.AgentType) {
+			continue
+		}
+
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			matched, err := checkSubagentStartCondition(condition, input)
+			if err != nil {
+				fmt.Printf("[Hook %d] Condition check error: %v\n", i+1, err)
+				shouldExecute = false
+				break
+			}
+			if !matched {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+
+		executed = true
+		fmt.Printf("[Hook %d] Would execute:\n", i+1)
+		fmt.Printf("  Matcher: %s\n", hook.Matcher)
 		for _, action := range hook.Actions {
 			switch action.Type {
 			case "command":
@@ -686,6 +757,141 @@ func RunNotificationHooks(config *Config) (*NotificationOutput, error) {
 	}
 
 	return executeNotificationHooksJSON(config, input, rawJSON)
+}
+
+// executeSubagentStartHooksJSON executes all matching SubagentStart hooks and returns JSON output.
+// Similar to Notification, SubagentStart uses hookSpecificOutput with additionalContext.
+// Includes matcher check on agent_type.
+func executeSubagentStartHooksJSON(config *Config, input *SubagentStartInput, rawJSON interface{}) (*SubagentStartOutput, error) {
+	executor := NewActionExecutor(nil)
+	var conditionErrors []error
+	var actionErrors []error
+
+	// Initialize finalOutput with Continue: true (forced for SubagentStart)
+	finalOutput := &SubagentStartOutput{
+		Continue: true,
+	}
+
+	var additionalContextBuilder strings.Builder
+	var systemMessageBuilder strings.Builder
+	hookEventName := ""
+
+	for i, hook := range config.SubagentStart {
+		// Matcher check (agent type filter)
+		if !checkMatcher(hook.Matcher, input.AgentType) {
+			continue
+		}
+
+		// 条件チェック
+		shouldExecute := true
+		for _, condition := range hook.Conditions {
+			matched, err := checkSubagentStartCondition(condition, input)
+			if err != nil {
+				conditionErrors = append(conditionErrors,
+					fmt.Errorf("hook[SubagentStart][%d]: %w", i, err))
+				shouldExecute = false
+				break
+			}
+			if !matched {
+				shouldExecute = false
+				break
+			}
+		}
+		if !shouldExecute {
+			continue
+		}
+
+		for _, action := range hook.Actions {
+			actionOutput, err := executor.ExecuteSubagentStartAction(action, input, rawJSON)
+			if err != nil {
+				actionErrors = append(actionErrors, fmt.Errorf("SubagentStart hook %d action failed: %w", i, err))
+				continue
+			}
+
+			if actionOutput == nil {
+				continue
+			}
+
+			// Update finalOutput fields following merge rules
+
+			// Continue: Always force to true (ignore action result - SubagentStart cannot block)
+			finalOutput.Continue = true
+
+			// HookEventName: set once and preserve
+			if hookEventName == "" && actionOutput.HookEventName != "" {
+				hookEventName = actionOutput.HookEventName
+			}
+
+			// AdditionalContext: concatenate with "\n"
+			if actionOutput.AdditionalContext != "" {
+				if additionalContextBuilder.Len() > 0 {
+					additionalContextBuilder.WriteString("\n")
+				}
+				additionalContextBuilder.WriteString(actionOutput.AdditionalContext)
+			}
+
+			// SystemMessage: concatenate with "\n"
+			if actionOutput.SystemMessage != "" {
+				if systemMessageBuilder.Len() > 0 {
+					systemMessageBuilder.WriteString("\n")
+				}
+				systemMessageBuilder.WriteString(actionOutput.SystemMessage)
+			}
+
+			// StopReason: 最後の非空値が勝ち
+			if actionOutput.StopReason != "" {
+				finalOutput.StopReason = actionOutput.StopReason
+			}
+
+			// SuppressOutput: 最後の値が勝ち
+			finalOutput.SuppressOutput = actionOutput.SuppressOutput
+
+			// No early return for SubagentStart (cannot block)
+		}
+	}
+
+	// Build final output
+	// Always set hookEventName to "SubagentStart"
+	if hookEventName == "" {
+		hookEventName = "SubagentStart"
+	}
+	finalOutput.HookSpecificOutput = &SubagentStartHookSpecificOutput{
+		HookEventName:     hookEventName,
+		AdditionalContext: additionalContextBuilder.String(),
+	}
+
+	finalOutput.SystemMessage = systemMessageBuilder.String()
+
+	// Collect all errors
+	var allErrors []error
+	allErrors = append(allErrors, conditionErrors...)
+	allErrors = append(allErrors, actionErrors...)
+
+	if len(allErrors) > 0 {
+		// Continue remains true (SubagentStart cannot block)
+		// Add error info to SystemMessage for graceful degradation
+		errorMsg := errors.Join(allErrors...).Error()
+		if finalOutput.SystemMessage != "" {
+			finalOutput.SystemMessage += "\n" + errorMsg
+		} else {
+			finalOutput.SystemMessage = errorMsg
+		}
+		// Return error to trigger stderr warning in main.go
+		return finalOutput, errors.Join(allErrors...)
+	}
+
+	return finalOutput, nil
+}
+
+// RunSubagentStartHooks is the wrapper function called from main.go.
+// It delegates to executeSubagentStartHooksJSON.
+func RunSubagentStartHooks(config *Config) (*SubagentStartOutput, error) {
+	input, rawJSON, err := parseInput[*SubagentStartInput](SubagentStart)
+	if err != nil {
+		return nil, err
+	}
+
+	return executeSubagentStartHooksJSON(config, input, rawJSON)
 }
 
 // executeStopHooks executes all matching Stop hooks and returns JSON output.
