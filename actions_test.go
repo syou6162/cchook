@@ -4,24 +4,6 @@ import (
 	"testing"
 )
 
-// stubRunner is a test implementation of CommandRunner that allows mocking command execution.
-type stubRunner struct {
-	runFunc func(cmd string, useStdin bool, data interface{}) error
-}
-
-func (s *stubRunner) RunCommand(cmd string, useStdin bool, data interface{}) error {
-	if s.runFunc != nil {
-		return s.runFunc(cmd, useStdin, data)
-	}
-	return nil
-}
-
-func (s *stubRunner) RunCommandWithOutput(cmd string, useStdin bool, data interface{}) (stdout, stderr string, exitCode int, err error) {
-	// For actions_test.go, we don't need this method to be functional
-	// as it's only used in executor_test.go with stubRunnerWithOutput
-	return "", "", 0, nil
-}
-
 func TestGetExitStatus(t *testing.T) {
 	tests := []struct {
 		name       string
