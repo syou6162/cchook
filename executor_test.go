@@ -3922,3 +3922,216 @@ func TestExecutePreCompactAction_TypeCommand(t *testing.T) {
 		})
 	}
 }
+
+func TestExecuteSubagentStartAction_TypeOutput(t *testing.T) {
+	tests := []struct {
+		name               string
+		action             Action
+		wantContinue       bool
+		wantHookEventName  string
+		wantAdditionalCtx  string
+		wantSystemMessage  string
+		wantStopReason     string
+		wantSuppressOutput bool
+		wantErr            bool
+	}{
+		{
+			name: "Message with continue unspecified defaults to true",
+			action: Action{
+				Type:     "output",
+				Message:  "Explore agent started",
+				Continue: nil,
+			},
+			wantContinue:      true,
+			wantHookEventName: "SubagentStart",
+			wantAdditionalCtx: "Explore agent started",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Message with continue: false",
+			action: Action{
+				Type:     "output",
+				Message:  "Agent startup failed",
+				Continue: boolPtr(false),
+			},
+			wantContinue:      false,
+			wantHookEventName: "SubagentStart",
+			wantAdditionalCtx: "Agent startup failed",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Message with template variables",
+			action: Action{
+				Type:     "output",
+				Message:  "Agent {.agent_type} ({.agent_id}) started",
+				Continue: boolPtr(true),
+			},
+			wantContinue:      true,
+			wantHookEventName: "SubagentStart",
+			wantAdditionalCtx: "Agent Explore (agent-explore-001) started",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := NewActionExecutor(DefaultCommandRunner)
+			input := &SubagentStartInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session-123",
+					HookEventName: "SubagentStart",
+				},
+				AgentID:   "agent-explore-001",
+				AgentType: "Explore",
+			}
+			rawJSON := map[string]interface{}{
+				"session_id":      "test-session-123",
+				"hook_event_name": "SubagentStart",
+				"agent_id":        "agent-explore-001",
+				"agent_type":      "Explore",
+			}
+
+			output, err := executor.ExecuteSubagentStartAction(tt.action, input, rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ExecuteSubagentStartAction() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if output == nil {
+				t.Fatal("Expected non-nil ActionOutput")
+			}
+
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			if output.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName = %v, want %v", output.HookEventName, tt.wantHookEventName)
+			}
+
+			if output.AdditionalContext != tt.wantAdditionalCtx {
+				t.Errorf("AdditionalContext = %v, want %v", output.AdditionalContext, tt.wantAdditionalCtx)
+			}
+		})
+	}
+}
+
+func TestExecuteSubagentStartAction_TypeCommand(t *testing.T) {
+	tests := []struct {
+		name              string
+		action            Action
+		stubStdout        string
+		stubStderr        string
+		stubExitCode      int
+		wantContinue      bool
+		wantHookEventName string
+		wantAdditionalCtx string
+		wantSystemMessage string
+		wantErr           bool
+	}{
+		{
+			name: "Valid JSON with hookSpecificOutput",
+			action: Action{
+				Type:    "command",
+				Command: "echo valid-json",
+			},
+			stubStdout: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "SubagentStart",
+					"additionalContext": "Agent Explore started successfully"
+				}
+			}`,
+			stubStderr:        "",
+			stubExitCode:      0,
+			wantContinue:      true,
+			wantHookEventName: "SubagentStart",
+			wantAdditionalCtx: "Agent Explore started successfully",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Command returns empty stdout -> defaults",
+			action: Action{
+				Type:    "command",
+				Command: "echo empty",
+			},
+			stubStdout:        "",
+			stubStderr:        "",
+			stubExitCode:      0,
+			wantContinue:      true,
+			wantHookEventName: "SubagentStart",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "",
+			wantErr:           false,
+		},
+		{
+			name: "Command fails -> warning to stderr, continue false",
+			action: Action{
+				Type:    "command",
+				Command: "fail-command",
+			},
+			stubStdout:        "",
+			stubStderr:        "Command failed",
+			stubExitCode:      1,
+			wantContinue:      false,
+			wantHookEventName: "",
+			wantAdditionalCtx: "",
+			wantSystemMessage: "Command failed with exit code 1: Command failed",
+			wantErr:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stubRunner := &stubRunnerWithOutput{
+				stdout:   tt.stubStdout,
+				stderr:   tt.stubStderr,
+				exitCode: tt.stubExitCode,
+			}
+			executor := NewActionExecutor(stubRunner)
+
+			input := &SubagentStartInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session-123",
+					HookEventName: "SubagentStart",
+				},
+				AgentID:   "agent-explore-001",
+				AgentType: "Explore",
+			}
+			rawJSON := map[string]interface{}{
+				"session_id":      "test-session-123",
+				"hook_event_name": "SubagentStart",
+				"agent_id":        "agent-explore-001",
+				"agent_type":      "Explore",
+			}
+
+			result, err := executor.ExecuteSubagentStartAction(tt.action, input, rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ExecuteSubagentStartAction() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if result == nil {
+				t.Fatal("Expected non-nil ActionOutput, got nil")
+			}
+
+			if result.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", result.Continue, tt.wantContinue)
+			}
+
+			if result.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName = %v, want %v", result.HookEventName, tt.wantHookEventName)
+			}
+
+			if result.AdditionalContext != tt.wantAdditionalCtx {
+				t.Errorf("AdditionalContext = %v, want %v", result.AdditionalContext, tt.wantAdditionalCtx)
+			}
+		})
+	}
+}

@@ -546,6 +546,22 @@ func checkSubagentStopCondition(condition Condition, input *SubagentStopInput) (
 	return false, fmt.Errorf("unknown condition type for SubagentStop: %s", condition.Type)
 }
 
+// checkSubagentStartCondition checks if a condition matches for SubagentStart events.
+// Only supports common conditions.
+func checkSubagentStartCondition(condition Condition, input *SubagentStartInput) (bool, error) {
+	// SubagentStartは汎用条件のみ使用
+	matched, err := checkCommonCondition(condition, &input.BaseInput)
+	if err == nil {
+		return matched, nil // 処理された
+	}
+	if !errors.Is(err, ErrConditionNotHandled) {
+		return false, err // 本当のエラー
+	}
+
+	// SubagentStartがサポートしない条件タイプの場合はエラー
+	return false, fmt.Errorf("unknown condition type for SubagentStart: %s", condition.Type)
+}
+
 // checkSessionEndCondition checks if a condition matches for SessionEnd events.
 // Supports common conditions and reason_is condition.
 func checkSessionEndCondition(condition Condition, input *SessionEndInput) (bool, error) {
@@ -1193,6 +1209,81 @@ func validateNotificationOutput(jsonData []byte) error {
 	for _, field := range unsupportedFields {
 		if _, exists := rawOutput[field]; exists {
 			return fmt.Errorf("unsupported field for Notification: %s", field)
+		}
+	}
+
+	return nil
+}
+
+// validateSubagentStartOutput validates the JSON output for SubagentStart hooks
+// against both schema and semantic requirements.
+func validateSubagentStartOutput(jsonData []byte) error {
+	// Generate schema from SubagentStartOutput struct
+	reflector := jsonschema.Reflector{
+		DoNotReference: true, // Inline all definitions
+	}
+	schema := reflector.Reflect(&SubagentStartOutput{})
+
+	// Customize schema to match requirements
+	// 1. Allow additional properties at root level (requirement: additionalProperties: true)
+	schema.AdditionalProperties = nil // nil means allow any additional properties
+
+	// 2. Set required fields: only hookSpecificOutput (continue is always output but not required for validation)
+	schema.Required = []string{"hookSpecificOutput"}
+
+	// 3. Add custom validation: hookEventName must be "SubagentStart"
+	if hookSpecificProp, ok := schema.Properties.Get("hookSpecificOutput"); ok {
+		if hookSpecific := hookSpecificProp; hookSpecific != nil {
+			if hookEventNameProp, ok := hookSpecific.Properties.Get("hookEventName"); ok {
+				if hookEventName := hookEventNameProp; hookEventName != nil {
+					hookEventName.Enum = []interface{}{"SubagentStart"}
+				}
+			}
+			// hookSpecificOutput.hookEventName is required
+			hookSpecific.Required = []string{"hookEventName"}
+			// hookSpecificOutput should not allow additional properties
+			hookSpecific.AdditionalProperties = &jsonschema.Schema{Not: &jsonschema.Schema{}} // false
+		}
+	}
+
+	// Convert schema to map for gojsonschema
+	schemaBytes, err := json.Marshal(schema)
+	if err != nil {
+		return fmt.Errorf("failed to marshal schema: %w", err)
+	}
+
+	var schemaMap map[string]interface{}
+	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
+		return fmt.Errorf("failed to unmarshal schema: %w", err)
+	}
+
+	schemaLoader := gojsonschema.NewGoLoader(schemaMap)
+	documentLoader := gojsonschema.NewBytesLoader(jsonData)
+
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return fmt.Errorf("schema validation error: %w", err)
+	}
+
+	if !result.Valid() {
+		var errMsgs []string
+		for _, validationErr := range result.Errors() {
+			errMsgs = append(errMsgs, validationErr.String())
+		}
+		return fmt.Errorf("schema validation failed: %s", strings.Join(errMsgs, "; "))
+	}
+
+	// Additional validation: check for unsupported fields (decision, reason)
+	// SubagentStart does NOT support decision/reason fields (those are for Stop/SubagentStop/PostToolUse)
+	var rawOutput map[string]interface{}
+	if err := json.Unmarshal(jsonData, &rawOutput); err != nil {
+		return fmt.Errorf("failed to unmarshal for unsupported field check: %w", err)
+	}
+
+	unsupportedFields := []string{"decision", "reason"}
+	for _, field := range unsupportedFields {
+		if _, exists := rawOutput[field]; exists {
+			return fmt.Errorf("unsupported field for SubagentStart: %s", field)
 		}
 	}
 

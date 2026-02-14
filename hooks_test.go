@@ -3891,3 +3891,262 @@ func TestExecuteNotificationHooksJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestExecuteSubagentStartHooksJSON(t *testing.T) {
+	tests := []struct {
+		name                  string
+		config                *Config
+		input                 *SubagentStartInput
+		rawJSON               map[string]interface{}
+		wantContinue          bool
+		wantHookEventName     string
+		wantAdditionalContext string
+		wantSystemMessage     string
+		wantStopReason        string
+		wantSuppressOutput    bool
+		wantErr               bool
+		wantErrContains       string
+	}{
+		{
+			name: "No hooks - continue true",
+			config: &Config{
+				SubagentStart: []SubagentStartHook{},
+			},
+			input:             &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart"}, AgentType: "Explore"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantHookEventName: "SubagentStart",
+			wantErr:           false,
+		},
+		{
+			name: "Single action - output type",
+			config: &Config{
+				SubagentStart: []SubagentStartHook{
+					{
+						Matcher: "Explore",
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Explore agent started",
+							},
+						},
+					},
+				},
+			},
+			input:                 &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart"}, AgentType: "Explore"},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantHookEventName:     "SubagentStart",
+			wantAdditionalContext: "Explore agent started",
+			wantErr:               false,
+		},
+		{
+			name: "Matcher mismatch - hook not executed",
+			config: &Config{
+				SubagentStart: []SubagentStartHook{
+					{
+						Matcher: "Plan",
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Plan agent started",
+							},
+						},
+					},
+				},
+			},
+			input:             &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart"}, AgentType: "Explore"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantHookEventName: "SubagentStart",
+			wantErr:           false,
+		},
+		{
+			name: "Matcher partial match - hook executed",
+			config: &Config{
+				SubagentStart: []SubagentStartHook{
+					{
+						Matcher: "Exp",
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Agent started",
+							},
+						},
+					},
+				},
+			},
+			input:                 &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart"}, AgentType: "Explore"},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantHookEventName:     "SubagentStart",
+			wantAdditionalContext: "Agent started",
+			wantErr:               false,
+		},
+		{
+			name: "Matcher pipe-separated OR - first matches",
+			config: &Config{
+				SubagentStart: []SubagentStartHook{
+					{
+						Matcher: "Explore|Plan|Bash",
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Known agent started",
+							},
+						},
+					},
+				},
+			},
+			input:                 &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart"}, AgentType: "Explore"},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantHookEventName:     "SubagentStart",
+			wantAdditionalContext: "Known agent started",
+			wantErr:               false,
+		},
+		{
+			name: "Multiple actions - additionalContext concatenated",
+			config: &Config{
+				SubagentStart: []SubagentStartHook{
+					{
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "First message",
+							},
+							{
+								Type:    "output",
+								Message: "Second message",
+							},
+						},
+					},
+				},
+			},
+			input:                 &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart"}, AgentType: "Explore"},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantHookEventName:     "SubagentStart",
+			wantAdditionalContext: "First message\nSecond message",
+			wantErr:               false,
+		},
+		{
+			name: "Condition check - cwd_is matched",
+			config: &Config{
+				SubagentStart: []SubagentStartHook{
+					{
+						Conditions: []Condition{
+							{Type: ConditionCwdIs, Value: "/test/path"},
+						},
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "In correct directory",
+							},
+						},
+					},
+				},
+			},
+			input:                 &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart", Cwd: "/test/path"}, AgentType: "Explore"},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantHookEventName:     "SubagentStart",
+			wantAdditionalContext: "In correct directory",
+			wantErr:               false,
+		},
+		{
+			name: "Condition check - cwd_is not matched",
+			config: &Config{
+				SubagentStart: []SubagentStartHook{
+					{
+						Conditions: []Condition{
+							{Type: ConditionCwdIs, Value: "/nonexistent/path"},
+						},
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Should not execute",
+							},
+						},
+					},
+				},
+			},
+			input:             &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart", Cwd: "/test/path"}, AgentType: "Explore"},
+			rawJSON:           map[string]interface{}{},
+			wantContinue:      true,
+			wantHookEventName: "SubagentStart",
+			wantErr:           false,
+		},
+		{
+			name: "Continue forced to true even if action returns false",
+			config: &Config{
+				SubagentStart: []SubagentStartHook{
+					{
+						Actions: []Action{
+							{
+								Type:     "output",
+								Message:  "Test message",
+								Continue: boolPtr(false),
+							},
+						},
+					},
+				},
+			},
+			input:                 &SubagentStartInput{BaseInput: BaseInput{SessionID: "test", HookEventName: "SubagentStart"}, AgentType: "Explore"},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true, // Forced to true
+			wantHookEventName:     "SubagentStart",
+			wantAdditionalContext: "Test message",
+			wantErr:               false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output, err := executeSubagentStartHooksJSON(tt.config, tt.input, tt.rawJSON)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("executeSubagentStartHooksJSON() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantErr && tt.wantErrContains != "" && !strings.Contains(err.Error(), tt.wantErrContains) {
+				t.Errorf("error message should contain %q, got %q", tt.wantErrContains, err.Error())
+			}
+
+			if output == nil && !tt.wantErr {
+				t.Fatal("executeSubagentStartHooksJSON() returned nil output")
+			}
+
+			if output != nil {
+				if output.Continue != tt.wantContinue {
+					t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+				}
+
+				if output.HookSpecificOutput == nil {
+					t.Fatal("HookSpecificOutput is nil")
+				}
+
+				if output.HookSpecificOutput.HookEventName != tt.wantHookEventName {
+					t.Errorf("HookEventName = %q, want %q", output.HookSpecificOutput.HookEventName, tt.wantHookEventName)
+				}
+
+				if output.HookSpecificOutput.AdditionalContext != tt.wantAdditionalContext {
+					t.Errorf("AdditionalContext = %q, want %q", output.HookSpecificOutput.AdditionalContext, tt.wantAdditionalContext)
+				}
+
+				if tt.wantSystemMessage != "" && output.SystemMessage != tt.wantSystemMessage {
+					t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+				}
+
+				if tt.wantStopReason != "" && output.StopReason != tt.wantStopReason {
+					t.Errorf("StopReason = %q, want %q", output.StopReason, tt.wantStopReason)
+				}
+
+				if output.SuppressOutput != tt.wantSuppressOutput {
+					t.Errorf("SuppressOutput = %v, want %v", output.SuppressOutput, tt.wantSuppressOutput)
+				}
+			}
+		})
+	}
+}

@@ -702,6 +702,68 @@ Notification:
         command: "get-task-status.sh"  # Returns JSON with additionalContext
 ```
 
+### SubagentStart JSON Output
+
+SubagentStart hooks support JSON output format for Claude Code integration. Actions can return structured output:
+
+**Output Action** (type: `output`):
+```yaml
+SubagentStart:
+  - matcher: "Explore"  # optional: agent type filter (partial match + pipe-separated OR)
+    actions:
+      - type: output
+        message: "Agent startup message"
+        continue: true  # optional, defaults to true
+```
+
+**Command Action** (type: `command`):
+Commands must output JSON with the following structure:
+```json
+{
+  "continue": true,
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Message to display"
+  },
+  "systemMessage": "Optional system message"
+}
+```
+
+**Matcher Support**:
+SubagentStart hooks support a `matcher` field to filter by agent type:
+- Matches against the `agent_type` field from SubagentStart input
+- Supports partial string matching (e.g., `"Exp"` matches `"Explore"`)
+- Supports pipe-separated OR logic (e.g., `"Explore|Plan|Bash"`)
+- Empty/omitted: Matches all agent types
+
+**Field Merging**:
+When multiple actions execute:
+- `continue`: Always forced to `true` (SubagentStart cannot block - official spec "Can block? = No")
+- `hookEventName`: Set once by first action
+- `additionalContext` and `systemMessage`: Concatenated with newline separator
+
+**Exit Code Behavior**:
+SubagentStart hooks **always exit with code 0**. The `continue` field is always `true` and cannot be changed:
+- SubagentStart hooks cannot block subagent execution
+- All errors are logged to stderr as warnings
+- Errors are added to `systemMessage` for graceful degradation
+
+**Example**:
+```yaml
+SubagentStart:
+  - matcher: "Explore|Plan"
+    actions:
+      - type: output
+        message: "Research agent started"
+  - matcher: "Bash"
+    conditions:
+      - type: cwd_contains
+        value: "/production"
+    actions:
+      - type: output
+        message: "Warning: Bash agent started in production directory"
+```
+
 ### PreCompact JSON Output
 
 PreCompact hooks support JSON output format for Claude Code integration. Actions can return structured output for pre-compaction processing:
