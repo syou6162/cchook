@@ -466,17 +466,84 @@ func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *Subagen
 
 // ExecutePreCompactAction executes an action for the PreCompact event.
 // Supports command execution and output actions.
-func (e *ActionExecutor) ExecutePreCompactAction(action Action, input *PreCompactInput, rawJSON interface{}) error {
+// ExecutePreCompactAction executes an action for the PreCompact event and returns ActionOutput.
+// PreCompact always returns continue=true (fail-safe: compaction cannot be blocked).
+// Errors are reported via systemMessage field, not by blocking execution.
+func (e *ActionExecutor) ExecutePreCompactAction(action Action, input *PreCompactInput, rawJSON interface{}) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
 		cmd := unifiedTemplateReplace(action.Command, rawJSON)
-		if err := e.runner.RunCommand(cmd, action.UseStdin, rawJSON); err != nil {
-			return err
+		stdout, stderr, exitCode, err := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
+
+		// Command failed with non-zero exit code
+		if exitCode != 0 {
+			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
+			if strings.TrimSpace(stderr) == "" && err != nil {
+				errMsg = fmt.Sprintf("Command failed with exit code %d: %v", exitCode, err)
+			}
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				SystemMessage: errMsg,
+			}, nil
 		}
+
+		// Empty stdout - Allow compaction (validation-type CLI tools: silence = OK)
+		if strings.TrimSpace(stdout) == "" {
+			return &ActionOutput{
+				Continue: true,
+			}, nil
+		}
+
+		// Parse JSON output (PreCompactOutput has Common JSON Fields only)
+		var cmdOutput PreCompactOutput
+		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
+			errMsg := fmt.Sprintf("Command output is not valid JSON: %s", stdout)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Check for unsupported fields and log warnings to stderr
+		checkUnsupportedFieldsPreCompact(stdout)
+
+		// Build ActionOutput from parsed JSON
+		return &ActionOutput{
+			Continue:       true,
+			StopReason:     cmdOutput.StopReason,
+			SuppressOutput: cmdOutput.SuppressOutput,
+			SystemMessage:  cmdOutput.SystemMessage,
+		}, nil
+
 	case "output":
-		return handleOutput(action.Message, action.ExitStatus, rawJSON)
+		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
+
+		// Emit warning if exit_status is set (backward compatibility - no longer used)
+		if action.ExitStatus != nil {
+			fmt.Fprintf(os.Stderr, "Warning: exit_status field is ignored in PreCompact output actions (JSON output does not use exit codes)\n")
+		}
+
+		// Empty message is an error (fail-safe)
+		if strings.TrimSpace(processedMessage) == "" {
+			errMsg := "Empty message in PreCompact action"
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
+			return &ActionOutput{
+				Continue:      true,
+				SystemMessage: errMsg,
+			}, nil
+		}
+
+		// Output action: message maps to systemMessage
+		return &ActionOutput{
+			Continue:      true,
+			SystemMessage: processedMessage,
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("unknown action type: %s", action.Type)
 	}
-	return nil
 }
 
 // ExecuteSessionStartAction executes an action for the SessionStart event.
@@ -1237,6 +1304,28 @@ func checkUnsupportedFieldsSessionEnd(stdout string) {
 	for field := range data {
 		if !supportedFields[field] {
 			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for SessionEnd hooks\n", field)
+		}
+	}
+}
+
+//nolint:unused // Will be used in Step 3
+func checkUnsupportedFieldsPreCompact(stdout string) {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+		return
+	}
+
+	supportedFields := map[string]bool{
+		"continue":       true,
+		"stopReason":     true,
+		"suppressOutput": true,
+		"systemMessage":  true,
+		// Note: decision, reason, hookSpecificOutput are NOT supported for PreCompact hooks
+	}
+
+	for field := range data {
+		if !supportedFields[field] {
+			fmt.Fprintf(os.Stderr, "Warning: Field '%s' is not supported for PreCompact hooks\n", field)
 		}
 	}
 }

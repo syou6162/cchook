@@ -310,6 +310,15 @@ type SessionEndOutput struct {
 	SystemMessage  string `json:"systemMessage,omitempty"`
 }
 
+// PreCompactOutput represents the complete JSON output structure for PreCompact hooks
+// following Claude Code JSON specification (Common JSON Fields only, no hookSpecificOutput)
+type PreCompactOutput struct {
+	Continue       bool   `json:"continue"`
+	StopReason     string `json:"stopReason,omitempty"`
+	SuppressOutput bool   `json:"suppressOutput,omitempty"`
+	SystemMessage  string `json:"systemMessage,omitempty"`
+}
+
 // PostToolUseOutput represents the complete JSON output structure for PostToolUse hooks
 // following Claude Code JSON specification
 type PostToolUseOutput struct {
@@ -381,6 +390,7 @@ type SubagentStopHook struct {
 }
 
 type PreCompactHook struct {
+	Matcher    string      `yaml:"matcher"` // "manual" or "auto"
 	Conditions []Condition `yaml:"conditions,omitempty"`
 	Actions    []Action    `yaml:"actions"`
 }
