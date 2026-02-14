@@ -307,6 +307,105 @@ func TestSessionStartParsing(t *testing.T) {
 	}
 }
 
+func TestNotificationInputParsing(t *testing.T) {
+	tests := []struct {
+		name      string
+		jsonInput string
+		want      NotificationInput
+	}{
+		{
+			name: "With title and notification_type",
+			jsonInput: `{
+				"session_id": "test-123",
+				"transcript_path": "/tmp/transcript.json",
+				"hook_event_name": "Notification",
+				"message": "Task completed",
+				"title": "Success",
+				"notification_type": "idle_prompt"
+			}`,
+			want: NotificationInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-123",
+					TranscriptPath: "/tmp/transcript.json",
+					HookEventName:  Notification,
+				},
+				Message:          "Task completed",
+				Title:            "Success",
+				NotificationType: "idle_prompt",
+			},
+		},
+		{
+			name: "title omitted",
+			jsonInput: `{
+				"session_id": "test-456",
+				"transcript_path": "/tmp/transcript2.json",
+				"hook_event_name": "Notification",
+				"message": "Permission required",
+				"notification_type": "permission_prompt"
+			}`,
+			want: NotificationInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-456",
+					TranscriptPath: "/tmp/transcript2.json",
+					HookEventName:  Notification,
+				},
+				Message:          "Permission required",
+				Title:            "",
+				NotificationType: "permission_prompt",
+			},
+		},
+		{
+			name: "notification_type omitted",
+			jsonInput: `{
+				"session_id": "test-789",
+				"transcript_path": "/tmp/transcript3.json",
+				"hook_event_name": "Notification",
+				"message": "Generic notification",
+				"title": "Info"
+			}`,
+			want: NotificationInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-789",
+					TranscriptPath: "/tmp/transcript3.json",
+					HookEventName:  Notification,
+				},
+				Message:          "Generic notification",
+				Title:            "Info",
+				NotificationType: "",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var input NotificationInput
+			err := json.Unmarshal([]byte(tt.jsonInput), &input)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal JSON: %v", err)
+			}
+
+			if input.SessionID != tt.want.SessionID {
+				t.Errorf("SessionID: expected %s, got %s", tt.want.SessionID, input.SessionID)
+			}
+			if input.TranscriptPath != tt.want.TranscriptPath {
+				t.Errorf("TranscriptPath: expected %s, got %s", tt.want.TranscriptPath, input.TranscriptPath)
+			}
+			if input.HookEventName != tt.want.HookEventName {
+				t.Errorf("HookEventName: expected %s, got %s", tt.want.HookEventName, input.HookEventName)
+			}
+			if input.Message != tt.want.Message {
+				t.Errorf("Message: expected %s, got %s", tt.want.Message, input.Message)
+			}
+			if input.Title != tt.want.Title {
+				t.Errorf("Title: expected %s, got %s", tt.want.Title, input.Title)
+			}
+			if input.NotificationType != tt.want.NotificationType {
+				t.Errorf("NotificationType: expected %s, got %s", tt.want.NotificationType, input.NotificationType)
+			}
+		})
+	}
+}
+
 func TestUserPromptSubmitParsing(t *testing.T) {
 	tests := []struct {
 		name      string

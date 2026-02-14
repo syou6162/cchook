@@ -104,7 +104,9 @@ func (p *PostToolUseInput) GetToolName() string {
 // Notification用
 type NotificationInput struct {
 	BaseInput
-	Message string `json:"message"`
+	Message          string `json:"message"`
+	Title            string `json:"title,omitempty"`             // Optional notification title
+	NotificationType string `json:"notification_type,omitempty"` // Type of notification (e.g., "permission_prompt", "idle_prompt", etc.)
 }
 
 // GetToolName returns an empty string as Notification events have no associated tool.
@@ -410,6 +412,7 @@ type PermissionRequestHook struct {
 }
 
 type NotificationHook struct {
+	Matcher    string      `yaml:"matcher,omitempty"` // Matches against notification_type (e.g., "permission_prompt|idle_prompt")
 	Conditions []Condition `yaml:"conditions,omitempty"`
 	Actions    []Action    `yaml:"actions"`
 }

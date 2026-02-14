@@ -3958,6 +3958,81 @@ func TestExecuteNotificationHooksJSON(t *testing.T) {
 			wantAdditionalContext: "Message with system warning",
 			wantErr:               false,
 		},
+		{
+			name: "Matcher - exact match",
+			config: &Config{
+				Notification: []NotificationHook{
+					{
+						Matcher: "idle_prompt",
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Idle detected",
+							},
+						},
+					},
+				},
+			},
+			input: &NotificationInput{
+				BaseInput:        BaseInput{SessionID: "test", HookEventName: "Notification"},
+				NotificationType: "idle_prompt",
+			},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantHookEventName:     "Notification",
+			wantAdditionalContext: "Idle detected",
+			wantErr:               false,
+		},
+		{
+			name: "Matcher - no match (hook skipped)",
+			config: &Config{
+				Notification: []NotificationHook{
+					{
+						Matcher: "permission_prompt",
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Permission required",
+							},
+						},
+					},
+				},
+			},
+			input: &NotificationInput{
+				BaseInput:        BaseInput{SessionID: "test", HookEventName: "Notification"},
+				NotificationType: "idle_prompt",
+			},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantHookEventName:     "Notification",
+			wantAdditionalContext: "",
+			wantErr:               false,
+		},
+		{
+			name: "Matcher - pipe-separated OR",
+			config: &Config{
+				Notification: []NotificationHook{
+					{
+						Matcher: "idle_prompt|permission_prompt",
+						Actions: []Action{
+							{
+								Type:    "output",
+								Message: "Matched",
+							},
+						},
+					},
+				},
+			},
+			input: &NotificationInput{
+				BaseInput:        BaseInput{SessionID: "test", HookEventName: "Notification"},
+				NotificationType: "permission_prompt",
+			},
+			rawJSON:               map[string]interface{}{},
+			wantContinue:          true,
+			wantHookEventName:     "Notification",
+			wantAdditionalContext: "Matched",
+			wantErr:               false,
+		},
 	}
 
 	for _, tt := range tests {
