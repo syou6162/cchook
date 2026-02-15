@@ -1703,3 +1703,355 @@ func TestCheckPreCompactCondition(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckNotificationCondition(t *testing.T) {
+	tests := []struct {
+		name      string
+		condition Condition
+		input     *NotificationInput
+		want      bool
+		wantErr   bool
+	}{
+		{
+			name: "permission_mode_is match in Notification",
+			condition: Condition{
+				Type:  ConditionPermissionModeIs,
+				Value: "default",
+			},
+			input: &NotificationInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-notif",
+					HookEventName:  Notification,
+					PermissionMode: "default",
+				},
+				NotificationType: "idle_prompt",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "permission_mode_is no match in Notification",
+			condition: Condition{
+				Type:  ConditionPermissionModeIs,
+				Value: "plan",
+			},
+			input: &NotificationInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-notif2",
+					HookEventName:  Notification,
+					PermissionMode: "default",
+				},
+				NotificationType: "permission_prompt",
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "file_exists common condition still works",
+			condition: Condition{
+				Type:  ConditionFileExists,
+				Value: "go.mod",
+			},
+			input: &NotificationInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-notif3",
+					HookEventName: Notification,
+				},
+				NotificationType: "idle_prompt",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "unsupported condition type for Notification",
+			condition: Condition{
+				Type:  ConditionFileExtension,
+				Value: ".go",
+			},
+			input: &NotificationInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-notif4",
+					HookEventName: Notification,
+				},
+				NotificationType: "idle_prompt",
+			},
+			want:    false,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := checkNotificationCondition(tt.condition, tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkNotificationCondition() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("checkNotificationCondition() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCheckStopCondition(t *testing.T) {
+	tests := []struct {
+		name      string
+		condition Condition
+		input     *StopInput
+		want      bool
+		wantErr   bool
+	}{
+		{
+			name: "permission_mode_is match in Stop",
+			condition: Condition{
+				Type:  ConditionPermissionModeIs,
+				Value: "default",
+			},
+			input: &StopInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-stop",
+					HookEventName:  Stop,
+					PermissionMode: "default",
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "permission_mode_is no match in Stop",
+			condition: Condition{
+				Type:  ConditionPermissionModeIs,
+				Value: "plan",
+			},
+			input: &StopInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-stop2",
+					HookEventName:  Stop,
+					PermissionMode: "default",
+				},
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "file_exists common condition still works",
+			condition: Condition{
+				Type:  ConditionFileExists,
+				Value: "go.mod",
+			},
+			input: &StopInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-stop3",
+					HookEventName: Stop,
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "unsupported condition type for Stop",
+			condition: Condition{
+				Type:  ConditionFileExtension,
+				Value: ".go",
+			},
+			input: &StopInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-stop4",
+					HookEventName: Stop,
+				},
+			},
+			want:    false,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := checkStopCondition(tt.condition, tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkStopCondition() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("checkStopCondition() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCheckSubagentStopCondition(t *testing.T) {
+	tests := []struct {
+		name      string
+		condition Condition
+		input     *SubagentStopInput
+		want      bool
+		wantErr   bool
+	}{
+		{
+			name: "permission_mode_is match in SubagentStop",
+			condition: Condition{
+				Type:  ConditionPermissionModeIs,
+				Value: "default",
+			},
+			input: &SubagentStopInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-sastop",
+					HookEventName:  SubagentStop,
+					PermissionMode: "default",
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "permission_mode_is no match in SubagentStop",
+			condition: Condition{
+				Type:  ConditionPermissionModeIs,
+				Value: "plan",
+			},
+			input: &SubagentStopInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-sastop2",
+					HookEventName:  SubagentStop,
+					PermissionMode: "default",
+				},
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "file_exists common condition still works",
+			condition: Condition{
+				Type:  ConditionFileExists,
+				Value: "go.mod",
+			},
+			input: &SubagentStopInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-sastop3",
+					HookEventName: SubagentStop,
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "unsupported condition type for SubagentStop",
+			condition: Condition{
+				Type:  ConditionFileExtension,
+				Value: ".go",
+			},
+			input: &SubagentStopInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-sastop4",
+					HookEventName: SubagentStop,
+				},
+			},
+			want:    false,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := checkSubagentStopCondition(tt.condition, tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkSubagentStopCondition() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("checkSubagentStopCondition() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCheckSubagentStartCondition(t *testing.T) {
+	tests := []struct {
+		name      string
+		condition Condition
+		input     *SubagentStartInput
+		want      bool
+		wantErr   bool
+	}{
+		{
+			name: "permission_mode_is match in SubagentStart",
+			condition: Condition{
+				Type:  ConditionPermissionModeIs,
+				Value: "default",
+			},
+			input: &SubagentStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-sastart",
+					HookEventName:  SubagentStart,
+					PermissionMode: "default",
+				},
+				AgentType: "Explore",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "permission_mode_is no match in SubagentStart",
+			condition: Condition{
+				Type:  ConditionPermissionModeIs,
+				Value: "plan",
+			},
+			input: &SubagentStartInput{
+				BaseInput: BaseInput{
+					SessionID:      "test-sastart2",
+					HookEventName:  SubagentStart,
+					PermissionMode: "default",
+				},
+				AgentType: "Plan",
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "file_exists common condition still works",
+			condition: Condition{
+				Type:  ConditionFileExists,
+				Value: "go.mod",
+			},
+			input: &SubagentStartInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-sastart3",
+					HookEventName: SubagentStart,
+				},
+				AgentType: "Bash",
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "unsupported condition type for SubagentStart",
+			condition: Condition{
+				Type:  ConditionFileExtension,
+				Value: ".go",
+			},
+			input: &SubagentStartInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-sastart4",
+					HookEventName: SubagentStart,
+				},
+				AgentType: "Explore",
+			},
+			want:    false,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := checkSubagentStartCondition(tt.condition, tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkSubagentStartCondition() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("checkSubagentStartCondition() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

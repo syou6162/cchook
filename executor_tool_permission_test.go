@@ -591,7 +591,7 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 				t.Errorf("AdditionalContext mismatch. Got %q, want %q", output.AdditionalContext, tt.wantAdditionalContext)
 			}
 
-			if tt.wantSystemMessage != "" && !stringContains2(output.SystemMessage, tt.wantSystemMessage) {
+			if tt.wantSystemMessage != "" && !strings.Contains(output.SystemMessage, tt.wantSystemMessage) {
 				t.Errorf("SystemMessage should contain %q, got %q", tt.wantSystemMessage, output.SystemMessage)
 			}
 
@@ -616,20 +616,6 @@ func TestExecutePreToolUseAction_TypeCommand(t *testing.T) {
 			}
 		})
 	}
-}
-
-// stringContains2 checks if a string contains a substring (helper for PreToolUse tests)
-func stringContains2(s, substr string) bool {
-	return len(s) >= len(substr) && contains2(s, substr)
-}
-
-func contains2(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
 
 func TestExecutePermissionRequestAction_TypeOutput(t *testing.T) {
@@ -1324,5 +1310,248 @@ func TestExecutePostToolUseAction_CommandWithUpdatedMCPToolOutput(t *testing.T) 
 				t.Errorf("UpdatedMCPToolOutput = %v, want %v", result.UpdatedMCPToolOutput, tt.wantUpdatedMCPToolOutput)
 			}
 		})
+	}
+}
+
+// TestExecutePostToolUseAction_TypeCommand_AnomalyTests tests anomaly cases for PostToolUse command actions
+func TestExecutePostToolUseAction_TypeCommand_AnomalyTests(t *testing.T) {
+	tests := []struct {
+		name              string
+		stubStdout        string
+		stubStderr        string
+		stubExitCode      int
+		stubErr           error
+		action            Action
+		wantContinue      bool
+		wantDecision      string
+		wantReasonContain string
+		wantSystemMessage string
+		wantStderrContain string
+	}{
+		{
+			name:              "Command failure (exit != 0) with stderr -> decision: block",
+			stubStdout:        "",
+			stubStderr:        "command execution failed",
+			stubExitCode:      1,
+			action:            Action{Type: "command", Command: "failing.sh"},
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantReasonContain: "Command failed with exit code 1",
+			wantSystemMessage: "Command failed with exit code 1: command execution failed",
+			wantStderrContain: "Command failed with exit code 1",
+		},
+		{
+			name:              "Command failure with err variable (JSON marshal failure) -> decision: block",
+			stubStdout:        "",
+			stubStderr:        "",
+			stubExitCode:      1,
+			stubErr:           fmt.Errorf("failed to marshal JSON for stdin: json: unsupported type: chan int"),
+			action:            Action{Type: "command", Command: "failing.sh"},
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantReasonContain: "Command failed with exit code 1",
+			wantSystemMessage: "Command failed with exit code 1: failed to marshal JSON for stdin: json: unsupported type: chan int",
+			wantStderrContain: "Command failed with exit code 1",
+		},
+		{
+			name:              "Invalid JSON output -> decision: block",
+			stubStdout:        "not valid json",
+			stubStderr:        "",
+			stubExitCode:      0,
+			action:            Action{Type: "command", Command: "echo invalid"},
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantReasonContain: "Command output is not valid JSON",
+			wantSystemMessage: "Command output is not valid JSON: not valid json",
+			wantStderrContain: "Command output is not valid JSON",
+		},
+		{
+			name:         "Empty stdout -> decision: empty (allow tool result)",
+			stubStdout:   "",
+			stubStderr:   "",
+			stubExitCode: 0,
+			action:       Action{Type: "command", Command: "validator.sh"},
+			wantContinue: true,
+			wantDecision: "",
+		},
+		{
+			name: "Invalid decision value (not 'block' or empty) -> fail-safe to block",
+			stubStdout: `{
+				"continue": true,
+				"decision": "allow",
+				"hookSpecificOutput": {
+					"hookEventName": "PostToolUse"
+				}
+			}`,
+			stubStderr:        "",
+			stubExitCode:      0,
+			action:            Action{Type: "command", Command: "echo test"},
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantReasonContain: "Invalid decision value",
+			wantSystemMessage: "Invalid decision value: must be 'block' or field must be omitted entirely",
+			wantStderrContain: "Invalid decision value",
+		},
+		{
+			name: "decision=block but reason is missing -> decision: block with error message",
+			stubStdout: `{
+				"continue": true,
+				"decision": "block",
+				"hookSpecificOutput": {
+					"hookEventName": "PostToolUse"
+				}
+			}`,
+			stubStderr:        "",
+			stubExitCode:      0,
+			action:            Action{Type: "command", Command: "validator.sh"},
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantReasonContain: "Missing required field 'reason'",
+			wantSystemMessage: "Missing required field 'reason' when decision is 'block'",
+			wantStderrContain: "Missing required field 'reason'",
+		},
+		{
+			name: "Invalid hookEventName in hookSpecificOutput -> fail-safe to block",
+			stubStdout: `{
+				"continue": true,
+				"hookSpecificOutput": {
+					"hookEventName": "WrongEvent",
+					"additionalContext": "Test"
+				}
+			}`,
+			stubStderr:        "",
+			stubExitCode:      0,
+			action:            Action{Type: "command", Command: "echo test"},
+			wantContinue:      true,
+			wantDecision:      "block",
+			wantReasonContain: "Invalid hookEventName",
+			wantSystemMessage: "Invalid hookEventName: expected 'PostToolUse', got 'WrongEvent'",
+			wantStderrContain: "Invalid hookEventName",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Capture stderr
+			oldStderr := os.Stderr
+			r, w, _ := os.Pipe()
+			os.Stderr = w
+
+			stubRunner := &stubRunnerWithOutput{
+				stdout:   tt.stubStdout,
+				stderr:   tt.stubStderr,
+				exitCode: tt.stubExitCode,
+				err:      tt.stubErr,
+			}
+			executor := NewActionExecutor(stubRunner)
+
+			input := &PostToolUseInput{
+				BaseInput: BaseInput{
+					SessionID:     "test-session",
+					HookEventName: "PostToolUse",
+				},
+				ToolName: "Write",
+			}
+			rawJSON := map[string]any{
+				"session_id":      "test-session",
+				"hook_event_name": "PostToolUse",
+				"tool_name":       "Write",
+			}
+
+			result, err := executor.ExecutePostToolUseAction(tt.action, input, rawJSON)
+
+			_ = w.Close()
+			os.Stderr = oldStderr
+
+			var stderrBuf strings.Builder
+			_, _ = io.Copy(&stderrBuf, r)
+			stderr := stderrBuf.String()
+
+			if err != nil {
+				t.Fatalf("Expected no error, got: %v", err)
+			}
+
+			if result == nil {
+				t.Fatal("Expected non-nil ActionOutput, got nil")
+			}
+
+			if result.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", result.Continue, tt.wantContinue)
+			}
+
+			if result.Decision != tt.wantDecision {
+				t.Errorf("Decision = %v, want %v", result.Decision, tt.wantDecision)
+			}
+
+			if tt.wantReasonContain != "" && !strings.Contains(result.Reason, tt.wantReasonContain) {
+				t.Errorf("Reason should contain %q, got %q", tt.wantReasonContain, result.Reason)
+			}
+
+			if tt.wantSystemMessage != "" && result.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", result.SystemMessage, tt.wantSystemMessage)
+			}
+
+			if tt.wantStderrContain != "" && !strings.Contains(stderr, tt.wantStderrContain) {
+				t.Errorf("Stderr should contain %q, got %q", tt.wantStderrContain, stderr)
+			}
+		})
+	}
+}
+
+// TestExecutePostToolUseAction_TypeCommand_UnsupportedFieldsWarning tests stderr warnings for unsupported fields
+func TestExecutePostToolUseAction_TypeCommand_UnsupportedFieldsWarning(t *testing.T) {
+	stubStdout := `{
+		"continue": true,
+		"hookSpecificOutput": {
+			"hookEventName": "PostToolUse"
+		},
+		"unsupportedField": "should trigger warning"
+	}`
+
+	// Capture stderr
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	stubRunner := &stubRunnerWithOutput{
+		stdout:   stubStdout,
+		stderr:   "",
+		exitCode: 0,
+	}
+	executor := NewActionExecutor(stubRunner)
+
+	input := &PostToolUseInput{
+		BaseInput: BaseInput{
+			SessionID:     "test-session",
+			HookEventName: "PostToolUse",
+		},
+		ToolName: "Write",
+	}
+	rawJSON := map[string]any{
+		"session_id":      "test-session",
+		"hook_event_name": "PostToolUse",
+		"tool_name":       "Write",
+	}
+
+	action := Action{Type: "command", Command: "echo test"}
+	_, err := executor.ExecutePostToolUseAction(action, input, rawJSON)
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	var stderrBuf strings.Builder
+	_, _ = io.Copy(&stderrBuf, r)
+	stderr := stderrBuf.String()
+
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	if !strings.Contains(stderr, "unsupportedField") {
+		t.Errorf("Expected stderr warning for 'unsupportedField', got: %q", stderr)
+	}
+
+	if !strings.Contains(stderr, "not supported") {
+		t.Errorf("Expected stderr warning containing 'not supported', got: %q", stderr)
 	}
 }
