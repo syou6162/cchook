@@ -149,6 +149,7 @@ PostToolUse:
     actions:
       - type: command
         command: "gofmt -w {.tool_input.file_path}"
+        output_format: text  # gofmt outputs plain text, not JSON
 
 # Guide users to use better alternatives
 PreToolUse:
@@ -241,6 +242,7 @@ PostToolUse:
     actions:
       - type: command
         command: "gofmt -w {.tool_input.file_path}"
+        output_format: text  # gofmt outputs plain text, not JSON
 
   - matcher: "Write|Edit"
     conditions:
@@ -249,6 +251,7 @@ PostToolUse:
     actions:
       - type: command
         command: "black {.tool_input.file_path}"
+        output_format: text  # black outputs plain text, not JSON
 ```
 
 Run pre-commit hooks automatically:
@@ -262,6 +265,7 @@ PostToolUse:
     actions:
       - type: command
         command: "pre-commit run --files {.tool_input.file_path}"
+        output_format: text  # pre-commit outputs plain text, not JSON
 ```
 
 Warn about sensitive file modifications:
@@ -631,6 +635,12 @@ All conditions return proper error messages for unknown condition types, ensurin
     - Solves issues with special characters (quotes, backslashes, newlines) in data
     - Safer than shell string interpolation for complex data
     - Example: `jq -r .tool_input.content` to extract content from JSON via stdin
+  - `output_format: text` (optional)
+    - Treat command's stdout as plain text instead of JSON
+    - Without this, non-JSON output causes fail-safe block/deny behavior
+    - Use for standard CLI tools like `gofmt`, `black`, `pre-commit run` that output plain text
+    - Non-zero exit code still triggers fail-safe behavior regardless of this setting
+    - Supported events: PreToolUse, PostToolUse, SessionStart, SessionEnd
 - `output`
   - Print message
   - Default `exit_status`:
@@ -702,8 +712,10 @@ PostToolUse:
     actions:
       - type: command
         command: "ruff format {.tool_input.file_path}"
+        output_format: text
       - type: command
         command: "ruff check --fix {.tool_input.file_path}"
+        output_format: text
 ```
 
 ### Multi-Step Workflows
@@ -717,8 +729,10 @@ PostToolUse:
     actions:
       - type: command
         command: "gofmt -w {.tool_input.file_path}"
+        output_format: text  # gofmt outputs plain text, not JSON
       - type: command
         command: "go vet {.tool_input.file_path}"
+        output_format: text  # go vet outputs plain text, not JSON
       - type: output
         message: "✅ Go file formatted and vetted: {.tool_input.file_path}"
 ```

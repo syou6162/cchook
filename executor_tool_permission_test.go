@@ -1555,3 +1555,166 @@ func TestExecutePostToolUseAction_TypeCommand_UnsupportedFieldsWarning(t *testin
 		t.Errorf("Expected stderr warning containing 'not supported', got: %q", stderr)
 	}
 }
+
+func TestExecutePreToolUseAction_OutputFormatText(t *testing.T) {
+	outputFormatText := "text"
+	tests := []struct {
+		name                         string
+		stdout                       string
+		stderr                       string
+		exitCode                     int
+		wantPermissionDecision       string
+		wantPermissionDecisionReason string
+		wantHookEventName            string
+	}{
+		{
+			name:                         "output_format: text + text output -> allow with permissionDecisionReason",
+			stdout:                       "main.go\nutils.go\n",
+			exitCode:                     0,
+			wantPermissionDecision:       "allow",
+			wantPermissionDecisionReason: "main.go\nutils.go",
+			wantHookEventName:            "PreToolUse",
+		},
+		{
+			name:                   "output_format: text + empty output -> nil (delegate to Claude Code)",
+			stdout:                 "",
+			exitCode:               0,
+			wantPermissionDecision: "",
+			wantHookEventName:      "",
+		},
+		{
+			name:                   "output_format: text + non-zero exit code -> deny (existing behavior maintained)",
+			stdout:                 "some output",
+			stderr:                 "command error",
+			exitCode:               1,
+			wantPermissionDecision: "deny",
+			wantHookEventName:      "PreToolUse",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			action := Action{
+				Type:         "command",
+				Command:      "gofmt -l .",
+				OutputFormat: &outputFormatText,
+			}
+			input := &PreToolUseInput{
+				ToolName:  "Write",
+				ToolInput: ToolInput{FilePath: "test.go"},
+			}
+			runner := &stubRunnerWithOutput{
+				stdout:   tt.stdout,
+				stderr:   tt.stderr,
+				exitCode: tt.exitCode,
+			}
+			executor := NewActionExecutor(runner)
+			output, err := executor.ExecutePreToolUseAction(action, input, map[string]any{})
+
+			if err != nil {
+				t.Fatalf("Expected no error, got: %v", err)
+			}
+
+			if tt.wantHookEventName == "" {
+				if output != nil {
+					t.Errorf("Expected nil output, got: %+v", output)
+				}
+				return
+			}
+
+			if output == nil {
+				t.Fatal("Expected non-nil output, got nil")
+			}
+
+			if output.PermissionDecision != tt.wantPermissionDecision {
+				t.Errorf("PermissionDecision = %q, want %q", output.PermissionDecision, tt.wantPermissionDecision)
+			}
+
+			if output.PermissionDecisionReason != tt.wantPermissionDecisionReason {
+				t.Errorf("PermissionDecisionReason = %q, want %q", output.PermissionDecisionReason, tt.wantPermissionDecisionReason)
+			}
+
+			if output.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName = %q, want %q", output.HookEventName, tt.wantHookEventName)
+			}
+		})
+	}
+}
+
+func TestExecutePostToolUseAction_OutputFormatText(t *testing.T) {
+	outputFormatText := "text"
+	tests := []struct {
+		name                  string
+		stdout                string
+		stderr                string
+		exitCode              int
+		wantDecision          string
+		wantAdditionalContext string
+		wantHookEventName     string
+	}{
+		{
+			name:                  "output_format: text + text output -> allow with additionalContext",
+			stdout:                "fix end of files...Passed\ntrim trailing whitespace...Passed\n",
+			exitCode:              0,
+			wantDecision:          "",
+			wantAdditionalContext: "fix end of files...Passed\ntrim trailing whitespace...Passed",
+			wantHookEventName:     "PostToolUse",
+		},
+		{
+			name:              "output_format: text + empty output -> allow (existing empty-stdout behavior)",
+			stdout:            "",
+			exitCode:          0,
+			wantDecision:      "",
+			wantHookEventName: "PostToolUse",
+		},
+		{
+			name:              "output_format: text + non-zero exit code -> block (existing behavior maintained)",
+			stdout:            "some output",
+			stderr:            "command error",
+			exitCode:          1,
+			wantDecision:      "block",
+			wantHookEventName: "PostToolUse",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			action := Action{
+				Type:         "command",
+				Command:      "pre-commit run --files test.go",
+				OutputFormat: &outputFormatText,
+			}
+			input := &PostToolUseInput{
+				ToolName:  "Write",
+				ToolInput: ToolInput{FilePath: "test.go"},
+			}
+			runner := &stubRunnerWithOutput{
+				stdout:   tt.stdout,
+				stderr:   tt.stderr,
+				exitCode: tt.exitCode,
+			}
+			executor := NewActionExecutor(runner)
+			output, err := executor.ExecutePostToolUseAction(action, input, map[string]any{})
+
+			if err != nil {
+				t.Fatalf("Expected no error, got: %v", err)
+			}
+
+			if output == nil {
+				t.Fatal("Expected non-nil output, got nil")
+			}
+
+			if output.Decision != tt.wantDecision {
+				t.Errorf("Decision = %q, want %q", output.Decision, tt.wantDecision)
+			}
+
+			if output.AdditionalContext != tt.wantAdditionalContext {
+				t.Errorf("AdditionalContext = %q, want %q", output.AdditionalContext, tt.wantAdditionalContext)
+			}
+
+			if output.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName = %q, want %q", output.HookEventName, tt.wantHookEventName)
+			}
+		})
+	}
+}

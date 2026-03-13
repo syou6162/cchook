@@ -698,6 +698,15 @@ func (e *ActionExecutor) ExecuteSessionStartAction(action Action, input *Session
 			}, nil
 		}
 
+		// output_format: text - treat command output as plain text (no JSON parsing)
+		if action.OutputFormat != nil && *action.OutputFormat == "text" {
+			return &ActionOutput{
+				Continue:          true,
+				HookEventName:     "SessionStart",
+				AdditionalContext: strings.TrimSpace(stdout),
+			}, nil
+		}
+
 		// Parse JSON output
 		var cmdOutput SessionStartOutput
 		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
@@ -963,6 +972,14 @@ func (e *ActionExecutor) ExecuteSessionEndAction(action Action, input *SessionEn
 		if strings.TrimSpace(stdout) == "" {
 			return &ActionOutput{
 				Continue: true,
+			}, nil
+		}
+
+		// output_format: text - treat command output as plain text (no JSON parsing)
+		if action.OutputFormat != nil && *action.OutputFormat == "text" {
+			return &ActionOutput{
+				Continue:      true,
+				SystemMessage: strings.TrimSpace(stdout),
 			}, nil
 		}
 
