@@ -581,6 +581,7 @@ type Action struct {
 	Interrupt          *bool   `yaml:"interrupt,omitempty"`           // deny時のみ (PermissionRequest only)
 	Reason             *string `yaml:"reason,omitempty"`              // Reason for decision (Stop/SubagentStop/PostToolUse)
 	AdditionalContext  *string `yaml:"additional_context,omitempty"`  // Additional context for Claude (PreToolUse)
+	OutputFormat       *string `yaml:"output_format,omitempty"`       // "text" to treat command output as plain text (PreToolUse/PostToolUse/SessionStart/SessionEnd)
 }
 
 // 設定ファイル構造
