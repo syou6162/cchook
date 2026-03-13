@@ -2875,7 +2875,7 @@ func TestExecuteSessionStartAction_OutputFormatText(t *testing.T) {
 			stderr:            "command error",
 			exitCode:          1,
 			wantContinue:      false,
-			wantHookEventName: "SessionStart",
+			wantHookEventName: "", // non-zero exit uses existing behavior (HookEventName not set)
 		},
 	}
 

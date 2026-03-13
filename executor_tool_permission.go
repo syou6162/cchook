@@ -37,6 +37,16 @@ func (e *ActionExecutor) ExecutePreToolUseAction(action Action, input *PreToolUs
 			return nil, nil
 		}
 
+		// output_format: text - treat command output as plain text (no JSON parsing)
+		if action.OutputFormat != nil && *action.OutputFormat == "text" {
+			return &ActionOutput{
+				Continue:                 true,
+				PermissionDecision:       "allow",
+				PermissionDecisionReason: strings.TrimSpace(stdout),
+				HookEventName:            "PreToolUse",
+			}, nil
+		}
+
 		// Parse JSON output
 		var cmdOutput PreToolUseOutput
 		if err := json.Unmarshal([]byte(stdout), &cmdOutput); err != nil {
@@ -241,6 +251,16 @@ func (e *ActionExecutor) ExecutePostToolUseAction(action Action, input *PostTool
 				Continue:      true,
 				Decision:      "", // Allow tool result
 				HookEventName: "PostToolUse",
+			}, nil
+		}
+
+		// output_format: text - treat command output as plain text (no JSON parsing)
+		if action.OutputFormat != nil && *action.OutputFormat == "text" {
+			return &ActionOutput{
+				Continue:          true,
+				Decision:          "", // Allow tool result
+				AdditionalContext: strings.TrimSpace(stdout),
+				HookEventName:     "PostToolUse",
 			}, nil
 		}
 
