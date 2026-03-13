@@ -2841,3 +2841,148 @@ func TestExecuteSubagentStartAction_TypeCommand(t *testing.T) {
 		})
 	}
 }
+
+func TestExecuteSessionStartAction_OutputFormatText(t *testing.T) {
+	outputFormatText := "text"
+	tests := []struct {
+		name              string
+		stdout            string
+		stderr            string
+		exitCode          int
+		wantContinue      bool
+		wantHookEventName string
+		wantAdditionalCtx string
+	}{
+		{
+			name:              "output_format: text + text output -> additionalContext with HookEventName set",
+			stdout:            "Project: myapp\nBranch: main\n",
+			exitCode:          0,
+			wantContinue:      true,
+			wantHookEventName: "SessionStart",
+			wantAdditionalCtx: "Project: myapp\nBranch: main",
+		},
+		{
+			name:              "output_format: text + empty output -> continue=true, no additionalContext",
+			stdout:            "",
+			exitCode:          0,
+			wantContinue:      true,
+			wantHookEventName: "SessionStart",
+			wantAdditionalCtx: "",
+		},
+		{
+			name:              "output_format: text + non-zero exit code -> existing fail-safe behavior",
+			stdout:            "",
+			stderr:            "command error",
+			exitCode:          1,
+			wantContinue:      false,
+			wantHookEventName: "SessionStart",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			action := Action{
+				Type:         "command",
+				Command:      "get-project-info.sh",
+				OutputFormat: &outputFormatText,
+			}
+			input := &SessionStartInput{}
+			runner := &stubRunnerWithOutput{
+				stdout:   tt.stdout,
+				stderr:   tt.stderr,
+				exitCode: tt.exitCode,
+			}
+			executor := NewActionExecutor(runner)
+			output, err := executor.ExecuteSessionStartAction(action, input, map[string]any{})
+
+			if err != nil {
+				t.Fatalf("Expected no error, got: %v", err)
+			}
+
+			if output == nil {
+				t.Fatal("Expected non-nil output, got nil")
+			}
+
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			if output.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName = %q, want %q", output.HookEventName, tt.wantHookEventName)
+			}
+
+			if output.AdditionalContext != tt.wantAdditionalCtx {
+				t.Errorf("AdditionalContext = %q, want %q", output.AdditionalContext, tt.wantAdditionalCtx)
+			}
+		})
+	}
+}
+
+func TestExecuteSessionEndAction_OutputFormatText(t *testing.T) {
+	outputFormatText := "text"
+	tests := []struct {
+		name              string
+		stdout            string
+		stderr            string
+		exitCode          int
+		wantContinue      bool
+		wantSystemMessage string
+	}{
+		{
+			name:              "output_format: text + text output -> systemMessage with continue=true",
+			stdout:            "Cleanup completed.\nTemp files removed.\n",
+			exitCode:          0,
+			wantContinue:      true,
+			wantSystemMessage: "Cleanup completed.\nTemp files removed.",
+		},
+		{
+			name:              "output_format: text + empty output -> continue=true, no systemMessage",
+			stdout:            "",
+			exitCode:          0,
+			wantContinue:      true,
+			wantSystemMessage: "",
+		},
+		{
+			name:              "output_format: text + non-zero exit code -> existing fail-safe behavior",
+			stdout:            "",
+			stderr:            "command error",
+			exitCode:          1,
+			wantContinue:      true,
+			wantSystemMessage: "Command failed with exit code 1: command error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			action := Action{
+				Type:         "command",
+				Command:      "cleanup.sh",
+				OutputFormat: &outputFormatText,
+			}
+			input := &SessionEndInput{}
+			runner := &stubRunnerWithOutput{
+				stdout:   tt.stdout,
+				stderr:   tt.stderr,
+				exitCode: tt.exitCode,
+			}
+			executor := NewActionExecutor(runner)
+			output, err := executor.ExecuteSessionEndAction(action, input, map[string]any{})
+
+			if err != nil {
+				t.Fatalf("Expected no error, got: %v", err)
+			}
+
+			if output == nil {
+				t.Fatal("Expected non-nil output, got nil")
+			}
+
+			if output.Continue != tt.wantContinue {
+				t.Errorf("Continue = %v, want %v", output.Continue, tt.wantContinue)
+			}
+
+			if output.SystemMessage != tt.wantSystemMessage {
+				t.Errorf("SystemMessage = %q, want %q", output.SystemMessage, tt.wantSystemMessage)
+			}
+		})
+	}
+}
