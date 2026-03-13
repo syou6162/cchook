@@ -297,6 +297,17 @@ SessionStart hooks **always exit with code 0**, even when:
 
 Errors are logged to stderr as warnings, but cchook continues to output JSON and exits successfully. This ensures Claude Code always receives a response.
 
+**Plain Text Output** (`output_format: text`):
+For commands that output plain text (not JSON), use `output_format: text` to treat the stdout as `additionalContext`:
+```yaml
+SessionStart:
+  - actions:
+      - type: command
+        command: "get-project-info.sh"  # Returns plain text, not JSON
+        output_format: text  # stdout treated as additionalContext
+```
+- Without `output_format: text`, non-JSON stdout causes `continue: false` (fail-safe)
+
 **Example**:
 ```yaml
 SessionStart:
@@ -432,6 +443,19 @@ When multiple actions execute:
 PreToolUse hooks **always exit with code 0**. The `permissionDecision` field controls whether the tool execution is allowed, denied, or requires user confirmation.
 
 Errors are logged to stderr as warnings, but cchook continues to output JSON and exits successfully. On errors, `permissionDecision` defaults to `"deny"` for safety.
+
+**Plain Text Output** (`output_format: text`):
+For commands that output plain text (not JSON), use `output_format: text` to treat the stdout as `permissionDecisionReason` with `permissionDecision: "allow"`:
+```yaml
+PreToolUse:
+  - matcher: "Bash"
+    actions:
+      - type: command
+        command: "shellcheck {.tool_input.command}"
+        output_format: text  # stdout treated as permissionDecisionReason, permissionDecision set to "allow"
+```
+- Non-zero exit code still causes fail-safe `permissionDecision: "deny"` behavior
+- Without `output_format: text`, non-JSON stdout causes `permissionDecision: "deny"` (fail-safe)
 
 **Example**:
 ```yaml
@@ -640,6 +664,22 @@ After JSON migration:
 - `exit_status` field is **ignored** in output actions
 - Use `decision` field instead: omit for allow, `"block"` to prompt Claude
 - A stderr warning is emitted if `exit_status` is set (migration reminder)
+
+**Plain Text Output** (`output_format: text`):
+For commands that output plain text (not JSON), use `output_format: text` to treat the stdout as `additionalContext`:
+```yaml
+PostToolUse:
+  - matcher: "Write|Edit|MultiEdit"
+    conditions:
+      - type: file_extension
+        value: ".go"
+    actions:
+      - type: command
+        command: "gofmt -w {.tool_input.file_path}"
+        output_format: text  # stdout treated as additionalContext, not parsed as JSON
+```
+- Non-zero exit code still causes fail-safe `decision: "block"` behavior
+- Without `output_format: text`, non-JSON stdout causes `decision: "block"` (fail-safe)
 
 **Example**:
 ```yaml
@@ -872,6 +912,17 @@ SessionEnd supports the `reason_is` condition to match session end reasons:
 - `"logout"`: User logged out
 - `"prompt_input_exit"`: User exited via prompt input
 - `"other"`: Other reasons
+
+**Plain Text Output** (`output_format: text`):
+For commands that output plain text (not JSON), use `output_format: text` to treat the stdout as `systemMessage`:
+```yaml
+SessionEnd:
+  - actions:
+      - type: command
+        command: "cleanup-session.sh"  # Returns plain text, not JSON
+        output_format: text  # stdout treated as systemMessage
+```
+- Without `output_format: text`, non-JSON stdout causes systemMessage set to error message
 
 **Example**:
 ```yaml
