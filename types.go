@@ -468,7 +468,7 @@ type PreCompactHook struct {
 }
 
 type SessionStartHook struct {
-	Matcher    string      `yaml:"matcher"` // "startup", "resume", or "clear"
+	Matcher    string      `yaml:"matcher"` // "startup", "resume", "clear", or "compact"
 	Conditions []Condition `yaml:"conditions,omitempty"`
 	Actions    []Action    `yaml:"actions"`
 }

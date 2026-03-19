@@ -1065,6 +1065,142 @@ Available reason values:
 - `bypass_permissions_disabled`: Session ended because bypass permissions were disabled
 - `other`: Other reasons
 
+### PreToolUse / PostToolUse Additional Input Fields
+
+PreToolUse and PostToolUse hooks now receive additional input fields:
+
+- **`tool_use_id`** (string): Unique identifier for this specific tool call (e.g., `"toulu_01ABC123..."`). Useful for correlating PreToolUse and PostToolUse events for the same call.
+- **`agent_id`** (string, optional): Subagent identifier. Only present when called from within a subagent.
+- **`agent_type`** (string, optional): Subagent type name (e.g., `"Explore"`, `"Bash"`, `"Plan"`). Also present when using `--agent` flag.
+
+These fields are available as template variables:
+
+```yaml
+PreToolUse:
+  - matcher: "Bash"
+    actions:
+      - type: output
+        message: "Tool call {.tool_use_id} from agent {.agent_type}"
+```
+
+### PermissionRequest Input Fields
+
+PermissionRequest input now includes:
+
+- **`tool_use_id`** (string): Unique identifier for the tool call triggering the permission dialog.
+- **`permission_suggestions`** (array, optional): Permission rule suggestions provided by Claude Code's safety checks. Available as a template variable for advanced use cases.
+
+### Stop Input Fields
+
+Stop hooks now receive:
+
+- **`last_assistant_message`** (string): The full text of Claude's final response before stopping. Useful for validating task completion or checking output content.
+
+### SubagentStop Input Fields
+
+SubagentStop hooks now receive additional fields:
+
+- **`agent_id`** (string): Unique identifier of the stopping subagent.
+- **`agent_type`** (string): Type name of the subagent (e.g., `"Explore"`, `"Bash"`, `"Plan"`).
+- **`agent_transcript_path`** (string): Path to the subagent's own transcript file (separate from the main session's `transcript_path`).
+- **`last_assistant_message`** (string): The final response text from the subagent.
+
+### SubagentStop Matcher Support
+
+SubagentStop hooks now support a `matcher` field to filter by agent type:
+
+```yaml
+SubagentStop:
+  - matcher: "Explore|Plan"
+    actions:
+      - type: output
+        message: "Research/planning subagent completed"
+  - matcher: "Bash"
+    actions:
+      - type: output
+        message: "Bash subagent completed"
+```
+
+### SessionEnd Matcher Support
+
+SessionEnd hooks now support a `matcher` field to filter by session end reason (exact match):
+
+```yaml
+SessionEnd:
+  - matcher: "clear"
+    actions:
+      - type: output
+        message: "Session was cleared"
+  - matcher: "logout|prompt_input_exit"
+    actions:
+      - type: output
+        message: "User exited"
+```
+
+### UserPromptSubmit Reason Field
+
+UserPromptSubmit hooks can now return a `reason` field alongside `decision: "block"`:
+
+**Output Action:**
+```yaml
+UserPromptSubmit:
+  - conditions:
+      - type: prompt_regex
+        value: "delete|rm -rf"
+    actions:
+      - type: output
+        message: "Dangerous command detected"
+        decision: "block"
+        reason: "Destructive operations require manual confirmation"
+```
+
+**Command Action JSON:**
+```json
+{
+  "continue": true,
+  "decision": "block",
+  "reason": "Destructive operations require manual confirmation",
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "Optional additional context"
+  }
+}
+```
+
+### PermissionRequest updatedPermissions
+
+PermissionRequest hooks can now return `updatedPermissions` to dynamically modify Claude Code's permission configuration when allowing a request:
+
+**Command Action JSON:**
+```json
+{
+  "continue": true,
+  "hookSpecificOutput": {
+    "hookEventName": "PermissionRequest",
+    "decision": {
+      "behavior": "allow",
+      "updatedPermissions": [
+        {
+          "type": "addRules",
+          "behavior": "allow",
+          "destination": "session"
+        }
+      ]
+    }
+  }
+}
+```
+
+Available `updatedPermissions` entry types:
+- `addRules`: Add permission rules
+- `replaceRules`: Replace all rules of given behavior
+- `removeRules`: Remove matching rules
+- `setMode`: Change permission mode (`default`, `acceptEdits`, `dontAsk`, `bypassPermissions`, `plan`)
+- `addDirectories`: Add working directories
+- `removeDirectories`: Remove working directories
+
+Available `destination` values: `session` (in-memory only), `localSettings`, `projectSettings`, `userSettings`
+
 ## Common Workflows
 
 ### Adding a New Hook Type
