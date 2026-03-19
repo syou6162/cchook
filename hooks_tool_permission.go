@@ -787,13 +787,19 @@ func executePermissionRequestHook(executor *ActionExecutor, hook PermissionReque
 			mergedOutput.UpdatedInput = actionOutput.UpdatedInput
 		}
 
+		// UpdatedPermissions: last non-null value wins
+		if actionOutput.UpdatedPermissions != nil {
+			mergedOutput.UpdatedPermissions = actionOutput.UpdatedPermissions
+		}
+
 		// Clear fields incompatible with behavior change (公式仕様準拠)
 		// This must happen AFTER setting all fields from actionOutput
 		if previousBehavior != mergedOutput.Behavior {
 			switch mergedOutput.Behavior {
-			case "deny":
-				// deny時: updatedInputをクリア (公式仕様: deny時はupdatedInput不可)
+			case "deny", "ask":
+				// deny/ask時: updatedInput/updatedPermissionsをクリア (公式仕様: allow時のみ有効)
 				mergedOutput.UpdatedInput = nil
+				mergedOutput.UpdatedPermissions = nil
 			case "allow":
 				// allow時: decision内のmessage/interruptをクリア（公式仕様: allow時はdecision.message/interrupt不可）
 				// Note: systemMessageはトップレベルのフィールドでdecisionとは独立なので残す
