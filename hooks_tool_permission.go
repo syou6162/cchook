@@ -703,8 +703,9 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 	// Fail-safe: force deny on errors
 	if len(conditionErrors) > 0 || len(actionErrors) > 0 {
 		behavior = "deny"
-		updatedInput = nil // deny時はupdatedInputをクリア
-		interrupt = false  // エラー時はinterruptも明示的にfalseにリセット
+		updatedInput = nil       // deny時はupdatedInputをクリア
+		updatedPermissions = nil // deny時はupdatedPermissionsもクリア (公式仕様: allow時のみ有効)
+		interrupt = false        // エラー時はinterruptも明示的にfalseにリセット
 		// deny時はmessageが必須なので、エラー概要を設定
 		var errMsg string
 		if len(conditionErrors) > 0 {
@@ -714,6 +715,7 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 		}
 		finalOutput.HookSpecificOutput.Decision.Behavior = behavior
 		finalOutput.HookSpecificOutput.Decision.UpdatedInput = updatedInput
+		finalOutput.HookSpecificOutput.Decision.UpdatedPermissions = updatedPermissions
 		finalOutput.HookSpecificOutput.Decision.Message = errMsg
 		finalOutput.HookSpecificOutput.Decision.Interrupt = interrupt
 		finalOutput.SystemMessage = errMsg
