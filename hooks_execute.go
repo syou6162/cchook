@@ -897,6 +897,11 @@ func executeSessionEndHooksJSON(config *Config, input *SessionEndInput, rawJSON 
 	var systemMessageBuilder strings.Builder
 
 	for i, hook := range config.SessionEnd {
+		// matcherチェック（reason値で絞り込み、完全一致）
+		if !checkNotificationMatcher(hook.Matcher, input.Reason) {
+			continue
+		}
+
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {

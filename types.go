@@ -483,6 +483,7 @@ type UserPromptSubmitHook struct {
 }
 
 type SessionEndHook struct {
+	Matcher    string      `yaml:"matcher,omitempty"` // reason value filter (e.g. "clear", "logout|prompt_input_exit")
 	Conditions []Condition `yaml:"conditions,omitempty"`
 	Actions    []Action    `yaml:"actions"`
 }
