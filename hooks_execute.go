@@ -411,6 +411,11 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 	var systemMessageBuilder strings.Builder
 
 	for i, hook := range config.SubagentStop {
+		// matcherチェック（agent_typeで絞り込み）
+		if !checkMatcher(hook.Matcher, input.AgentType) {
+			continue
+		}
+
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {

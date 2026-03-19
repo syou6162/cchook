@@ -2312,6 +2312,70 @@ func TestExecuteNotificationHooksJSON(t *testing.T) {
 	}
 }
 
+func TestSubagentStopHook_Matcher(t *testing.T) {
+	tests := []struct {
+		name         string
+		matcher      string
+		agentType    string
+		wantExecuted bool
+	}{
+		{
+			name:         "Matcher matches agent type",
+			matcher:      "Explore",
+			agentType:    "Explore",
+			wantExecuted: true,
+		},
+		{
+			name:         "Matcher does not match agent type",
+			matcher:      "Bash",
+			agentType:    "Explore",
+			wantExecuted: false,
+		},
+		{
+			name:         "Pipe-separated OR matches",
+			matcher:      "Explore|Plan",
+			agentType:    "Plan",
+			wantExecuted: true,
+		},
+		{
+			name:         "Empty matcher matches all",
+			matcher:      "",
+			agentType:    "Explore",
+			wantExecuted: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &Config{
+				SubagentStop: []SubagentStopHook{
+					{
+						Matcher: tt.matcher,
+						Actions: []Action{
+							{Type: "output", Message: "hook executed"},
+						},
+					},
+				},
+			}
+			input := &SubagentStopInput{
+				BaseInput: BaseInput{HookEventName: SubagentStop},
+				AgentType: tt.agentType,
+			}
+			rawJSON := map[string]any{"hook_event_name": "SubagentStop", "agent_type": tt.agentType}
+
+			output, err := executeSubagentStopHooks(config, input, rawJSON)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			executed := output != nil && output.SystemMessage != ""
+			if executed != tt.wantExecuted {
+				t.Errorf("hook executed = %v, want %v (SystemMessage=%q)", executed, tt.wantExecuted, output.SystemMessage)
+			}
+		})
+	}
+}
+
 func TestExecuteSubagentStartHooksJSON(t *testing.T) {
 	tests := []struct {
 		name                  string

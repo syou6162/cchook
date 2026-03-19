@@ -277,6 +277,12 @@ func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON a
 
 	executed := false
 	for i, hook := range config.SubagentStop {
+		// matcherチェック
+		if !checkMatcher(hook.Matcher, input.AgentType) {
+			fmt.Printf("[Hook %d] Skipped (matcher %q does not match agent_type %q)\n", i+1, hook.Matcher, input.AgentType)
+			continue
+		}
+
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {

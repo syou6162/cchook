@@ -453,6 +453,7 @@ type StopHook struct {
 }
 
 type SubagentStopHook struct {
+	Matcher    string      `yaml:"matcher,omitempty"` // agent type filter (e.g. "Explore", "Bash|Plan")
 	Conditions []Condition `yaml:"conditions,omitempty"`
 	Actions    []Action    `yaml:"actions"`
 }
