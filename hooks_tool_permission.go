@@ -571,6 +571,7 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 	hookEventName := "PermissionRequest"
 	behavior := "allow" // Default: allow when no hooks match
 	var updatedInput map[string]any
+	var updatedPermissions json.RawMessage
 	interrupt := false
 	stopReason := ""
 	suppressOutput := false
@@ -627,6 +628,11 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 			updatedInput = actionOutput.UpdatedInput
 		}
 
+		// UpdatedPermissions: last non-null value wins
+		if actionOutput.UpdatedPermissions != nil {
+			updatedPermissions = actionOutput.UpdatedPermissions
+		}
+
 		// Clear incompatible fields when behavior changes (across multiple hooks)
 		// This must happen AFTER merging fields from actionOutput
 		if previousBehavior != behavior {
@@ -637,8 +643,9 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 				messageBuilder.Reset()
 				interrupt = false
 			case "deny":
-				// deny時: updatedInputをクリア (公式仕様: deny時はupdatedInput不可)
+				// deny時: updatedInput/updatedPermissionsをクリア (公式仕様: deny時はupdatedInput/updatedPermissions不可)
 				updatedInput = nil
+				updatedPermissions = nil
 			}
 		}
 
@@ -680,10 +687,11 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 	finalOutput.HookSpecificOutput = &PermissionRequestHookSpecificOutput{
 		HookEventName: hookEventName,
 		Decision: &PermissionRequestDecision{
-			Behavior:     behavior,
-			UpdatedInput: updatedInput,
-			Message:      message,
-			Interrupt:    interrupt,
+			Behavior:           behavior,
+			UpdatedInput:       updatedInput,
+			UpdatedPermissions: updatedPermissions,
+			Message:            message,
+			Interrupt:          interrupt,
 		},
 	}
 

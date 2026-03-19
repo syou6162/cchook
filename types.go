@@ -257,14 +257,15 @@ type SubagentStartHookSpecificOutput struct {
 // ActionOutput はアクション実行結果を表す内部型（JSONには直接出力されない）
 type ActionOutput struct {
 	Continue                 bool
-	Decision                 string         // "block" or "" (internal: empty string will be omitted from JSON via omitempty; UserPromptSubmit only, empty for SessionStart)
-	PermissionDecision       string         // "allow", "deny", or "ask" (PreToolUse only, empty for SessionStart/UserPromptSubmit)
-	PermissionDecisionReason string         // Reason for permission decision (PreToolUse only)
-	UpdatedInput             map[string]any // Updated tool input parameters (PreToolUse only)
-	Behavior                 string         // "allow" or "deny" (PermissionRequest only)
-	Message                  string         // Deny message (PermissionRequest only)
-	Interrupt                bool           // Interrupt flag for deny (PermissionRequest only)
-	Reason                   string         // Reason for decision (Stop/SubagentStop/PostToolUse only, required when decision is "block")
+	Decision                 string          // "block" or "" (internal: empty string will be omitted from JSON via omitempty; UserPromptSubmit only, empty for SessionStart)
+	PermissionDecision       string          // "allow", "deny", or "ask" (PreToolUse only, empty for SessionStart/UserPromptSubmit)
+	PermissionDecisionReason string          // Reason for permission decision (PreToolUse only)
+	UpdatedInput             map[string]any  // Updated tool input parameters (PreToolUse only)
+	Behavior                 string          // "allow" or "deny" (PermissionRequest only)
+	Message                  string          // Deny message (PermissionRequest only)
+	Interrupt                bool            // Interrupt flag for deny (PermissionRequest only)
+	UpdatedPermissions       json.RawMessage // Permission rule updates (PermissionRequest only, allow時のみ)
+	Reason                   string          // Reason for decision (Stop/SubagentStop/PostToolUse only, required when decision is "block")
 	StopReason               string
 	SuppressOutput           bool
 	SystemMessage            string
@@ -310,10 +311,11 @@ type PermissionRequestHookSpecificOutput struct {
 
 // PermissionRequestDecision represents the decision object within PermissionRequest hookSpecificOutput
 type PermissionRequestDecision struct {
-	Behavior     string         `json:"behavior"`               // Required: "allow" or "deny"
-	UpdatedInput map[string]any `json:"updatedInput,omitempty"` // Optional: allow時のみ
-	Message      string         `json:"message,omitempty"`      // Optional: deny時のみ
-	Interrupt    bool           `json:"interrupt,omitempty"`    // Optional: deny時のみ、デフォルトfalse
+	Behavior           string          `json:"behavior"`                     // Required: "allow" or "deny"
+	UpdatedInput       map[string]any  `json:"updatedInput,omitempty"`       // Optional: allow時のみ
+	UpdatedPermissions json.RawMessage `json:"updatedPermissions,omitempty"` // Optional: allow時のみ、パーミッション設定の動的変更
+	Message            string          `json:"message,omitempty"`            // Optional: deny時のみ
+	Interrupt          bool            `json:"interrupt,omitempty"`          // Optional: deny時のみ、デフォルトfalse
 }
 
 // UserPromptSubmit用

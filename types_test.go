@@ -2351,6 +2351,53 @@ func TestUserPromptSubmitOutput_ReasonField(t *testing.T) {
 	}
 }
 
+func TestPermissionRequestDecision_UpdatedPermissions(t *testing.T) {
+	tests := []struct {
+		name           string
+		decision       PermissionRequestDecision
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name: "updatedPermissions is serialized when present",
+			decision: PermissionRequestDecision{
+				Behavior:           "allow",
+				UpdatedPermissions: json.RawMessage(`[{"type":"addRules","behavior":"allow","destination":"session"}]`),
+			},
+			wantContains:   []string{`"updatedPermissions"`, `"addRules"`, `"behavior":"allow"`},
+			wantNotContain: []string{},
+		},
+		{
+			name: "updatedPermissions is omitted when nil",
+			decision: PermissionRequestDecision{
+				Behavior: "allow",
+			},
+			wantContains:   []string{`"behavior":"allow"`},
+			wantNotContain: []string{`"updatedPermissions"`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			jsonBytes, err := json.Marshal(tt.decision)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+			jsonStr := string(jsonBytes)
+			for _, want := range tt.wantContains {
+				if !strings.Contains(jsonStr, want) {
+					t.Errorf("JSON does not contain %q. JSON: %s", want, jsonStr)
+				}
+			}
+			for _, notWant := range tt.wantNotContain {
+				if strings.Contains(jsonStr, notWant) {
+					t.Errorf("JSON should not contain %q. JSON: %s", notWant, jsonStr)
+				}
+			}
+		})
+	}
+}
+
 func TestPostToolUseOutput_JSONSerialization_UpdatedMCPToolOutput(t *testing.T) {
 	tests := []struct {
 		name           string
