@@ -642,8 +642,8 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 				// Note: systemMessageはトップレベルのフィールドでdecisionとは独立なので残す
 				messageBuilder.Reset()
 				interrupt = false
-			case "deny":
-				// deny時: updatedInput/updatedPermissionsをクリア (公式仕様: deny時はupdatedInput/updatedPermissions不可)
+			case "deny", "ask":
+				// deny/ask時: updatedInput/updatedPermissionsをクリア (公式仕様: allow時のみ有効)
 				updatedInput = nil
 				updatedPermissions = nil
 			}
