@@ -75,6 +75,9 @@ type PreToolUseInput struct {
 	BaseInput
 	ToolName  string    `json:"tool_name"`
 	ToolInput ToolInput `json:"tool_input"`
+	ToolUseID string    `json:"tool_use_id,omitempty"`
+	AgentID   string    `json:"agent_id,omitempty"`
+	AgentType string    `json:"agent_type,omitempty"`
 }
 
 // GetToolName returns the tool name from the PreToolUse input.
@@ -82,11 +85,28 @@ func (p *PreToolUseInput) GetToolName() string {
 	return p.ToolName
 }
 
-// PermissionRequest用 - PreToolUseと同じ入力スキーマ
-type PermissionRequestInput = PreToolUseInput
+// PermissionRequest用
+type PermissionRequestInput struct {
+	BaseInput
+	ToolName              string          `json:"tool_name"`
+	ToolInput             ToolInput       `json:"tool_input"`
+	ToolUseID             string          `json:"tool_use_id,omitempty"`
+	PermissionSuggestions json.RawMessage `json:"permission_suggestions,omitempty"`
+}
+
+// GetToolName returns the tool name from the PermissionRequest input.
+func (p *PermissionRequestInput) GetToolName() string {
+	return p.ToolName
+}
 
 // Tool response structures - ツールによって配列またはオブジェクトのパターンに対応
 type ToolResponse json.RawMessage
+
+// UnmarshalJSON implements json.Unmarshaler for ToolResponse.
+func (t *ToolResponse) UnmarshalJSON(data []byte) error {
+	*t = ToolResponse(data)
+	return nil
+}
 
 // PostToolUse用
 type PostToolUseInput struct {
@@ -94,6 +114,9 @@ type PostToolUseInput struct {
 	ToolName     string       `json:"tool_name"`
 	ToolInput    ToolInput    `json:"tool_input"`
 	ToolResponse ToolResponse `json:"tool_response"`
+	ToolUseID    string       `json:"tool_use_id,omitempty"`
+	AgentID      string       `json:"agent_id,omitempty"`
+	AgentType    string       `json:"agent_type,omitempty"`
 }
 
 // GetToolName returns the tool name from the PostToolUse input.
@@ -134,7 +157,8 @@ type NotificationHookSpecificOutput struct {
 // Stop用
 type StopInput struct {
 	BaseInput
-	StopHookActive bool `json:"stop_hook_active"`
+	StopHookActive       bool   `json:"stop_hook_active"`
+	LastAssistantMessage string `json:"last_assistant_message,omitempty"`
 }
 
 // GetToolName returns an empty string as Stop events have no associated tool.
@@ -145,7 +169,11 @@ func (s *StopInput) GetToolName() string {
 // SubagentStop用
 type SubagentStopInput struct {
 	BaseInput
-	StopHookActive bool `json:"stop_hook_active"`
+	StopHookActive       bool   `json:"stop_hook_active"`
+	AgentID              string `json:"agent_id,omitempty"`
+	AgentType            string `json:"agent_type,omitempty"`
+	AgentTranscriptPath  string `json:"agent_transcript_path,omitempty"`
+	LastAssistantMessage string `json:"last_assistant_message,omitempty"`
 }
 
 // GetToolName returns an empty string as SubagentStop events have no associated tool.
@@ -229,14 +257,15 @@ type SubagentStartHookSpecificOutput struct {
 // ActionOutput はアクション実行結果を表す内部型（JSONには直接出力されない）
 type ActionOutput struct {
 	Continue                 bool
-	Decision                 string         // "block" or "" (internal: empty string will be omitted from JSON via omitempty; UserPromptSubmit only, empty for SessionStart)
-	PermissionDecision       string         // "allow", "deny", or "ask" (PreToolUse only, empty for SessionStart/UserPromptSubmit)
-	PermissionDecisionReason string         // Reason for permission decision (PreToolUse only)
-	UpdatedInput             map[string]any // Updated tool input parameters (PreToolUse only)
-	Behavior                 string         // "allow" or "deny" (PermissionRequest only)
-	Message                  string         // Deny message (PermissionRequest only)
-	Interrupt                bool           // Interrupt flag for deny (PermissionRequest only)
-	Reason                   string         // Reason for decision (Stop/SubagentStop/PostToolUse only, required when decision is "block")
+	Decision                 string          // "block" or "" (internal: empty string will be omitted from JSON via omitempty; UserPromptSubmit only, empty for SessionStart)
+	PermissionDecision       string          // "allow", "deny", or "ask" (PreToolUse only, empty for SessionStart/UserPromptSubmit)
+	PermissionDecisionReason string          // Reason for permission decision (PreToolUse only)
+	UpdatedInput             map[string]any  // Updated tool input parameters (PreToolUse only)
+	Behavior                 string          // "allow" or "deny" (PermissionRequest only)
+	Message                  string          // Deny message (PermissionRequest only)
+	Interrupt                bool            // Interrupt flag for deny (PermissionRequest only)
+	UpdatedPermissions       json.RawMessage // Permission rule updates (PermissionRequest only, allow時のみ)
+	Reason                   string          // Reason for decision (Stop/SubagentStop/PostToolUse only, required when decision is "block")
 	StopReason               string
 	SuppressOutput           bool
 	SystemMessage            string
@@ -282,10 +311,11 @@ type PermissionRequestHookSpecificOutput struct {
 
 // PermissionRequestDecision represents the decision object within PermissionRequest hookSpecificOutput
 type PermissionRequestDecision struct {
-	Behavior     string         `json:"behavior"`               // Required: "allow" or "deny"
-	UpdatedInput map[string]any `json:"updatedInput,omitempty"` // Optional: allow時のみ
-	Message      string         `json:"message,omitempty"`      // Optional: deny時のみ
-	Interrupt    bool           `json:"interrupt,omitempty"`    // Optional: deny時のみ、デフォルトfalse
+	Behavior           string          `json:"behavior"`                     // Required: "allow" or "deny"
+	UpdatedInput       map[string]any  `json:"updatedInput,omitempty"`       // Optional: allow時のみ
+	UpdatedPermissions json.RawMessage `json:"updatedPermissions,omitempty"` // Optional: allow時のみ、パーミッション設定の動的変更
+	Message            string          `json:"message,omitempty"`            // Optional: deny時のみ
+	Interrupt          bool            `json:"interrupt,omitempty"`          // Optional: deny時のみ、デフォルトfalse
 }
 
 // UserPromptSubmit用
@@ -303,6 +333,7 @@ func (u *UserPromptSubmitInput) GetToolName() string {
 type UserPromptSubmitOutput struct {
 	Continue           bool                                `json:"continue"`
 	Decision           string                              `json:"decision,omitempty"` // "block" only; omit field to allow prompt
+	Reason             string                              `json:"reason,omitempty"`   // Required when decision is "block"
 	StopReason         string                              `json:"stopReason,omitempty"`
 	SuppressOutput     bool                                `json:"suppressOutput,omitempty"`
 	SystemMessage      string                              `json:"systemMessage,omitempty"`
@@ -425,6 +456,7 @@ type StopHook struct {
 }
 
 type SubagentStopHook struct {
+	Matcher    string      `yaml:"matcher,omitempty"` // agent type filter (e.g. "Explore", "Bash|Plan")
 	Conditions []Condition `yaml:"conditions,omitempty"`
 	Actions    []Action    `yaml:"actions"`
 }
@@ -436,7 +468,7 @@ type PreCompactHook struct {
 }
 
 type SessionStartHook struct {
-	Matcher    string      `yaml:"matcher"` // "startup", "resume", or "clear"
+	Matcher    string      `yaml:"matcher"` // "startup", "resume", "clear", or "compact"
 	Conditions []Condition `yaml:"conditions,omitempty"`
 	Actions    []Action    `yaml:"actions"`
 }
@@ -454,6 +486,7 @@ type UserPromptSubmitHook struct {
 }
 
 type SessionEndHook struct {
+	Matcher    string      `yaml:"matcher,omitempty"` // reason value filter (e.g. "clear", "logout|prompt_input_exit")
 	Conditions []Condition `yaml:"conditions,omitempty"`
 	Actions    []Action    `yaml:"actions"`
 }

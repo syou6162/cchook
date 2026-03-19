@@ -25,13 +25,22 @@ func parseInput[T HookInput](eventType HookEventType) (T, any, error) {
 
 	// イベントタイプに応じて特別な処理を行う
 	switch eventType {
-	case PreToolUse, PermissionRequest:
-		// PermissionRequest は PreToolUse と同じ入力構造
+	case PreToolUse:
 		preInput, err := parsePreToolUseInput(rawInput)
 		if err != nil {
 			return input, nil, err
 		}
 		if result, ok := any(preInput).(T); ok {
+			return result, rawJSON, nil
+		}
+		return input, nil, fmt.Errorf("type assertion failed for %s", eventType)
+
+	case PermissionRequest:
+		permInput, err := parsePermissionRequestInput(rawInput)
+		if err != nil {
+			return input, nil, err
+		}
+		if result, ok := any(permInput).(T); ok {
 			return result, rawJSON, nil
 		}
 		return input, nil, fmt.Errorf("type assertion failed for %s", eventType)
@@ -63,6 +72,9 @@ func parsePreToolUseInput(rawInput json.RawMessage) (*PreToolUseInput, error) {
 		BaseInput
 		ToolName  string          `json:"tool_name"`
 		ToolInput json.RawMessage `json:"tool_input"`
+		ToolUseID string          `json:"tool_use_id,omitempty"`
+		AgentID   string          `json:"agent_id,omitempty"`
+		AgentType string          `json:"agent_type,omitempty"`
 	}
 
 	if err := json.Unmarshal(rawInput, &temp); err != nil {
@@ -79,6 +91,37 @@ func parsePreToolUseInput(rawInput json.RawMessage) (*PreToolUseInput, error) {
 		BaseInput: temp.BaseInput,
 		ToolName:  temp.ToolName,
 		ToolInput: toolInput,
+		ToolUseID: temp.ToolUseID,
+		AgentID:   temp.AgentID,
+		AgentType: temp.AgentType,
+	}, nil
+}
+
+// parsePermissionRequestInput parses PermissionRequest event input.
+func parsePermissionRequestInput(rawInput json.RawMessage) (*PermissionRequestInput, error) {
+	var temp struct {
+		BaseInput
+		ToolName              string          `json:"tool_name"`
+		ToolInput             json.RawMessage `json:"tool_input"`
+		ToolUseID             string          `json:"tool_use_id,omitempty"`
+		PermissionSuggestions json.RawMessage `json:"permission_suggestions,omitempty"`
+	}
+
+	if err := json.Unmarshal(rawInput, &temp); err != nil {
+		return nil, fmt.Errorf("failed to parse PermissionRequest base structure: %w", err)
+	}
+
+	toolInput, err := parseToolInputByName(temp.ToolName, temp.ToolInput)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse tool_input for %s: %w", temp.ToolName, err)
+	}
+
+	return &PermissionRequestInput{
+		BaseInput:             temp.BaseInput,
+		ToolName:              temp.ToolName,
+		ToolInput:             toolInput,
+		ToolUseID:             temp.ToolUseID,
+		PermissionSuggestions: temp.PermissionSuggestions,
 	}, nil
 }
 
@@ -91,6 +134,9 @@ func parsePostToolUseInput(rawInput json.RawMessage) (*PostToolUseInput, error) 
 		ToolName     string          `json:"tool_name"`
 		ToolInput    json.RawMessage `json:"tool_input"`
 		ToolResponse json.RawMessage `json:"tool_response"`
+		ToolUseID    string          `json:"tool_use_id,omitempty"`
+		AgentID      string          `json:"agent_id,omitempty"`
+		AgentType    string          `json:"agent_type,omitempty"`
 	}
 
 	if err := json.Unmarshal(rawInput, &temp); err != nil {
@@ -111,6 +157,9 @@ func parsePostToolUseInput(rawInput json.RawMessage) (*PostToolUseInput, error) 
 		ToolName:     temp.ToolName,
 		ToolInput:    toolInput,
 		ToolResponse: toolResponse,
+		ToolUseID:    temp.ToolUseID,
+		AgentID:      temp.AgentID,
+		AgentType:    temp.AgentType,
 	}, nil
 }
 

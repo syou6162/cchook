@@ -571,6 +571,7 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 	hookEventName := "PermissionRequest"
 	behavior := "allow" // Default: allow when no hooks match
 	var updatedInput map[string]any
+	var updatedPermissions json.RawMessage
 	interrupt := false
 	stopReason := ""
 	suppressOutput := false
@@ -627,6 +628,11 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 			updatedInput = actionOutput.UpdatedInput
 		}
 
+		// UpdatedPermissions: last non-null value wins
+		if actionOutput.UpdatedPermissions != nil {
+			updatedPermissions = actionOutput.UpdatedPermissions
+		}
+
 		// Clear incompatible fields when behavior changes (across multiple hooks)
 		// This must happen AFTER merging fields from actionOutput
 		if previousBehavior != behavior {
@@ -636,9 +642,10 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 				// Note: systemMessageはトップレベルのフィールドでdecisionとは独立なので残す
 				messageBuilder.Reset()
 				interrupt = false
-			case "deny":
-				// deny時: updatedInputをクリア (公式仕様: deny時はupdatedInput不可)
+			case "deny", "ask":
+				// deny/ask時: updatedInput/updatedPermissionsをクリア (公式仕様: allow時のみ有効)
 				updatedInput = nil
+				updatedPermissions = nil
 			}
 		}
 
@@ -680,10 +687,11 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 	finalOutput.HookSpecificOutput = &PermissionRequestHookSpecificOutput{
 		HookEventName: hookEventName,
 		Decision: &PermissionRequestDecision{
-			Behavior:     behavior,
-			UpdatedInput: updatedInput,
-			Message:      message,
-			Interrupt:    interrupt,
+			Behavior:           behavior,
+			UpdatedInput:       updatedInput,
+			UpdatedPermissions: updatedPermissions,
+			Message:            message,
+			Interrupt:          interrupt,
 		},
 	}
 
@@ -695,8 +703,9 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 	// Fail-safe: force deny on errors
 	if len(conditionErrors) > 0 || len(actionErrors) > 0 {
 		behavior = "deny"
-		updatedInput = nil // deny時はupdatedInputをクリア
-		interrupt = false  // エラー時はinterruptも明示的にfalseにリセット
+		updatedInput = nil       // deny時はupdatedInputをクリア
+		updatedPermissions = nil // deny時はupdatedPermissionsもクリア (公式仕様: allow時のみ有効)
+		interrupt = false        // エラー時はinterruptも明示的にfalseにリセット
 		// deny時はmessageが必須なので、エラー概要を設定
 		var errMsg string
 		if len(conditionErrors) > 0 {
@@ -706,6 +715,7 @@ func executePermissionRequestHooksJSON(config *Config, input *PermissionRequestI
 		}
 		finalOutput.HookSpecificOutput.Decision.Behavior = behavior
 		finalOutput.HookSpecificOutput.Decision.UpdatedInput = updatedInput
+		finalOutput.HookSpecificOutput.Decision.UpdatedPermissions = updatedPermissions
 		finalOutput.HookSpecificOutput.Decision.Message = errMsg
 		finalOutput.HookSpecificOutput.Decision.Interrupt = interrupt
 		finalOutput.SystemMessage = errMsg
@@ -777,13 +787,19 @@ func executePermissionRequestHook(executor *ActionExecutor, hook PermissionReque
 			mergedOutput.UpdatedInput = actionOutput.UpdatedInput
 		}
 
+		// UpdatedPermissions: last non-null value wins
+		if actionOutput.UpdatedPermissions != nil {
+			mergedOutput.UpdatedPermissions = actionOutput.UpdatedPermissions
+		}
+
 		// Clear fields incompatible with behavior change (公式仕様準拠)
 		// This must happen AFTER setting all fields from actionOutput
 		if previousBehavior != mergedOutput.Behavior {
 			switch mergedOutput.Behavior {
-			case "deny":
-				// deny時: updatedInputをクリア (公式仕様: deny時はupdatedInput不可)
+			case "deny", "ask":
+				// deny/ask時: updatedInput/updatedPermissionsをクリア (公式仕様: allow時のみ有効)
 				mergedOutput.UpdatedInput = nil
+				mergedOutput.UpdatedPermissions = nil
 			case "allow":
 				// allow時: decision内のmessage/interruptをクリア（公式仕様: allow時はdecision.message/interrupt不可）
 				// Note: systemMessageはトップレベルのフィールドでdecisionとは独立なので残す

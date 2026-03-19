@@ -895,6 +895,7 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 		result := &ActionOutput{
 			Continue:      true,
 			Decision:      decision,
+			Reason:        cmdOutput.Reason,
 			HookEventName: cmdOutput.HookSpecificOutput.HookEventName,
 			SystemMessage: cmdOutput.SystemMessage,
 		}
@@ -935,9 +936,15 @@ func (e *ActionExecutor) ExecuteUserPromptSubmitAction(action Action, input *Use
 			decision = *action.Decision
 		}
 
+		reason := ""
+		if action.Reason != nil {
+			reason = *action.Reason
+		}
+
 		return &ActionOutput{
 			Continue:          true,
 			Decision:          decision,
+			Reason:            reason,
 			HookEventName:     "UserPromptSubmit",
 			AdditionalContext: processedMessage,
 		}, nil
@@ -1165,6 +1172,7 @@ func checkUnsupportedFieldsUserPromptSubmit(stdout string) {
 	supportedFields := map[string]bool{
 		"continue":           true,
 		"decision":           true, // UserPromptSubmit specific
+		"reason":             true, // Required when decision is "block"
 		"stopReason":         true,
 		"suppressOutput":     true,
 		"systemMessage":      true,

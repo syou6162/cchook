@@ -2005,6 +2005,399 @@ func TestPreCompactOutput_JSONSerialization(t *testing.T) {
 	}
 }
 
+func TestPreToolUseInputParsing_NewFields(t *testing.T) {
+	tests := []struct {
+		name          string
+		jsonInput     string
+		wantToolUseID string
+		wantAgentID   string
+		wantAgentType string
+	}{
+		{
+			name: "All new fields present",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "PreToolUse",
+				"tool_name": "Write",
+				"tool_input": {"file_path": "test.go"},
+				"tool_use_id": "toolu_01ABC",
+				"agent_id": "agent-123",
+				"agent_type": "Explore"
+			}`,
+			wantToolUseID: "toolu_01ABC",
+			wantAgentID:   "agent-123",
+			wantAgentType: "Explore",
+		},
+		{
+			name: "New fields absent (zero value)",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "PreToolUse",
+				"tool_name": "Bash",
+				"tool_input": {"command": "ls"}
+			}`,
+			wantToolUseID: "",
+			wantAgentID:   "",
+			wantAgentType: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var input PreToolUseInput
+			if err := json.Unmarshal([]byte(tt.jsonInput), &input); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+			if input.ToolUseID != tt.wantToolUseID {
+				t.Errorf("ToolUseID: got %q, want %q", input.ToolUseID, tt.wantToolUseID)
+			}
+			if input.AgentID != tt.wantAgentID {
+				t.Errorf("AgentID: got %q, want %q", input.AgentID, tt.wantAgentID)
+			}
+			if input.AgentType != tt.wantAgentType {
+				t.Errorf("AgentType: got %q, want %q", input.AgentType, tt.wantAgentType)
+			}
+		})
+	}
+}
+
+func TestPostToolUseInputParsing_NewFields(t *testing.T) {
+	tests := []struct {
+		name          string
+		jsonInput     string
+		wantToolUseID string
+		wantAgentID   string
+		wantAgentType string
+	}{
+		{
+			name: "All new fields present",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "PostToolUse",
+				"tool_name": "Write",
+				"tool_input": {"file_path": "test.go"},
+				"tool_response": {},
+				"tool_use_id": "toolu_01DEF",
+				"agent_id": "agent-456",
+				"agent_type": "Plan"
+			}`,
+			wantToolUseID: "toolu_01DEF",
+			wantAgentID:   "agent-456",
+			wantAgentType: "Plan",
+		},
+		{
+			name: "New fields absent (zero value)",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "PostToolUse",
+				"tool_name": "Bash",
+				"tool_input": {"command": "ls"},
+				"tool_response": {}
+			}`,
+			wantToolUseID: "",
+			wantAgentID:   "",
+			wantAgentType: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var input PostToolUseInput
+			if err := json.Unmarshal([]byte(tt.jsonInput), &input); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+			if input.ToolUseID != tt.wantToolUseID {
+				t.Errorf("ToolUseID: got %q, want %q", input.ToolUseID, tt.wantToolUseID)
+			}
+			if input.AgentID != tt.wantAgentID {
+				t.Errorf("AgentID: got %q, want %q", input.AgentID, tt.wantAgentID)
+			}
+			if input.AgentType != tt.wantAgentType {
+				t.Errorf("AgentType: got %q, want %q", input.AgentType, tt.wantAgentType)
+			}
+		})
+	}
+}
+
+func TestPermissionRequestInputParsing_NewFields(t *testing.T) {
+	tests := []struct {
+		name                    string
+		jsonInput               string
+		wantToolUseID           string
+		wantPermSuggestionsJSON string
+	}{
+		{
+			name: "With tool_use_id and permission_suggestions",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "PermissionRequest",
+				"tool_name": "Bash",
+				"tool_input": {"command": "rm -rf /tmp/test"},
+				"tool_use_id": "toolu_01GHI",
+				"permission_suggestions": [{"type": "addRules", "behavior": "allow", "destination": "session"}]
+			}`,
+			wantToolUseID:           "toolu_01GHI",
+			wantPermSuggestionsJSON: `[{"type":"addRules","behavior":"allow","destination":"session"}]`,
+		},
+		{
+			name: "Without new fields (zero value)",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "PermissionRequest",
+				"tool_name": "Write",
+				"tool_input": {"file_path": "test.go"}
+			}`,
+			wantToolUseID:           "",
+			wantPermSuggestionsJSON: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var input PermissionRequestInput
+			if err := json.Unmarshal([]byte(tt.jsonInput), &input); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+			if input.ToolUseID != tt.wantToolUseID {
+				t.Errorf("ToolUseID: got %q, want %q", input.ToolUseID, tt.wantToolUseID)
+			}
+			if tt.wantPermSuggestionsJSON == "" {
+				if input.PermissionSuggestions != nil {
+					t.Errorf("PermissionSuggestions: expected nil, got %s", string(input.PermissionSuggestions))
+				}
+			} else {
+				// Normalize JSON for comparison (ignore whitespace differences)
+				var gotNorm, wantNorm any
+				if err := json.Unmarshal(input.PermissionSuggestions, &gotNorm); err != nil {
+					t.Fatalf("Failed to parse PermissionSuggestions: %v", err)
+				}
+				if err := json.Unmarshal([]byte(tt.wantPermSuggestionsJSON), &wantNorm); err != nil {
+					t.Fatalf("Failed to parse wantPermSuggestionsJSON: %v", err)
+				}
+				gotBytes, _ := json.Marshal(gotNorm)
+				wantBytes, _ := json.Marshal(wantNorm)
+				if string(gotBytes) != string(wantBytes) {
+					t.Errorf("PermissionSuggestions: got %s, want %s", gotBytes, wantBytes)
+				}
+			}
+		})
+	}
+}
+
+func TestStopInputParsing_NewFields(t *testing.T) {
+	tests := []struct {
+		name                     string
+		jsonInput                string
+		wantLastAssistantMessage string
+	}{
+		{
+			name: "With last_assistant_message",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "Stop",
+				"stop_hook_active": false,
+				"last_assistant_message": "Task completed successfully."
+			}`,
+			wantLastAssistantMessage: "Task completed successfully.",
+		},
+		{
+			name: "Without last_assistant_message (zero value)",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "Stop",
+				"stop_hook_active": false
+			}`,
+			wantLastAssistantMessage: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var input StopInput
+			if err := json.Unmarshal([]byte(tt.jsonInput), &input); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+			if input.LastAssistantMessage != tt.wantLastAssistantMessage {
+				t.Errorf("LastAssistantMessage: got %q, want %q", input.LastAssistantMessage, tt.wantLastAssistantMessage)
+			}
+		})
+	}
+}
+
+func TestSubagentStopInputParsing_NewFields(t *testing.T) {
+	tests := []struct {
+		name                     string
+		jsonInput                string
+		wantAgentID              string
+		wantAgentType            string
+		wantAgentTranscriptPath  string
+		wantLastAssistantMessage string
+	}{
+		{
+			name: "All new fields present",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "SubagentStop",
+				"stop_hook_active": false,
+				"agent_id": "agent-789",
+				"agent_type": "Explore",
+				"agent_transcript_path": "/tmp/agent-t.json",
+				"last_assistant_message": "Exploration complete."
+			}`,
+			wantAgentID:              "agent-789",
+			wantAgentType:            "Explore",
+			wantAgentTranscriptPath:  "/tmp/agent-t.json",
+			wantLastAssistantMessage: "Exploration complete.",
+		},
+		{
+			name: "New fields absent (zero value)",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "SubagentStop",
+				"stop_hook_active": false
+			}`,
+			wantAgentID:              "",
+			wantAgentType:            "",
+			wantAgentTranscriptPath:  "",
+			wantLastAssistantMessage: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var input SubagentStopInput
+			if err := json.Unmarshal([]byte(tt.jsonInput), &input); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+			if input.AgentID != tt.wantAgentID {
+				t.Errorf("AgentID: got %q, want %q", input.AgentID, tt.wantAgentID)
+			}
+			if input.AgentType != tt.wantAgentType {
+				t.Errorf("AgentType: got %q, want %q", input.AgentType, tt.wantAgentType)
+			}
+			if input.AgentTranscriptPath != tt.wantAgentTranscriptPath {
+				t.Errorf("AgentTranscriptPath: got %q, want %q", input.AgentTranscriptPath, tt.wantAgentTranscriptPath)
+			}
+			if input.LastAssistantMessage != tt.wantLastAssistantMessage {
+				t.Errorf("LastAssistantMessage: got %q, want %q", input.LastAssistantMessage, tt.wantLastAssistantMessage)
+			}
+		})
+	}
+}
+
+func TestUserPromptSubmitOutput_ReasonField(t *testing.T) {
+	tests := []struct {
+		name           string
+		output         UserPromptSubmitOutput
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name: "reason field present when decision is block",
+			output: UserPromptSubmitOutput{
+				Continue: true,
+				Decision: "block",
+				Reason:   "Dangerous command detected",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName: "UserPromptSubmit",
+				},
+			},
+			wantContains:   []string{`"decision":"block"`, `"reason":"Dangerous command detected"`},
+			wantNotContain: []string{},
+		},
+		{
+			name: "reason field omitted when empty",
+			output: UserPromptSubmitOutput{
+				Continue: true,
+				Decision: "block",
+				Reason:   "",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName: "UserPromptSubmit",
+				},
+			},
+			wantContains:   []string{`"decision":"block"`},
+			wantNotContain: []string{`"reason"`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			jsonBytes, err := json.Marshal(tt.output)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+			jsonStr := string(jsonBytes)
+			for _, want := range tt.wantContains {
+				if !strings.Contains(jsonStr, want) {
+					t.Errorf("JSON does not contain %q. JSON: %s", want, jsonStr)
+				}
+			}
+			for _, notWant := range tt.wantNotContain {
+				if strings.Contains(jsonStr, notWant) {
+					t.Errorf("JSON should not contain %q. JSON: %s", notWant, jsonStr)
+				}
+			}
+		})
+	}
+}
+
+func TestPermissionRequestDecision_UpdatedPermissions(t *testing.T) {
+	tests := []struct {
+		name           string
+		decision       PermissionRequestDecision
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name: "updatedPermissions is serialized when present",
+			decision: PermissionRequestDecision{
+				Behavior:           "allow",
+				UpdatedPermissions: json.RawMessage(`[{"type":"addRules","behavior":"allow","destination":"session"}]`),
+			},
+			wantContains:   []string{`"updatedPermissions"`, `"addRules"`, `"behavior":"allow"`},
+			wantNotContain: []string{},
+		},
+		{
+			name: "updatedPermissions is omitted when nil",
+			decision: PermissionRequestDecision{
+				Behavior: "allow",
+			},
+			wantContains:   []string{`"behavior":"allow"`},
+			wantNotContain: []string{`"updatedPermissions"`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			jsonBytes, err := json.Marshal(tt.decision)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+			jsonStr := string(jsonBytes)
+			for _, want := range tt.wantContains {
+				if !strings.Contains(jsonStr, want) {
+					t.Errorf("JSON does not contain %q. JSON: %s", want, jsonStr)
+				}
+			}
+			for _, notWant := range tt.wantNotContain {
+				if strings.Contains(jsonStr, notWant) {
+					t.Errorf("JSON should not contain %q. JSON: %s", notWant, jsonStr)
+				}
+			}
+		})
+	}
+}
+
 func TestPostToolUseOutput_JSONSerialization_UpdatedMCPToolOutput(t *testing.T) {
 	tests := []struct {
 		name           string
