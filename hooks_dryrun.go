@@ -277,6 +277,12 @@ func dryRunSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON a
 
 	executed := false
 	for i, hook := range config.SubagentStop {
+		// matcherチェック
+		if !checkMatcher(hook.Matcher, input.AgentType) {
+			fmt.Printf("[Hook %d] Skipped (matcher %q does not match agent_type %q)\n", i+1, hook.Matcher, input.AgentType)
+			continue
+		}
+
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
@@ -496,6 +502,12 @@ func dryRunSessionEndHooks(config *Config, input *SessionEndInput, rawJSON any) 
 
 	executed := false
 	for i, hook := range config.SessionEnd {
+		// matcherチェック（reason値で絞り込み、完全一致）
+		if !checkNotificationMatcher(hook.Matcher, input.Reason) {
+			fmt.Printf("[Hook %d] Skipped (matcher %q does not match reason %q)\n", i+1, hook.Matcher, input.Reason)
+			continue
+		}
+
 		// 条件チェック
 		shouldExecute := true
 		for _, condition := range hook.Conditions {
