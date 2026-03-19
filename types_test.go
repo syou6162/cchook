@@ -2190,6 +2190,111 @@ func TestPermissionRequestInputParsing_NewFields(t *testing.T) {
 	}
 }
 
+func TestStopInputParsing_NewFields(t *testing.T) {
+	tests := []struct {
+		name                     string
+		jsonInput                string
+		wantLastAssistantMessage string
+	}{
+		{
+			name: "With last_assistant_message",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "Stop",
+				"stop_hook_active": false,
+				"last_assistant_message": "Task completed successfully."
+			}`,
+			wantLastAssistantMessage: "Task completed successfully.",
+		},
+		{
+			name: "Without last_assistant_message (zero value)",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "Stop",
+				"stop_hook_active": false
+			}`,
+			wantLastAssistantMessage: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var input StopInput
+			if err := json.Unmarshal([]byte(tt.jsonInput), &input); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+			if input.LastAssistantMessage != tt.wantLastAssistantMessage {
+				t.Errorf("LastAssistantMessage: got %q, want %q", input.LastAssistantMessage, tt.wantLastAssistantMessage)
+			}
+		})
+	}
+}
+
+func TestSubagentStopInputParsing_NewFields(t *testing.T) {
+	tests := []struct {
+		name                     string
+		jsonInput                string
+		wantAgentID              string
+		wantAgentType            string
+		wantAgentTranscriptPath  string
+		wantLastAssistantMessage string
+	}{
+		{
+			name: "All new fields present",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "SubagentStop",
+				"stop_hook_active": false,
+				"agent_id": "agent-789",
+				"agent_type": "Explore",
+				"agent_transcript_path": "/tmp/agent-t.json",
+				"last_assistant_message": "Exploration complete."
+			}`,
+			wantAgentID:              "agent-789",
+			wantAgentType:            "Explore",
+			wantAgentTranscriptPath:  "/tmp/agent-t.json",
+			wantLastAssistantMessage: "Exploration complete.",
+		},
+		{
+			name: "New fields absent (zero value)",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "SubagentStop",
+				"stop_hook_active": false
+			}`,
+			wantAgentID:              "",
+			wantAgentType:            "",
+			wantAgentTranscriptPath:  "",
+			wantLastAssistantMessage: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var input SubagentStopInput
+			if err := json.Unmarshal([]byte(tt.jsonInput), &input); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+			if input.AgentID != tt.wantAgentID {
+				t.Errorf("AgentID: got %q, want %q", input.AgentID, tt.wantAgentID)
+			}
+			if input.AgentType != tt.wantAgentType {
+				t.Errorf("AgentType: got %q, want %q", input.AgentType, tt.wantAgentType)
+			}
+			if input.AgentTranscriptPath != tt.wantAgentTranscriptPath {
+				t.Errorf("AgentTranscriptPath: got %q, want %q", input.AgentTranscriptPath, tt.wantAgentTranscriptPath)
+			}
+			if input.LastAssistantMessage != tt.wantLastAssistantMessage {
+				t.Errorf("LastAssistantMessage: got %q, want %q", input.LastAssistantMessage, tt.wantLastAssistantMessage)
+			}
+		})
+	}
+}
+
 func TestPostToolUseOutput_JSONSerialization_UpdatedMCPToolOutput(t *testing.T) {
 	tests := []struct {
 		name           string

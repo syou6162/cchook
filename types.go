@@ -157,7 +157,8 @@ type NotificationHookSpecificOutput struct {
 // Stop用
 type StopInput struct {
 	BaseInput
-	StopHookActive bool `json:"stop_hook_active"`
+	StopHookActive       bool   `json:"stop_hook_active"`
+	LastAssistantMessage string `json:"last_assistant_message,omitempty"`
 }
 
 // GetToolName returns an empty string as Stop events have no associated tool.
@@ -168,7 +169,11 @@ func (s *StopInput) GetToolName() string {
 // SubagentStop用
 type SubagentStopInput struct {
 	BaseInput
-	StopHookActive bool `json:"stop_hook_active"`
+	StopHookActive       bool   `json:"stop_hook_active"`
+	AgentID              string `json:"agent_id,omitempty"`
+	AgentType            string `json:"agent_type,omitempty"`
+	AgentTranscriptPath  string `json:"agent_transcript_path,omitempty"`
+	LastAssistantMessage string `json:"last_assistant_message,omitempty"`
 }
 
 // GetToolName returns an empty string as SubagentStop events have no associated tool.
