@@ -2295,6 +2295,62 @@ func TestSubagentStopInputParsing_NewFields(t *testing.T) {
 	}
 }
 
+func TestUserPromptSubmitOutput_ReasonField(t *testing.T) {
+	tests := []struct {
+		name           string
+		output         UserPromptSubmitOutput
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name: "reason field present when decision is block",
+			output: UserPromptSubmitOutput{
+				Continue: true,
+				Decision: "block",
+				Reason:   "Dangerous command detected",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName: "UserPromptSubmit",
+				},
+			},
+			wantContains:   []string{`"decision":"block"`, `"reason":"Dangerous command detected"`},
+			wantNotContain: []string{},
+		},
+		{
+			name: "reason field omitted when empty",
+			output: UserPromptSubmitOutput{
+				Continue: true,
+				Decision: "block",
+				Reason:   "",
+				HookSpecificOutput: &UserPromptSubmitHookSpecificOutput{
+					HookEventName: "UserPromptSubmit",
+				},
+			},
+			wantContains:   []string{`"decision":"block"`},
+			wantNotContain: []string{`"reason"`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			jsonBytes, err := json.Marshal(tt.output)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+			jsonStr := string(jsonBytes)
+			for _, want := range tt.wantContains {
+				if !strings.Contains(jsonStr, want) {
+					t.Errorf("JSON does not contain %q. JSON: %s", want, jsonStr)
+				}
+			}
+			for _, notWant := range tt.wantNotContain {
+				if strings.Contains(jsonStr, notWant) {
+					t.Errorf("JSON should not contain %q. JSON: %s", notWant, jsonStr)
+				}
+			}
+		})
+	}
+}
+
 func TestPostToolUseOutput_JSONSerialization_UpdatedMCPToolOutput(t *testing.T) {
 	tests := []struct {
 		name           string

@@ -797,8 +797,20 @@ func executeUserPromptSubmitHooks(config *Config, input *UserPromptSubmitInput, 
 			// Continue: always true (do not overwrite from actionOutput)
 			// finalOutput.Continue remains true
 
-			// Decision: overwrite (last one wins)
+			// Decision: 後勝ち。decision変更時はReasonリセット
+			prevDecision := finalOutput.Decision
 			finalOutput.Decision = actionOutput.Decision
+
+			// Reason: decision変更時はリセット、同一decision内では改行連結
+			if actionOutput.Decision != prevDecision {
+				finalOutput.Reason = actionOutput.Reason
+			} else if actionOutput.Reason != "" {
+				if finalOutput.Reason != "" {
+					finalOutput.Reason += "\n" + actionOutput.Reason
+				} else {
+					finalOutput.Reason = actionOutput.Reason
+				}
+			}
 
 			// HookEventName: set once and preserve
 			if hookEventName == "" && actionOutput.HookEventName != "" {

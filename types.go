@@ -331,6 +331,7 @@ func (u *UserPromptSubmitInput) GetToolName() string {
 type UserPromptSubmitOutput struct {
 	Continue           bool                                `json:"continue"`
 	Decision           string                              `json:"decision,omitempty"` // "block" only; omit field to allow prompt
+	Reason             string                              `json:"reason,omitempty"`   // Required when decision is "block"
 	StopReason         string                              `json:"stopReason,omitempty"`
 	SuppressOutput     bool                                `json:"suppressOutput,omitempty"`
 	SystemMessage      string                              `json:"systemMessage,omitempty"`
