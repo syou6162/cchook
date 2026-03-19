@@ -2123,6 +2123,73 @@ func TestPostToolUseInputParsing_NewFields(t *testing.T) {
 	}
 }
 
+func TestPermissionRequestInputParsing_NewFields(t *testing.T) {
+	tests := []struct {
+		name                    string
+		jsonInput               string
+		wantToolUseID           string
+		wantPermSuggestionsJSON string
+	}{
+		{
+			name: "With tool_use_id and permission_suggestions",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "PermissionRequest",
+				"tool_name": "Bash",
+				"tool_input": {"command": "rm -rf /tmp/test"},
+				"tool_use_id": "toolu_01GHI",
+				"permission_suggestions": [{"type": "addRules", "behavior": "allow", "destination": "session"}]
+			}`,
+			wantToolUseID:           "toolu_01GHI",
+			wantPermSuggestionsJSON: `[{"type":"addRules","behavior":"allow","destination":"session"}]`,
+		},
+		{
+			name: "Without new fields (zero value)",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "PermissionRequest",
+				"tool_name": "Write",
+				"tool_input": {"file_path": "test.go"}
+			}`,
+			wantToolUseID:           "",
+			wantPermSuggestionsJSON: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var input PermissionRequestInput
+			if err := json.Unmarshal([]byte(tt.jsonInput), &input); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+			if input.ToolUseID != tt.wantToolUseID {
+				t.Errorf("ToolUseID: got %q, want %q", input.ToolUseID, tt.wantToolUseID)
+			}
+			if tt.wantPermSuggestionsJSON == "" {
+				if input.PermissionSuggestions != nil {
+					t.Errorf("PermissionSuggestions: expected nil, got %s", string(input.PermissionSuggestions))
+				}
+			} else {
+				// Normalize JSON for comparison (ignore whitespace differences)
+				var gotNorm, wantNorm any
+				if err := json.Unmarshal(input.PermissionSuggestions, &gotNorm); err != nil {
+					t.Fatalf("Failed to parse PermissionSuggestions: %v", err)
+				}
+				if err := json.Unmarshal([]byte(tt.wantPermSuggestionsJSON), &wantNorm); err != nil {
+					t.Fatalf("Failed to parse wantPermSuggestionsJSON: %v", err)
+				}
+				gotBytes, _ := json.Marshal(gotNorm)
+				wantBytes, _ := json.Marshal(wantNorm)
+				if string(gotBytes) != string(wantBytes) {
+					t.Errorf("PermissionSuggestions: got %s, want %s", gotBytes, wantBytes)
+				}
+			}
+		})
+	}
+}
+
 func TestPostToolUseOutput_JSONSerialization_UpdatedMCPToolOutput(t *testing.T) {
 	tests := []struct {
 		name           string

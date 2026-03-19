@@ -85,8 +85,19 @@ func (p *PreToolUseInput) GetToolName() string {
 	return p.ToolName
 }
 
-// PermissionRequest用 - PreToolUseと同じ入力スキーマ
-type PermissionRequestInput = PreToolUseInput
+// PermissionRequest用
+type PermissionRequestInput struct {
+	BaseInput
+	ToolName              string          `json:"tool_name"`
+	ToolInput             ToolInput       `json:"tool_input"`
+	ToolUseID             string          `json:"tool_use_id,omitempty"`
+	PermissionSuggestions json.RawMessage `json:"permission_suggestions,omitempty"`
+}
+
+// GetToolName returns the tool name from the PermissionRequest input.
+func (p *PermissionRequestInput) GetToolName() string {
+	return p.ToolName
+}
 
 // Tool response structures - ツールによって配列またはオブジェクトのパターンに対応
 type ToolResponse json.RawMessage
