@@ -330,6 +330,7 @@ UserPromptSubmit:
       - type: output
         message: "Prompt validation message"
         decision: "block"  # optional: "block" only; omit to allow prompt
+        reason: "Detailed reason for blocking"  # optional: reason for the decision
 ```
 
 **Command Action** (type: `command`):
@@ -338,6 +339,7 @@ Commands must output JSON with the following structure:
 {
   "continue": true,
   "decision": "block",
+  "reason": "Detailed reason for blocking",
   "hookSpecificOutput": {
     "hookEventName": "UserPromptSubmit",
     "additionalContext": "Message to display"
@@ -352,6 +354,7 @@ Note: To allow the prompt, omit the `decision` field entirely.
 When multiple actions execute:
 - `continue`: Always `true` (cannot be changed for UserPromptSubmit)
 - `decision`: Last value wins (early return on `"block"`)
+- `reason`: Reset when decision changes; concatenated with newline within same decision
 - `hookEventName`: Set once by first action
 - `additionalContext` and `systemMessage`: Concatenated with newline separator
 
@@ -387,11 +390,17 @@ UserPromptSubmit:
       - type: output
         message: "Dangerous command detected"
         decision: "block"
+        reason: "Destructive operations require manual confirmation"
 ```
 
 ### PreToolUse JSON Output
 
-PreToolUse hooks support JSON output format for Claude Code integration. Actions can return structured output with 3-stage permission control:
+PreToolUse hooks support JSON output format for Claude Code integration. Actions can return structured output with 3-stage permission control.
+
+**Input Fields** (in addition to BaseInput and tool_name/tool_input):
+- `tool_use_id` (string): Unique identifier for this tool call, used to correlate PreToolUse and PostToolUse events
+- `agent_id` (string, optional): Subagent identifier, only present when called from within a subagent
+- `agent_type` (string, optional): Subagent type name (e.g., "Explore", "Bash", "Plan") or `--agent` flag value
 
 **Output Action** (type: `output`):
 ```yaml
@@ -480,7 +489,10 @@ PreToolUse:
 
 ### Stop JSON Output
 
-Stop hooks support JSON output format for Claude Code integration. Actions can return structured output with decision control to block or allow Claude's stopping:
+Stop hooks support JSON output format for Claude Code integration. Actions can return structured output with decision control to block or allow Claude's stopping.
+
+**Input Fields** (in addition to BaseInput and stop_hook_active):
+- `last_assistant_message` (string): The full text of Claude's final response before stopping. Useful for validating task completion.
 
 **Output Action** (type: `output`):
 ```yaml
@@ -549,7 +561,20 @@ Stop:
 
 ### SubagentStop JSON Output
 
-SubagentStop hooks support JSON output format for Claude Code integration. Actions can return structured output with decision control to block or allow subagent stopping:
+SubagentStop hooks support JSON output format for Claude Code integration. Actions can return structured output with decision control to block or allow subagent stopping.
+
+**Input Fields**:
+- `agent_id` (string): Unique identifier of the stopping subagent.
+- `agent_type` (string): Type name of the subagent (e.g., `"Explore"`, `"Bash"`, `"Plan"`).
+- `agent_transcript_path` (string): Path to the subagent's own transcript file (separate from the main session's `transcript_path`).
+- `last_assistant_message` (string): The final response text from the subagent.
+
+**Matcher Support**:
+SubagentStop hooks support a `matcher` field to filter by agent type:
+- Matches against the `agent_type` field from SubagentStop input
+- Supports partial string matching (e.g., `"Exp"` matches `"Explore"`)
+- Supports pipe-separated OR logic (e.g., `"Explore|Plan|Bash"`)
+- Empty/omitted: Matches all agent types
 
 **Output Action** (type: `output`):
 ```yaml
@@ -608,7 +633,12 @@ SubagentStop:
 
 ### PostToolUse JSON Output
 
-PostToolUse hooks support JSON output format for Claude Code integration. Actions can return structured output with decision control and additional context:
+PostToolUse hooks support JSON output format for Claude Code integration. Actions can return structured output with decision control and additional context.
+
+**Input Fields** (in addition to BaseInput, tool_name/tool_input/tool_response):
+- `tool_use_id` (string): Unique identifier for this tool call (same as PreToolUse)
+- `agent_id` (string, optional): Subagent identifier
+- `agent_type` (string, optional): Subagent type name
 
 **Output Action** (type: `output`):
 ```yaml
@@ -869,7 +899,13 @@ PreCompact:
 
 ### SessionEnd JSON Output
 
-SessionEnd hooks support JSON output format for Claude Code integration. Actions can return structured output for session cleanup:
+SessionEnd hooks support JSON output format for Claude Code integration. Actions can return structured output for session cleanup.
+
+**Matcher Support**:
+SessionEnd hooks support a `matcher` field to filter by session end reason (exact match):
+- Matches against the `reason` field from SessionEnd input
+- Supports pipe-separated OR logic (e.g., `"clear|logout"`)
+- Empty/omitted: Matches all reasons
 
 **Output Action** (type: `output`):
 ```yaml
@@ -1065,111 +1101,16 @@ Available reason values:
 - `bypass_permissions_disabled`: Session ended because bypass permissions were disabled
 - `other`: Other reasons
 
-### PreToolUse / PostToolUse Additional Input Fields
+### PermissionRequest Extensions
 
-PreToolUse and PostToolUse hooks now receive additional input fields:
+PermissionRequest hooks receive additional input fields and support output extensions:
 
-- **`tool_use_id`** (string): Unique identifier for this specific tool call (e.g., `"toulu_01ABC123..."`). Useful for correlating PreToolUse and PostToolUse events for the same call.
-- **`agent_id`** (string, optional): Subagent identifier. Only present when called from within a subagent.
-- **`agent_type`** (string, optional): Subagent type name (e.g., `"Explore"`, `"Bash"`, `"Plan"`). Also present when using `--agent` flag.
-
-These fields are available as template variables:
-
-```yaml
-PreToolUse:
-  - matcher: "Bash"
-    actions:
-      - type: output
-        message: "Tool call {.tool_use_id} from agent {.agent_type}"
-```
-
-### PermissionRequest Input Fields
-
-PermissionRequest input now includes:
-
+**Input Fields:**
 - **`tool_use_id`** (string): Unique identifier for the tool call triggering the permission dialog.
 - **`permission_suggestions`** (array, optional): Permission rule suggestions provided by Claude Code's safety checks. Available as a template variable for advanced use cases.
 
-### Stop Input Fields
-
-Stop hooks now receive:
-
-- **`last_assistant_message`** (string): The full text of Claude's final response before stopping. Useful for validating task completion or checking output content.
-
-### SubagentStop Input Fields
-
-SubagentStop hooks now receive additional fields:
-
-- **`agent_id`** (string): Unique identifier of the stopping subagent.
-- **`agent_type`** (string): Type name of the subagent (e.g., `"Explore"`, `"Bash"`, `"Plan"`).
-- **`agent_transcript_path`** (string): Path to the subagent's own transcript file (separate from the main session's `transcript_path`).
-- **`last_assistant_message`** (string): The final response text from the subagent.
-
-### SubagentStop Matcher Support
-
-SubagentStop hooks now support a `matcher` field to filter by agent type:
-
-```yaml
-SubagentStop:
-  - matcher: "Explore|Plan"
-    actions:
-      - type: output
-        message: "Research/planning subagent completed"
-  - matcher: "Bash"
-    actions:
-      - type: output
-        message: "Bash subagent completed"
-```
-
-### SessionEnd Matcher Support
-
-SessionEnd hooks now support a `matcher` field to filter by session end reason (exact match):
-
-```yaml
-SessionEnd:
-  - matcher: "clear"
-    actions:
-      - type: output
-        message: "Session was cleared"
-  - matcher: "logout|prompt_input_exit"
-    actions:
-      - type: output
-        message: "User exited"
-```
-
-### UserPromptSubmit Reason Field
-
-UserPromptSubmit hooks can now return a `reason` field alongside `decision: "block"`:
-
-**Output Action:**
-```yaml
-UserPromptSubmit:
-  - conditions:
-      - type: prompt_regex
-        value: "delete|rm -rf"
-    actions:
-      - type: output
-        message: "Dangerous command detected"
-        decision: "block"
-        reason: "Destructive operations require manual confirmation"
-```
-
-**Command Action JSON:**
-```json
-{
-  "continue": true,
-  "decision": "block",
-  "reason": "Destructive operations require manual confirmation",
-  "hookSpecificOutput": {
-    "hookEventName": "UserPromptSubmit",
-    "additionalContext": "Optional additional context"
-  }
-}
-```
-
-### PermissionRequest updatedPermissions
-
-PermissionRequest hooks can now return `updatedPermissions` to dynamically modify Claude Code's permission configuration when allowing a request:
+**`updatedPermissions` Output:**
+PermissionRequest hooks can return `updatedPermissions` to dynamically modify Claude Code's permission configuration when allowing a request:
 
 **Command Action JSON:**
 ```json
