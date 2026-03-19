@@ -75,6 +75,9 @@ type PreToolUseInput struct {
 	BaseInput
 	ToolName  string    `json:"tool_name"`
 	ToolInput ToolInput `json:"tool_input"`
+	ToolUseID string    `json:"tool_use_id,omitempty"`
+	AgentID   string    `json:"agent_id,omitempty"`
+	AgentType string    `json:"agent_type,omitempty"`
 }
 
 // GetToolName returns the tool name from the PreToolUse input.
@@ -88,12 +91,21 @@ type PermissionRequestInput = PreToolUseInput
 // Tool response structures - ツールによって配列またはオブジェクトのパターンに対応
 type ToolResponse json.RawMessage
 
+// UnmarshalJSON implements json.Unmarshaler for ToolResponse.
+func (t *ToolResponse) UnmarshalJSON(data []byte) error {
+	*t = ToolResponse(data)
+	return nil
+}
+
 // PostToolUse用
 type PostToolUseInput struct {
 	BaseInput
 	ToolName     string       `json:"tool_name"`
 	ToolInput    ToolInput    `json:"tool_input"`
 	ToolResponse ToolResponse `json:"tool_response"`
+	ToolUseID    string       `json:"tool_use_id,omitempty"`
+	AgentID      string       `json:"agent_id,omitempty"`
+	AgentType    string       `json:"agent_type,omitempty"`
 }
 
 // GetToolName returns the tool name from the PostToolUse input.

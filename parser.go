@@ -63,6 +63,9 @@ func parsePreToolUseInput(rawInput json.RawMessage) (*PreToolUseInput, error) {
 		BaseInput
 		ToolName  string          `json:"tool_name"`
 		ToolInput json.RawMessage `json:"tool_input"`
+		ToolUseID string          `json:"tool_use_id,omitempty"`
+		AgentID   string          `json:"agent_id,omitempty"`
+		AgentType string          `json:"agent_type,omitempty"`
 	}
 
 	if err := json.Unmarshal(rawInput, &temp); err != nil {
@@ -79,6 +82,9 @@ func parsePreToolUseInput(rawInput json.RawMessage) (*PreToolUseInput, error) {
 		BaseInput: temp.BaseInput,
 		ToolName:  temp.ToolName,
 		ToolInput: toolInput,
+		ToolUseID: temp.ToolUseID,
+		AgentID:   temp.AgentID,
+		AgentType: temp.AgentType,
 	}, nil
 }
 
@@ -91,6 +97,9 @@ func parsePostToolUseInput(rawInput json.RawMessage) (*PostToolUseInput, error) 
 		ToolName     string          `json:"tool_name"`
 		ToolInput    json.RawMessage `json:"tool_input"`
 		ToolResponse json.RawMessage `json:"tool_response"`
+		ToolUseID    string          `json:"tool_use_id,omitempty"`
+		AgentID      string          `json:"agent_id,omitempty"`
+		AgentType    string          `json:"agent_type,omitempty"`
 	}
 
 	if err := json.Unmarshal(rawInput, &temp); err != nil {
@@ -111,6 +120,9 @@ func parsePostToolUseInput(rawInput json.RawMessage) (*PostToolUseInput, error) 
 		ToolName:     temp.ToolName,
 		ToolInput:    toolInput,
 		ToolResponse: toolResponse,
+		ToolUseID:    temp.ToolUseID,
+		AgentID:      temp.AgentID,
+		AgentType:    temp.AgentType,
 	}, nil
 }
 

@@ -2005,6 +2005,124 @@ func TestPreCompactOutput_JSONSerialization(t *testing.T) {
 	}
 }
 
+func TestPreToolUseInputParsing_NewFields(t *testing.T) {
+	tests := []struct {
+		name          string
+		jsonInput     string
+		wantToolUseID string
+		wantAgentID   string
+		wantAgentType string
+	}{
+		{
+			name: "All new fields present",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "PreToolUse",
+				"tool_name": "Write",
+				"tool_input": {"file_path": "test.go"},
+				"tool_use_id": "toolu_01ABC",
+				"agent_id": "agent-123",
+				"agent_type": "Explore"
+			}`,
+			wantToolUseID: "toolu_01ABC",
+			wantAgentID:   "agent-123",
+			wantAgentType: "Explore",
+		},
+		{
+			name: "New fields absent (zero value)",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "PreToolUse",
+				"tool_name": "Bash",
+				"tool_input": {"command": "ls"}
+			}`,
+			wantToolUseID: "",
+			wantAgentID:   "",
+			wantAgentType: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var input PreToolUseInput
+			if err := json.Unmarshal([]byte(tt.jsonInput), &input); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+			if input.ToolUseID != tt.wantToolUseID {
+				t.Errorf("ToolUseID: got %q, want %q", input.ToolUseID, tt.wantToolUseID)
+			}
+			if input.AgentID != tt.wantAgentID {
+				t.Errorf("AgentID: got %q, want %q", input.AgentID, tt.wantAgentID)
+			}
+			if input.AgentType != tt.wantAgentType {
+				t.Errorf("AgentType: got %q, want %q", input.AgentType, tt.wantAgentType)
+			}
+		})
+	}
+}
+
+func TestPostToolUseInputParsing_NewFields(t *testing.T) {
+	tests := []struct {
+		name          string
+		jsonInput     string
+		wantToolUseID string
+		wantAgentID   string
+		wantAgentType string
+	}{
+		{
+			name: "All new fields present",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "PostToolUse",
+				"tool_name": "Write",
+				"tool_input": {"file_path": "test.go"},
+				"tool_response": {},
+				"tool_use_id": "toolu_01DEF",
+				"agent_id": "agent-456",
+				"agent_type": "Plan"
+			}`,
+			wantToolUseID: "toolu_01DEF",
+			wantAgentID:   "agent-456",
+			wantAgentType: "Plan",
+		},
+		{
+			name: "New fields absent (zero value)",
+			jsonInput: `{
+				"session_id": "abc123",
+				"transcript_path": "/tmp/t.json",
+				"hook_event_name": "PostToolUse",
+				"tool_name": "Bash",
+				"tool_input": {"command": "ls"},
+				"tool_response": {}
+			}`,
+			wantToolUseID: "",
+			wantAgentID:   "",
+			wantAgentType: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var input PostToolUseInput
+			if err := json.Unmarshal([]byte(tt.jsonInput), &input); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+			if input.ToolUseID != tt.wantToolUseID {
+				t.Errorf("ToolUseID: got %q, want %q", input.ToolUseID, tt.wantToolUseID)
+			}
+			if input.AgentID != tt.wantAgentID {
+				t.Errorf("AgentID: got %q, want %q", input.AgentID, tt.wantAgentID)
+			}
+			if input.AgentType != tt.wantAgentType {
+				t.Errorf("AgentType: got %q, want %q", input.AgentType, tt.wantAgentType)
+			}
+		})
+	}
+}
+
 func TestPostToolUseOutput_JSONSerialization_UpdatedMCPToolOutput(t *testing.T) {
 	tests := []struct {
 		name           string
