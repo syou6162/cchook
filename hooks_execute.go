@@ -371,14 +371,10 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON any) (*StopOutpu
 	var allErrors []error
 	allErrors = append(allErrors, conditionErrors...)
 
-	// アクションエラーがある場合はfail-safe: decision "block"
+	// アクションエラーがある場合: 公式仕様に従いdecisionは変更しない（allow stop）
+	// エラー情報はsystemMessageに記録して観測性を維持
 	if len(actionErrors) > 0 {
-		finalOutput.Decision = "block"
-
 		errorMsg := errors.Join(actionErrors...).Error()
-		if finalOutput.Reason == "" {
-			finalOutput.Reason = errorMsg
-		}
 		if finalOutput.SystemMessage != "" {
 			finalOutput.SystemMessage += "\n" + errorMsg
 		} else {
@@ -396,7 +392,7 @@ func executeStopHooks(config *Config, input *StopInput, rawJSON any) (*StopOutpu
 }
 
 // executeSubagentStopHooks executes all matching SubagentStop hooks based on condition checks.
-// Returns an error to block the subagent stop operation if any hook fails.
+// Per official spec: hook errors are non-blocking (allow subagent stop).
 func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON any) (*SubagentStopOutput, error) {
 	executor := NewActionExecutor(nil)
 	var conditionErrors []error
@@ -495,14 +491,10 @@ func executeSubagentStopHooks(config *Config, input *SubagentStopInput, rawJSON 
 	var allErrors []error
 	allErrors = append(allErrors, conditionErrors...)
 
-	// アクションエラーがある場合はfail-safe: decision "block"
+	// アクションエラーがある場合: 公式仕様に従いdecisionは変更しない（allow subagent stop）
+	// エラー情報はsystemMessageに記録して観測性を維持
 	if len(actionErrors) > 0 {
-		finalOutput.Decision = "block"
-
 		errorMsg := errors.Join(actionErrors...).Error()
-		if finalOutput.Reason == "" {
-			finalOutput.Reason = errorMsg
-		}
 		if finalOutput.SystemMessage != "" {
 			finalOutput.SystemMessage += "\n" + errorMsg
 		} else {

@@ -262,12 +262,12 @@ func TestExecuteStopAction_CommandWithStubRunner(t *testing.T) {
 			wantDecision: "",
 		},
 		{
-			name:     "command failure blocks stop with decision: block",
+			name:     "command failure allows stop (decision empty)",
 			command:  "exit 1",
 			stderr:   "stop command failed",
 			exitCode: 1,
-			// Non-zero exit → fail-safe block
-			wantDecision: "block",
+			// Non-zero exit → allow stop (per official spec: hook errors are non-blocking)
+			wantDecision: "",
 		},
 	}
 

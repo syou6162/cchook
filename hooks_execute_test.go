@@ -466,19 +466,20 @@ func TestExecuteUserPromptSubmitHooks(t *testing.T) {
 	}
 }
 
-// TestExecuteStopAndSubagentStopHook_FailingCommandReturnsExit2 tests that failing commands
-// result in decision="block" (fail-safe) from executeStopHooks and executeSubagentStopHooks.
-func TestExecuteStopAndSubagentStopHook_FailingCommandReturnsExit2(t *testing.T) {
+// TestExecuteStopAndSubagentStopHook_FailingCommandAllowsStop tests that failing commands
+// result in decision="" (allow) from executeStopHooks and executeSubagentStopHooks.
+// Per official Claude Code hooks spec, hook errors are non-blocking (allow stop).
+func TestExecuteStopAndSubagentStopHook_FailingCommandAllowsStop(t *testing.T) {
 	tests := []struct {
 		name      string
 		eventType string // "Stop" or "SubagentStop"
 	}{
 		{
-			name:      "Stop: failing command returns decision block",
+			name:      "Stop: failing command allows stop (decision empty)",
 			eventType: "Stop",
 		},
 		{
-			name:      "SubagentStop: failing command returns decision block",
+			name:      "SubagentStop: failing command allows subagent stop (decision empty)",
 			eventType: "SubagentStop",
 		},
 	}
@@ -544,9 +545,9 @@ func TestExecuteStopAndSubagentStopHook_FailingCommandReturnsExit2(t *testing.T)
 				continueValue = output.Continue
 			}
 
-			// Fail-safe: decision should be "block"
-			if decision != "block" {
-				t.Errorf("Expected decision 'block' for failing command, got %q", decision)
+			// Per official spec: hook errors are non-blocking, decision should be "" (allow stop)
+			if decision != "" {
+				t.Errorf("Expected decision '' (allow) for failing command, got %q", decision)
 			}
 
 			// Continue should always be true
@@ -1913,7 +1914,7 @@ func TestExecuteStopAndSubagentStopHooksJSON(t *testing.T) {
 			wantErr:           false,
 		},
 		{
-			name:      "Stop: 8. Action error - fail-safe block",
+			name:      "Stop: 8. Action error - allow (error in systemMessage)",
 			eventType: "Stop",
 			stopConfig: []StopHook{
 				{
@@ -1926,7 +1927,7 @@ func TestExecuteStopAndSubagentStopHooksJSON(t *testing.T) {
 				},
 			},
 			wantContinue: true,
-			wantDecision: "block",
+			wantDecision: "",
 			wantErr:      false,
 		},
 		{
@@ -2075,7 +2076,7 @@ func TestExecuteStopAndSubagentStopHooksJSON(t *testing.T) {
 			wantErr:           false,
 		},
 		{
-			name:      "SubagentStop: 8. Action error - fail-safe block",
+			name:      "SubagentStop: 8. Action error - allow (error in systemMessage)",
 			eventType: "SubagentStop",
 			subagentConfig: []SubagentStopHook{
 				{
@@ -2088,8 +2089,8 @@ func TestExecuteStopAndSubagentStopHooksJSON(t *testing.T) {
 				},
 			},
 			wantContinue: true,
-			wantDecision: "block",
-			wantReason:   "Empty message in SubagentStop action",
+			wantDecision: "",
+			wantReason:   "",
 			wantErr:      false,
 		},
 	}
