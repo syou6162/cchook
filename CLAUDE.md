@@ -534,7 +534,7 @@ Stop hooks **always exit with code 0**. The `decision` field controls whether Cl
 - `decision` field omitted: Stop proceeds normally
 - `"block"`: Stop is blocked (early return)
 
-Errors are logged to stderr as warnings, but cchook continues to output JSON and exits successfully. On errors, `decision` defaults to `"block"` for safety (fail-safe).
+Errors are logged to stderr as warnings, but cchook continues to output JSON and exits successfully. On errors, `decision` is omitted (allow stop) per the official Claude Code spec where hook errors are non-blocking.
 
 **Backward Compatibility**:
 Prior to JSON output support, Stop hooks used exit codes:
@@ -616,7 +616,7 @@ SubagentStop hooks **always exit with code 0**. The `decision` field controls wh
 - `decision` field omitted: SubagentStop proceeds normally
 - `"block"`: SubagentStop is blocked (early return)
 
-Errors are logged to stderr as warnings, but cchook continues to output JSON and exits successfully. On errors, `decision` defaults to `"block"` for safety (fail-safe).
+Errors are logged to stderr as warnings, but cchook continues to output JSON and exits successfully. On errors, `decision` is omitted (allow subagent stop) per the official Claude Code spec where hook errors are non-blocking.
 
 **Example**:
 ```yaml
