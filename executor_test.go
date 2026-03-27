@@ -1245,27 +1245,27 @@ func TestExecuteStopAndSubagentStopAction_TypeOutput(t *testing.T) {
 			wantErr:           false,
 		},
 		{
-			name:      "Stop: Invalid decision value -> fail-safe (decision: block)",
+			name:      "Stop: Invalid decision value -> allow (error in systemMessage)",
 			eventType: "Stop",
 			action: Action{
 				Type:     "output",
 				Message:  "Invalid decision test",
 				Decision: stringPtr("invalid"),
 			},
-			wantDecision:      "block",
-			wantReason:        "Invalid decision test",
+			wantDecision:      "",
+			wantReason:        "",
 			wantSystemMessage: "Invalid decision value in action config: must be 'block' or field must be omitted",
 			wantErr:           false,
 		},
 		{
-			name:      "Stop: Empty message -> fail-safe (decision: block, reason=fixed message)",
+			name:      "Stop: Empty message -> allow (error in systemMessage)",
 			eventType: "Stop",
 			action: Action{
 				Type:    "output",
 				Message: "",
 			},
-			wantDecision:      "block",
-			wantReason:        "Empty message in Stop action",
+			wantDecision:      "",
+			wantReason:        "",
 			wantSystemMessage: "Empty message in Stop action",
 			wantErr:           false,
 		},
@@ -1360,26 +1360,26 @@ func TestExecuteStopAndSubagentStopAction_TypeOutput(t *testing.T) {
 			wantSystemMessage: "Allowing subagent stop",
 		},
 		{
-			name:      "SubagentStop: invalid decision value - fail-safe block",
+			name:      "SubagentStop: invalid decision value - allow (error in systemMessage)",
 			eventType: "SubagentStop",
 			action: Action{
 				Type:     "output",
 				Message:  "Invalid decision",
 				Decision: stringPtr("invalid"),
 			},
-			wantDecision:      "block",
-			wantReason:        "Invalid decision",
+			wantDecision:      "",
+			wantReason:        "",
 			wantSystemMessage: "Invalid decision value in action config: must be 'block' or field must be omitted",
 		},
 		{
-			name:      "SubagentStop: empty message - fail-safe block",
+			name:      "SubagentStop: empty message - allow (error in systemMessage)",
 			eventType: "SubagentStop",
 			action: Action{
 				Type:    "output",
 				Message: "",
 			},
-			wantDecision:      "block",
-			wantReason:        "Empty message in SubagentStop action",
+			wantDecision:      "",
+			wantReason:        "",
 			wantSystemMessage: "Empty message in SubagentStop action",
 		},
 		{
@@ -1550,7 +1550,7 @@ func TestExecuteStopAndSubagentStopAction_TypeCommand(t *testing.T) {
 			wantErr:           false,
 		},
 		{
-			name:      "Stop: Command failure (exit != 0) -> fail-safe block",
+			name:      "Stop: Command failure (exit != 0) -> allow (error in systemMessage)",
 			eventType: "Stop",
 			action: Action{
 				Type:    "command",
@@ -1559,8 +1559,8 @@ func TestExecuteStopAndSubagentStopAction_TypeCommand(t *testing.T) {
 			stubStdout:        "",
 			stubStderr:        "Permission denied",
 			stubExitCode:      1,
-			wantDecision:      "block",
-			wantReason:        "Command failed with exit code 1: Permission denied",
+			wantDecision:      "",
+			wantReason:        "",
 			wantSystemMessage: "Command failed with exit code 1: Permission denied",
 			wantErr:           false,
 		},
@@ -1578,7 +1578,7 @@ func TestExecuteStopAndSubagentStopAction_TypeCommand(t *testing.T) {
 			wantErr:      false,
 		},
 		{
-			name:      "Stop: Invalid JSON -> fail-safe block",
+			name:      "Stop: Invalid JSON -> allow (error in systemMessage)",
 			eventType: "Stop",
 			action: Action{
 				Type:    "command",
@@ -1586,13 +1586,13 @@ func TestExecuteStopAndSubagentStopAction_TypeCommand(t *testing.T) {
 			},
 			stubStdout:        `{invalid json}`,
 			stubExitCode:      0,
-			wantDecision:      "block",
-			wantReason:        "Command output is not valid JSON: {invalid json}",
+			wantDecision:      "",
+			wantReason:        "",
 			wantSystemMessage: "Command output is not valid JSON: {invalid json}",
 			wantErr:           false,
 		},
 		{
-			name:      "Stop: decision: block + reason missing -> fail-safe with reason warning",
+			name:      "Stop: decision: block + reason missing -> allow (error in systemMessage)",
 			eventType: "Stop",
 			action: Action{
 				Type:    "command",
@@ -1603,13 +1603,13 @@ func TestExecuteStopAndSubagentStopAction_TypeCommand(t *testing.T) {
 				"decision": "block"
 			}`,
 			stubExitCode:      0,
-			wantDecision:      "block",
-			wantReason:        "Missing required field 'reason' when decision is 'block'",
+			wantDecision:      "",
+			wantReason:        "",
 			wantSystemMessage: "Missing required field 'reason' when decision is 'block'",
 			wantErr:           false,
 		},
 		{
-			name:      "Stop: Invalid decision value -> fail-safe block",
+			name:      "Stop: Invalid decision value -> allow (error in systemMessage)",
 			eventType: "Stop",
 			action: Action{
 				Type:    "command",
@@ -1621,8 +1621,8 @@ func TestExecuteStopAndSubagentStopAction_TypeCommand(t *testing.T) {
 				"reason": "should not matter"
 			}`,
 			stubExitCode:      0,
-			wantDecision:      "block",
-			wantReason:        "Invalid decision value: must be 'block' or field must be omitted entirely",
+			wantDecision:      "",
+			wantReason:        "",
 			wantSystemMessage: "Invalid decision value: must be 'block' or field must be omitted entirely",
 			wantErr:           false,
 		},
@@ -1705,7 +1705,7 @@ func TestExecuteStopAndSubagentStopAction_TypeCommand(t *testing.T) {
 			wantErr:           false,
 		},
 		{
-			name:      "SubagentStop: Command failure (exit != 0) -> fail-safe block",
+			name:      "SubagentStop: Command failure (exit != 0) -> allow (error in systemMessage)",
 			eventType: "SubagentStop",
 			action: Action{
 				Type:    "command",
@@ -1714,8 +1714,8 @@ func TestExecuteStopAndSubagentStopAction_TypeCommand(t *testing.T) {
 			stubStdout:        "",
 			stubStderr:        "Permission denied",
 			stubExitCode:      1,
-			wantDecision:      "block",
-			wantReason:        "Command failed with exit code 1: Permission denied",
+			wantDecision:      "",
+			wantReason:        "",
 			wantSystemMessage: "Command failed with exit code 1: Permission denied",
 			wantErr:           false,
 		},
@@ -1733,7 +1733,7 @@ func TestExecuteStopAndSubagentStopAction_TypeCommand(t *testing.T) {
 			wantErr:      false,
 		},
 		{
-			name:      "SubagentStop: Invalid JSON -> fail-safe block",
+			name:      "SubagentStop: Invalid JSON -> allow (error in systemMessage)",
 			eventType: "SubagentStop",
 			action: Action{
 				Type:    "command",
@@ -1741,13 +1741,13 @@ func TestExecuteStopAndSubagentStopAction_TypeCommand(t *testing.T) {
 			},
 			stubStdout:        `{invalid json}`,
 			stubExitCode:      0,
-			wantDecision:      "block",
-			wantReason:        "Command output is not valid JSON: {invalid json}",
+			wantDecision:      "",
+			wantReason:        "",
 			wantSystemMessage: "Command output is not valid JSON: {invalid json}",
 			wantErr:           false,
 		},
 		{
-			name:      "SubagentStop: decision: block + reason missing -> fail-safe with reason warning",
+			name:      "SubagentStop: decision: block + reason missing -> allow (error in systemMessage)",
 			eventType: "SubagentStop",
 			action: Action{
 				Type:    "command",
@@ -1758,13 +1758,13 @@ func TestExecuteStopAndSubagentStopAction_TypeCommand(t *testing.T) {
 				"decision": "block"
 			}`,
 			stubExitCode:      0,
-			wantDecision:      "block",
-			wantReason:        "Missing required field 'reason' when decision is 'block'",
+			wantDecision:      "",
+			wantReason:        "",
 			wantSystemMessage: "Missing required field 'reason' when decision is 'block'",
 			wantErr:           false,
 		},
 		{
-			name:      "SubagentStop: Invalid decision value -> fail-safe block",
+			name:      "SubagentStop: Invalid decision value -> allow (error in systemMessage)",
 			eventType: "SubagentStop",
 			action: Action{
 				Type:    "command",
@@ -1776,8 +1776,8 @@ func TestExecuteStopAndSubagentStopAction_TypeCommand(t *testing.T) {
 				"reason": "should not matter"
 			}`,
 			stubExitCode:      0,
-			wantDecision:      "block",
-			wantReason:        "Invalid decision value: must be 'block' or field must be omitted entirely",
+			wantDecision:      "",
+			wantReason:        "",
 			wantSystemMessage: "Invalid decision value: must be 'block' or field must be omitted entirely",
 			wantErr:           false,
 		},
