@@ -185,18 +185,14 @@ func main() {
 				// Log error to stderr
 				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 				if output == nil {
+					// 公式仕様に従いdecisionは設定しない（allow stop）
 					output = &StopOutput{
 						Continue:      true,
-						Decision:      "block",
-						Reason:        fmt.Sprintf("Failed to process Stop: %v", err),
 						SystemMessage: fmt.Sprintf("Failed to process Stop: %v", err),
 					}
 				} else {
-					// fail-safe: エラー時はdecisionを"block"に強制
-					output.Decision = "block"
-					if output.Reason == "" {
-						output.Reason = fmt.Sprintf("Failed to process Stop: %v", err)
-					}
+					// 公式仕様に従いdecisionは変更しない（allow stop）
+					// エラー情報はsystemMessageに記録して観測性を維持
 					errMsg := fmt.Sprintf("Failed to process Stop: %v", err)
 					if output.SystemMessage != "" {
 						output.SystemMessage += "\n" + errMsg
@@ -213,8 +209,6 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Warning: Error marshaling JSON: %v\n", err)
 				fallbackOutput := StopOutput{
 					Continue:      true,
-					Decision:      "block",
-					Reason:        fmt.Sprintf("Failed to marshal output: %v", err),
 					SystemMessage: fmt.Sprintf("Failed to marshal output: %v", err),
 				}
 				jsonBytes, _ = json.MarshalIndent(fallbackOutput, "", "  ")
@@ -239,18 +233,14 @@ func main() {
 				// Log error to stderr
 				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 				if output == nil {
+					// 公式仕様に従いdecisionは設定しない（allow subagent stop）
 					output = &SubagentStopOutput{
 						Continue:      true,
-						Decision:      "block",
-						Reason:        fmt.Sprintf("Failed to process SubagentStop: %v", err),
 						SystemMessage: fmt.Sprintf("Failed to process SubagentStop: %v", err),
 					}
 				} else {
-					// fail-safe: エラー時はdecisionを"block"に強制
-					output.Decision = "block"
-					if output.Reason == "" {
-						output.Reason = fmt.Sprintf("Failed to process SubagentStop: %v", err)
-					}
+					// 公式仕様に従いdecisionは変更しない（allow subagent stop）
+					// エラー情報はsystemMessageに記録して観測性を維持
 					errMsg := fmt.Sprintf("Failed to process SubagentStop: %v", err)
 					if output.SystemMessage != "" {
 						output.SystemMessage += "\n" + errMsg
@@ -267,8 +257,6 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Warning: Error marshaling JSON: %v\n", err)
 				fallbackOutput := SubagentStopOutput{
 					Continue:      true,
-					Decision:      "block",
-					Reason:        fmt.Sprintf("Failed to marshal output: %v", err),
 					SystemMessage: fmt.Sprintf("Failed to marshal output: %v", err),
 				}
 				jsonBytes, _ = json.MarshalIndent(fallbackOutput, "", "  ")
