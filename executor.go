@@ -273,6 +273,7 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 		stdout, stderr, exitCode, err := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
 
 		// Command failed with non-zero exit code
+		// Per official spec: hook errors are non-blocking → allow stop
 		if exitCode != 0 {
 			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
 			if strings.TrimSpace(stderr) == "" && err != nil {
@@ -281,8 +282,7 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
-				Decision:      "block",
-				Reason:        errMsg,
+				Decision:      "", // Allow stop on error
 				SystemMessage: errMsg,
 			}, nil
 		}
@@ -302,8 +302,7 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
-				Decision:      "block",
-				Reason:        errMsg,
+				Decision:      "", // Allow stop on error
 				SystemMessage: errMsg,
 			}, nil
 		}
@@ -315,8 +314,7 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
-				Decision:      "block",
-				Reason:        errMsg,
+				Decision:      "", // Allow stop on error
 				SystemMessage: errMsg,
 			}, nil
 		}
@@ -327,8 +325,7 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
-				Decision:      "block",
-				Reason:        errMsg,
+				Decision:      "", // Allow stop on error
 				SystemMessage: errMsg,
 			}, nil
 		}
@@ -349,14 +346,14 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 	case "output":
 		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
 
-		// Empty message check → fail-safe (decision: block)
+		// Empty message check → allow stop (error in systemMessage)
+		// Per official spec: hook errors are non-blocking → allow stop
 		if strings.TrimSpace(processedMessage) == "" {
 			errMsg := "Empty message in Stop action"
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
-				Decision:      "block",
-				Reason:        errMsg,
+				Decision:      "", // Allow stop on error
 				SystemMessage: errMsg,
 			}, nil
 		}
@@ -375,8 +372,7 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 				fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 				return &ActionOutput{
 					Continue:      true,
-					Decision:      "block",
-					Reason:        processedMessage,
+					Decision:      "", // Allow stop on error
 					SystemMessage: errMsg,
 				}, nil
 			}
@@ -402,13 +398,13 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 		}
 
 		// Final validation: decision "block" requires non-empty reason
+		// Per official spec: hook errors are non-blocking → allow stop on validation error
 		if decision == "block" && strings.TrimSpace(reason) == "" {
 			errMsg := "Empty reason when decision is 'block' (reason is required for block)"
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
-				Decision:      "block",
-				Reason:        errMsg,
+				Decision:      "", // Allow stop on error
 				SystemMessage: errMsg,
 			}, nil
 		}
@@ -425,7 +421,7 @@ func (e *ActionExecutor) ExecuteStopAction(action Action, input *StopInput, rawJ
 }
 
 // ExecuteSubagentStopAction executes an action for the SubagentStop event.
-// Command failures result in exit status 2 to block the subagent stop operation.
+// Per official Claude Code hooks spec: hook errors are non-blocking (allow subagent stop).
 func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *SubagentStopInput, rawJSON any) (*ActionOutput, error) {
 	switch action.Type {
 	case "command":
@@ -433,6 +429,7 @@ func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *Subagen
 		stdout, stderr, exitCode, err := e.runner.RunCommandWithOutput(cmd, action.UseStdin, rawJSON)
 
 		// Command failed with non-zero exit code
+		// Per official spec: hook errors are non-blocking → allow subagent stop
 		if exitCode != 0 {
 			errMsg := fmt.Sprintf("Command failed with exit code %d: %s", exitCode, stderr)
 			if strings.TrimSpace(stderr) == "" && err != nil {
@@ -441,8 +438,7 @@ func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *Subagen
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
-				Decision:      "block",
-				Reason:        errMsg,
+				Decision:      "", // Allow subagent stop on error
 				SystemMessage: errMsg,
 			}, nil
 		}
@@ -462,8 +458,7 @@ func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *Subagen
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
-				Decision:      "block",
-				Reason:        errMsg,
+				Decision:      "", // Allow subagent stop on error
 				SystemMessage: errMsg,
 			}, nil
 		}
@@ -475,8 +470,7 @@ func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *Subagen
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
-				Decision:      "block",
-				Reason:        errMsg,
+				Decision:      "", // Allow subagent stop on error
 				SystemMessage: errMsg,
 			}, nil
 		}
@@ -487,8 +481,7 @@ func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *Subagen
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
-				Decision:      "block",
-				Reason:        errMsg,
+				Decision:      "", // Allow subagent stop on error
 				SystemMessage: errMsg,
 			}, nil
 		}
@@ -509,14 +502,14 @@ func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *Subagen
 	case "output":
 		processedMessage := unifiedTemplateReplace(action.Message, rawJSON)
 
-		// Empty message check → fail-safe (decision: block)
+		// Empty message check → allow subagent stop (error in systemMessage)
+		// Per official spec: hook errors are non-blocking → allow subagent stop
 		if strings.TrimSpace(processedMessage) == "" {
 			errMsg := "Empty message in SubagentStop action"
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
-				Decision:      "block",
-				Reason:        errMsg,
+				Decision:      "", // Allow subagent stop on error
 				SystemMessage: errMsg,
 			}, nil
 		}
@@ -535,8 +528,7 @@ func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *Subagen
 				fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 				return &ActionOutput{
 					Continue:      true,
-					Decision:      "block",
-					Reason:        processedMessage,
+					Decision:      "", // Allow subagent stop on error
 					SystemMessage: errMsg,
 				}, nil
 			}
@@ -562,13 +554,13 @@ func (e *ActionExecutor) ExecuteSubagentStopAction(action Action, input *Subagen
 		}
 
 		// Final validation: decision "block" requires non-empty reason
+		// Per official spec: hook errors are non-blocking → allow subagent stop on validation error
 		if decision == "block" && strings.TrimSpace(reason) == "" {
 			errMsg := "Empty reason when decision is 'block' (reason is required for block)"
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", errMsg)
 			return &ActionOutput{
 				Continue:      true,
-				Decision:      "block",
-				Reason:        errMsg,
+				Decision:      "", // Allow subagent stop on error
 				SystemMessage: errMsg,
 			}, nil
 		}
